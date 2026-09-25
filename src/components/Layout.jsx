@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { countPendingBookings, watchBookings } from '../api/bookings.js'
 import { signOut, useAuth } from '../context/AuthContext.jsx'
-import { useToast } from '../context/ToastContext.jsx'
 import { COMPANY } from '../lib/constants.js'
 
 const NAV = [
@@ -32,19 +31,8 @@ function usePendingCount() {
 
 function Sidebar({ open, onNavigate, pendingCount }) {
   const { session } = useAuth()
-  const toast = useToast()
   const email = session?.user?.email || ''
   const name = email.split('@')[0] || 'المدير'
-  const bookingLink = `${window.location.origin}/book`
-
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(bookingLink)
-      toast('📋 تم نسخ رابط التسجيل')
-    } catch {
-      toast('تعذّر النسخ — انسخ الرابط يدوياً', 'warn')
-    }
-  }
 
   return (
     <nav className={`sidebar ${open ? 'open' : ''}`}>
@@ -82,12 +70,6 @@ function Sidebar({ open, onNavigate, pendingCount }) {
             </NavLink>
           ),
         )}
-
-        <button className="booking-link" onClick={copyLink}>
-          <div className="booking-link-title">🔗 رابط تسجيل العارضين</div>
-          <div className="booking-link-url">{bookingLink}</div>
-          <div className="booking-link-hint">📋 اضغط لنسخ الرابط</div>
-        </button>
       </div>
 
       <div className="sidebar-user">

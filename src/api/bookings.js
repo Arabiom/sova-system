@@ -10,22 +10,6 @@ export const listBookings = () => unwrap(table().select('*').order('created_at',
 export const countPendingBookings = () =>
   unwrap(table().select('id', { count: 'exact', head: true }).eq('status', PENDING))
 
-/** Public booking form submission. */
-export const submitBooking = (form) =>
-  unwrap(
-    table().insert({
-      brand: form.brand,
-      manager: form.manager,
-      phone: form.phone,
-      email: form.email || '',
-      category: form.category || '',
-      exhibition_id: form.exhibition_id,
-      booth_size: form.booth_size || '',
-      message: form.message || '',
-      status: PENDING,
-    }),
-  )
-
 /** Accept a booking: create a provisional exhibitor from it, then mark the booking accepted. */
 export async function acceptBooking(booking) {
   await createExhibitor({

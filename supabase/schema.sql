@@ -63,7 +63,8 @@ create table if not exists bookings (
   status         text default 'معلق'                   -- معلق | مقبول | مرفوض
 );
 
--- Access rules (Row Level Security) are the next step and are NOT defined here yet.
--- The app expects:
---   * anonymous visitors: read open exhibitions, insert into bookings (the /book page)
+-- Access rules: this is an INTERNAL system.
 --   * signed-in staff: full read/write on all four tables
+--   * anonymous visitors: no access at all
+--   * public sign-up must be disabled (Authentication → Sign In / Providers),
+--     staff accounts are created by the admin (Authentication → Users → Add user)

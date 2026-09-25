@@ -1132,35 +1132,6 @@ textarea.input {
   font-size: 8px;
   font-weight: 800;
 }
-.booking-link {
-  display: block;
-  width: calc(100% - 28px);
-  margin: 16px 14px;
-  padding: 13px 14px;
-  text-align: right;
-  background: rgba(201, 168, 76, 0.06);
-  border: 1px solid rgba(201, 168, 76, 0.15);
-  border-radius: 12px;
-  cursor: pointer;
-}
-.booking-link-title {
-  margin-bottom: 6px;
-  font-size: 10px;
-  color: var(--muted);
-}
-.booking-link-url {
-  font-size: 10px;
-  line-height: 1.5;
-  color: var(--gold-l);
-  direction: ltr;
-  text-align: right;
-  word-break: break-all;
-}
-.booking-link-hint {
-  margin-top: 6px;
-  font-size: 9px;
-  color: var(--muted);
-}
 .sidebar-user {
   padding: 14px 18px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -1743,56 +1714,6 @@ textarea.input {
   color: rgba(255, 255, 255, 0.3);
 }
 
-/* ─── Public booking page ────────────────────────────────────── */
-.public-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: linear-gradient(135deg, var(--ink), #2d1f0e);
-}
-.public-card {
-  width: 100%;
-  max-width: 540px;
-  padding: 40px;
-  background: var(--card);
-  border-radius: 20px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
-}
-.public-head {
-  margin-bottom: 28px;
-  text-align: center;
-}
-.public-brand {
-  margin-bottom: 6px;
-  font-size: 32px;
-  font-weight: 900;
-  letter-spacing: 5px;
-  color: var(--gold);
-}
-.public-done {
-  max-width: 440px;
-  padding: 48px;
-  text-align: center;
-  line-height: 1.8;
-}
-.public-done-icon {
-  margin-bottom: 16px;
-  font-size: 60px;
-}
-.public-done-title {
-  margin-bottom: 8px;
-  font-size: 22px;
-  font-weight: 900;
-}
-.public-company {
-  margin-top: 24px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--gold);
-}
-
 /* ─── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 1200px) {
   .grid-4 {
@@ -1869,8 +1790,7 @@ textarea.input {
     padding-left: 16px;
     padding-right: 16px;
   }
-  .login-card,
-  .public-card {
+  .login-card {
     padding: 28px 20px;
   }
   .tier-row {

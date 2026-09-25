@@ -7,12 +7,11 @@ import Dashboard from './pages/Dashboard.jsx'
 import Exhibitions from './pages/Exhibitions.jsx'
 import Exhibitors from './pages/Exhibitors.jsx'
 import Login from './pages/Login.jsx'
-import PublicBooking from './pages/PublicBooking.jsx'
 import Reports from './pages/Reports.jsx'
 import Sales from './pages/Sales.jsx'
 import WhatsApp from './pages/WhatsApp.jsx'
 
-/** Everything except /book requires a signed-in staff member. */
+/** Internal system: every page requires a signed-in staff member. */
 function Protected() {
   const { session, loading } = useAuth()
   if (loading) return <Splash />
@@ -23,7 +22,6 @@ function Protected() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/book" element={<PublicBooking />} />
       <Route element={<Protected />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/exhibitions" element={<Exhibitions />} />
