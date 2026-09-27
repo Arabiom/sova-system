@@ -76,7 +76,7 @@ export default function Reports() {
 
   return (
     <>
-      <PageHeader title="التقارير المالية 📊" subtitle={`${COMPANY.name} — SOVA`}>
+      <PageHeader title="التقارير المالية 📊" subtitle={COMPANY.legalName}>
         <ExhibitionFilter exhibitions={exhibitions} value={scope} onChange={setScope} />
         <Button variant="outline" onClick={backup} disabled={backingUp} title="تنزيل كل البيانات في ملف واحد">
           💾 نسخة احتياطية

@@ -11,6 +11,7 @@ import Panel from '../components/Panel.jsx'
 import { ProgressRow } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
+import { COMPANY } from '../lib/constants.js'
 import { balanceOf, occupancyOf, summarize, sumBy } from '../lib/finance.js'
 import { exhibitionTitle, formatOMR, isolateLtr, monthOf } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
@@ -54,7 +55,7 @@ export default function Dashboard() {
         title="لوحة التحكم"
         subtitle={
           <>
-            مرحباً — هذا ملخص شامل لأداء <strong className="gold-d">SOVA Exhibition</strong> اليوم
+            مرحباً — هذا ملخص شامل لأداء <strong className="gold-d">{COMPANY.name}</strong> اليوم
           </>
         }
       >

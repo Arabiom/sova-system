@@ -16,10 +16,10 @@ const TABLES = [
 export async function downloadBackup() {
   const data = {}
   for (const table of TABLES) data[table] = await unwrap(supabase.from(table).select('*'))
-  const backup = { app: 'SOVA', created_at: new Date().toISOString(), counts: Object.fromEntries(TABLES.map((t) => [t, data[t].length])), data }
+  const backup = { app: 'AIB', created_at: new Date().toISOString(), counts: Object.fromEntries(TABLES.map((t) => [t, data[t].length])), data }
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
-  const a = Object.assign(document.createElement('a'), { href: url, download: `SOVA-backup-${todayISO()}.json` })
+  const a = Object.assign(document.createElement('a'), { href: url, download: `AIB-backup-${todayISO()}.json` })
   document.body.appendChild(a)
   a.click()
   a.remove()

@@ -27,17 +27,16 @@ const bdi = (value) => `<bdi dir="ltr">${escapeHtml(value)}</bdi>`
 const rawHtml = (html) => ({ html })
 const today = () => new Date().toLocaleDateString('ar-OM')
 
-function page(body, { footer = `${COMPANY.name} | ${COMPANY.cr} | ${COMPANY.brandFull}`, fixedHeight = true } = {}) {
+function page(body, { footer = `${COMPANY.legalName} | ${COMPANY.nameEn} | ${COMPANY.cr}`, fixedHeight = true } = {}) {
   return `
   <div style="width:${A4_WIDTH_PX}px;${fixedHeight ? `min-height:${A4_HEIGHT_PX}px;` : ''}display:flex;flex-direction:column;
               font-family:Cairo,Tahoma,sans-serif;color:${INK};background:#fff;direction:rtl">
     <div style="background:${INK};padding:26px 48px;display:flex;justify-content:space-between;align-items:center">
       <div>
-        <div style="color:${GOLD};font-size:30px;font-weight:900;letter-spacing:6px;line-height:1">SOVA</div>
-        <div style="color:#B4A078;font-size:12px;margin-top:6px">${COMPANY.legalName}</div>
+        <img src="${COMPANY.logoLight}" alt="${COMPANY.nameEn}" style="height:46px;display:block">
+        <div style="color:#B4A078;font-size:12px;margin-top:8px">${COMPANY.legalName}</div>
       </div>
       <div style="color:#B4A078;font-size:11px;text-align:left;direction:ltr;line-height:1.7">
-        <img src="${COMPANY.logoLight}" alt="${COMPANY.nameEn}" style="height:34px;display:block;margin:0 0 8px auto">
         ${COMPANY.cr}<br>☎ ${COMPANY.phone} • WhatsApp ${COMPANY.whatsapp.replace(/^968/, '')}<br>${COMPANY.email} • ${COMPANY.instagram}</div>
     </div>
     <div style="flex:1;padding:24px 48px">${body}</div>
@@ -138,7 +137,7 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
   const terms = [
     'يجب استكمال الدفع قبل تاريخ بداية المعرض.',
     'يُعتبر تخصيص البوث نهائياً عند توقيع العقد.',
-    'تحتفظ SOVA بحق تغيير موقع البوث عند الضرورة.',
+    'تحتفظ الشركة بحق تغيير موقع البوث عند الضرورة.',
     'الإلغاء خلال 14 يوماً من المعرض يترتب عليه خصم 50% من قيمة العقد.',
   ]
   const signature = (label) => `<div style="width:40%;text-align:center">
@@ -156,7 +155,7 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
     <div style="margin-top:12px;font-size:12px;color:#6B5A40">طريقة السداد: تحويل بنكي إلى ${COMPANY.bank}، أو نقداً مقابل إيصال.</div>
     <div style="display:flex;justify-content:space-between;margin-top:40px">
       ${signature('توقيع العارض')}
-      ${signature(`إدارة SOVA<br><span style="font-weight:400;font-size:12px">${COMPANY.signatory}</span>`)}
+      ${signature(`${COMPANY.legalName}<br><span style="font-weight:400;font-size:12px">${COMPANY.signatory}</span>`)}
     </div>`)
 }
 
@@ -219,20 +218,20 @@ export function reportHtml({ exhibitions, exhibitors, sites = [] }, exhibitionId
       إجمالي الضريبة 5%: ${bdi(omr(totals.vat))}<br>
       إجمالي المتبقي: ${bdi(omr(totals.remaining))}
     </div>`,
-    { footer: `${COMPANY.name} | ${COMPANY.cr} | تقرير مالي سري`, fixedHeight: selected.length <= 3 },
+    { footer: `${COMPANY.legalName} | ${COMPANY.cr} | تقرير مالي سري`, fixedHeight: selected.length <= 3 },
   )
 }
 
 export function downloadContract(exhibitor, exhibition, contractNo) {
-  return renderPdf(contractHtml(exhibitor, exhibition, { contractNo }), `SOVA-Contract-${safeName(exhibitor.brand)}.pdf`)
+  return renderPdf(contractHtml(exhibitor, exhibition, { contractNo }), `AIB-Contract-${safeName(exhibitor.brand)}.pdf`)
 }
 
 export function downloadReceipt(payment, exhibitor, exhibition) {
-  return renderPdf(receiptHtml(payment, exhibitor, exhibition), `SOVA-Invoice-${safeName(payment.invoice_no)}.pdf`)
+  return renderPdf(receiptHtml(payment, exhibitor, exhibition), `AIB-Receipt-${safeName(payment.invoice_no)}.pdf`)
 }
 
 export function downloadReport(data, exhibitionId) {
-  return renderPdf(reportHtml(data, exhibitionId), `SOVA-Financial-Report-${new Date().toISOString().slice(0, 10)}.pdf`)
+  return renderPdf(reportHtml(data, exhibitionId), `AIB-Financial-Report-${new Date().toISOString().slice(0, 10)}.pdf`)
 }
 
 function table(headers, rows, { total } = {}) {
@@ -318,7 +317,7 @@ export function exhibitionFileHtml({ exhibition: ex, sites, exhibitors, expenses
       ['الراعي', 'المسؤول', 'القيمة', 'الحالة'],
       sponsors.map((s) => [escapeHtml(s.name), escapeHtml(s.contact_name || ''), money(s.amount), escapeHtml(s.status || '')]),
     )}`,
-    { footer: `${COMPANY.name} | ${COMPANY.cr} | ملف معرض — ${title}`, fixedHeight: false },
+    { footer: `${COMPANY.legalName} | ${COMPANY.cr} | ملف معرض — ${title}`, fixedHeight: false },
   )
 }
 

@@ -58,7 +58,7 @@ export default function Exhibitors() {
   const printContract = async (e) => {
     toast('📄 جاري طباعة العقد...')
     try {
-      await downloadContract(e, exhibitionOf(e.exhibition_id), newReference('SOVA'))
+      await downloadContract(e, exhibitionOf(e.exhibition_id), newReference('AIB'))
     } catch (err) {
       toast(`تعذّر إنشاء العقد: ${err.message}`, 'error')
     }

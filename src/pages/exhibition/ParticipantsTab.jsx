@@ -19,7 +19,7 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
   const printContract = async (e) => {
     toast('📄 جاري طباعة العقد...')
     try {
-      await downloadContract(e, exhibition, newReference('SOVA'))
+      await downloadContract(e, exhibition, newReference('AIB'))
     } catch (err) {
       toast(`تعذّر إنشاء العقد: ${err.message}`, 'error')
     }

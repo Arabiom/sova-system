@@ -2093,3 +2093,28 @@ a.ex-card-head {
   height: 22px;
   margin: 0 0 8px auto;
 }
+
+/* ─── Company branding ───────────────────────────────────────── */
+.login-logo {
+  display: block;
+  width: 300px;
+  max-width: 80%;
+  margin: 0 auto 18px;
+}
+.sidebar-logo {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.sidebar-logo-img {
+  display: block;
+  width: 100%;
+  max-width: 210px;
+}
+.splash-logo {
+  width: 240px;
+  max-width: 70vw;
+}
+.pill-mark {
+  height: 16px;
+}

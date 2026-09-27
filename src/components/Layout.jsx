@@ -8,7 +8,7 @@ import { Loading } from './Feedback.jsx'
 
 const NAV = [
   { section: 'الرئيسية' },
-  { path: '/dashboard', icon: '⬡', label: 'لوحة التحكم', desc: 'نظرة عامة شاملة', sub: 'نظرة شاملة على أداء SOVA' },
+  { path: '/dashboard', icon: '⬡', label: 'لوحة التحكم', desc: 'نظرة عامة شاملة', sub: 'نظرة شاملة على أداء الشركة' },
   { section: 'المعارض' },
   { path: '/exhibitions', icon: '◈', label: 'المعارض والمواعيد', desc: 'إدارة كل المعارض', sub: 'إدارة وتتبع كل المعارض' },
   { path: '/bookings', icon: '◎', label: 'طلبات الحجز', desc: 'مراجعة وقبول الطلبات', sub: 'مراجعة وإدارة طلبات العارضين', badge: true },
@@ -18,7 +18,7 @@ const NAV = [
   { path: '/sales', icon: '◆', label: 'المبيعات والمدفوعات', desc: 'التتبع المالي', sub: 'التتبع المالي الشامل' },
   { path: '/reports', icon: '◈', label: 'التقارير المالية', desc: 'تحليل الأداء', sub: 'تحليل الأداء والإيرادات', perm: 'reports.view' },
   { section: 'التواصل' },
-  { path: '/whatsapp', icon: '◎', label: 'واتساب SOVA', desc: 'إرسال الإشعارات', sub: 'إرسال الإشعارات للعارضين' },
+  { path: '/whatsapp', icon: '◎', label: 'واتساب', desc: 'إرسال الإشعارات', sub: 'إرسال الإشعارات للعارضين' },
   { section: 'الإدارة', perm: 'staff.manage' },
   { path: '/staff', icon: '◐', label: 'الموظفون', desc: 'الحسابات والصلاحيات', sub: 'إدارة حسابات الموظفين وصلاحياتهم', perm: 'staff.manage' },
 ]
@@ -43,15 +43,11 @@ function Sidebar({ open, onNavigate, pendingCount }) {
     <nav className={`sidebar ${open ? 'open' : ''}`}>
       <div className="sidebar-brand">
         <div className="sidebar-logo">
-          <div className="logo-mark">S</div>
-          <div>
-            <div className="sidebar-name">SOVA</div>
-            <div className="sidebar-tagline">EXHIBITION SYSTEM</div>
-          </div>
+          <img className="sidebar-logo-img" src={COMPANY.logoLight} alt={COMPANY.nameEn} />
+          <div className="sidebar-tagline">{COMPANY.systemName}</div>
         </div>
         <div className="sidebar-company">
-          <img className="sidebar-company-logo" src={COMPANY.logoLight} alt={COMPANY.nameEn} />
-          <div className="sidebar-company-name">{COMPANY.name}</div>
+          <div className="sidebar-company-name">{COMPANY.legalName}</div>
           <div className="sidebar-company-cr">
             {COMPANY.cr} • مسقط، عُمان
           </div>
@@ -127,7 +123,7 @@ function Topbar({ page, onMenu }) {
           <span className="dot" /> متصل • Supabase
         </div>
         <div className="pill pill-gold">
-          <strong>SOVA</strong> <span className="muted">محور الأعمال</span>
+          <img className="pill-mark" src={COMPANY.mark} alt="" /> <span>{COMPANY.name}</span>
         </div>
       </div>
     </header>
@@ -153,9 +149,11 @@ export default function Layout() {
         </main>
         <footer className="footer">
           <div>
-            {COMPANY.name} • {COMPANY.cr} • {COMPANY.location}
+            {COMPANY.legalName} • {COMPANY.cr} • {COMPANY.location}
           </div>
-          <div>SOVA Exhibition System {COMPANY.version}</div>
+          <div>
+            {COMPANY.systemName} — {COMPANY.nameEn} {COMPANY.version}
+          </div>
         </footer>
       </div>
     </div>

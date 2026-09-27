@@ -1,5 +1,5 @@
 import { COMPANY } from './constants.js'
-import { fixed3, num } from './format.js'
+import { exhibitionTitle, fixed3, num } from './format.js'
 
 /** Local Omani numbers get the 968 country code; "+968…", "00968…" and "968…" are kept as is. */
 export function normalizePhone(phone) {
@@ -21,15 +21,15 @@ export function confirmationMessage(exhibitor, exhibition) {
   const ex = exhibition || {}
   return `السلام عليكم ورحمة الله وبركاته 🌟
 
-*SOVA Exhibition — محور الأعمال المتكاملة*
+*${COMPANY.legalName}*
 
-نرحب بكم في عائلة SOVA! 🎉
+نرحب بكم في عائلة ${COMPANY.name}! 🎉
 
 ✅ *تم قبول طلب حجزكم بنجاح*
 
 📋 *تفاصيل الحجز:*
 • العلامة التجارية: *${exhibitor.brand}*
-• المعرض: *SOVA ${ex.city || ''}*
+• المعرض: *${exhibitionTitle(exhibition)}*
 • التاريخ: *${ex.date_from || ''} – ${ex.date_to || ''}*
 • الموقع: *${ex.mall || ''}*
 • رقم البوث: *${exhibitor.booth && exhibitor.booth !== '—' ? exhibitor.booth : 'سيُحدد قريباً'}*
@@ -43,20 +43,20 @@ export function confirmationMessage(exhibitor, exhibition) {
 📞 للاستفسار: ${contactLine}
 
 نتطلع لرؤيتكم في المعرض 🏛️
-*فريق SOVA*`
+*فريق ${COMPANY.legalName}*`
 }
 
 export function paymentReminderMessage(exhibitor, exhibition) {
   const ex = exhibition || {}
   return `السلام عليكم ورحمة الله وبركاته
 
-*SOVA Exhibition — تذكير بالدفع*
+*${COMPANY.name} — تذكير بالدفع*
 
 عزيزنا / ${exhibitor.manager}
 
 نود تذكيركم بأن هناك مبلغاً متبقياً لاستكمال حجزكم في:
 
-🏛️ *معرض SOVA ${ex.city || ''}*
+🏛️ *${exhibitionTitle(exhibition)}*
 📅 ${ex.date_from || ''} – ${ex.date_to || ''}
 
 💰 *المبلغ المتبقي: ${fixed3(num(exhibitor.contract) - num(exhibitor.paid))} ر.ع*
@@ -71,7 +71,7 @@ export function paymentReminderMessage(exhibitor, exhibition) {
 📞 للتواصل: ${contactLine}
 
 شكراً لتعاونكم 🙏
-*فريق SOVA*`
+*فريق ${COMPANY.legalName}*`
 }
 
 export function daysUntil(date, now = new Date()) {
@@ -83,13 +83,13 @@ export function exhibitionReminderMessage(exhibitor, exhibition, now = new Date(
   const days = daysUntil(ex.date_from, now)
   return `السلام عليكم ورحمة الله وبركاته 🌟
 
-*SOVA Exhibition — تذكير بموعد المعرض*
+*${COMPANY.name} — تذكير بموعد المعرض*
 
 عزيزنا / ${exhibitor.manager}
 
 ⏰ *تبقى ${days > 0 ? `${days} يوم` : 'أقل من يوم'} على انطلاق المعرض!*
 
-🏛️ *SOVA ${ex.city || ''}*
+🏛️ *${exhibitionTitle(exhibition)}*
 📅 التاريخ: *${ex.date_from || ''} – ${ex.date_to || ''}*
 📍 الموقع: *${ex.mall || ''}*
 🔢 رقم البوثكم: *${exhibitor.booth && exhibitor.booth !== '—' ? exhibitor.booth : 'سيُبلَّغ قريباً'}*
@@ -100,19 +100,19 @@ export function exhibitionReminderMessage(exhibitor, exhibition, now = new Date(
 • يجب الحفاظ على نظافة المنطقة المحيطة
 
 نتمنى لكم تجربة ناجحة ومميزة 🎊
-*فريق SOVA — محور الأعمال المتكاملة*`
+*فريق ${COMPANY.legalName}*`
 }
 
 export function welcomeMessage(_person, exhibition) {
   const ex = exhibition || {}
   return `السلام عليكم ورحمة الله وبركاته
 
-*أهلاً بكم في SOVA Exhibition* 🌟
+*أهلاً بكم في ${COMPANY.legalName}* 🌟
 
 شكراً على تواصلكم معنا!
 
 نحن سعداء باهتمامكم بالمشاركة في:
-🏛️ *معرض SOVA ${ex.city || ''}*
+🏛️ *${exhibitionTitle(exhibition)}*
 📅 ${ex.date_from || ''} – ${ex.date_to || ''}
 📍 ${ex.mall || ''}
 
@@ -120,14 +120,14 @@ export function welcomeMessage(_person, exhibition) {
 
 📞 للاستفسار الفوري: ${contactLine}
 
-*فريق SOVA — محور الأعمال المتكاملة*
+*فريق ${COMPANY.legalName}*
 ${COMPANY.cr}`
 }
 
 /** Invitation to take part in an upcoming exhibition, sent to a client. */
 export function invitationMessage(client, exhibition) {
   const ex = exhibition || {}
-  const title = ex.name?.trim() || `معرض SOVA ${ex.city || ''}`
+  const title = exhibitionTitle(exhibition)
   return `السلام عليكم ورحمة الله وبركاته 🌟
 ${client.contact_name ? `\nعزيزنا / ${client.contact_name}\n` : ''}
 يسعدنا دعوتكم للمشاركة في:
@@ -139,7 +139,7 @@ ${client.contact_name ? `\nعزيزنا / ${client.contact_name}\n` : ''}
 المواقع محدودة، والأولوية للحجز المبكر.
 للحجز والاستفسار راسلونا على هذا الرقم.
 
-*فريق SOVA — ${COMPANY.name}*`
+*فريق ${COMPANY.legalName}*`
 }
 
 export const MESSAGE_TYPES = [

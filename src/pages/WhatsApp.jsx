@@ -72,7 +72,7 @@ export default function WhatsApp() {
 
   return (
     <>
-      <PageHeader title="واتساب SOVA 📱" subtitle="أرسل إشعارات للعارضين مباشرة عبر واتساب" />
+      <PageHeader title="واتساب 📱" subtitle="أرسل إشعارات للعارضين مباشرة عبر واتساب" />
 
       <div className="grid-2">
         <div>

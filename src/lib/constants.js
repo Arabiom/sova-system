@@ -15,7 +15,10 @@ export const COMPANY = {
   signatory: 'عربي بن هلال',
   logo: '/brand/axis-logo.svg', // for light backgrounds
   logoLight: '/brand/axis-logo-light.svg', // for dark backgrounds
-  version: 'v3.2',
+  mark: '/brand/axis-mark.svg',
+  markLight: '/brand/axis-mark-light.svg',
+  systemName: 'نظام إدارة المعارض',
+  version: 'v4.0',
 }
 
 export const VAT_RATE = 0.05

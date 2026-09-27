@@ -27,12 +27,10 @@ export default function Login() {
       <div className="login-glow login-glow-b" />
       <div className="login-box slide-in">
         <div className="login-brand">
-          <div className="logo-mark logo-xl">S</div>
-          <div className="login-name">SOVA</div>
-          <div className="login-sub">نظام الإدارة الداخلي</div>
-          <img className="login-company-logo" src={COMPANY.logoLight} alt={COMPANY.nameEn} />
+          <img className="login-logo" src={COMPANY.logoLight} alt={COMPANY.nameEn} />
+          <div className="login-sub">{COMPANY.systemName}</div>
           <div className="login-cr">
-            {COMPANY.name} • {COMPANY.cr}
+            {COMPANY.legalName} • {COMPANY.cr}
           </div>
         </div>
 
@@ -58,7 +56,7 @@ export default function Login() {
           <div className="login-note">
             <strong>نظام مخصص لـ</strong>
             <br />
-            {COMPANY.name} — {COMPANY.brandFull}
+            {COMPANY.legalName} — {COMPANY.nameEn}
             <br />
             <small>للدعم الفني تواصل مع مدير النظام</small>
           </div>

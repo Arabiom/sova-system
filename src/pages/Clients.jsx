@@ -327,7 +327,7 @@ export default function Clients() {
   }
 
   const exportCsv = () =>
-    downloadCsv(`SOVA-Clients-${todayISO()}.csv`, visible, [
+    downloadCsv(`AIB-Clients-${todayISO()}.csv`, visible, [
       { label: 'الاسم', value: (c) => c.name },
       { label: 'المسؤول', value: (c) => c.contact_name },
       { label: 'الهاتف', value: (c) => c.phone },

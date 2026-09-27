@@ -1,3 +1,5 @@
+import { COMPANY } from '../lib/constants.js'
+
 export function EmptyState({ icon, text }) {
   return (
     <div className="empty">
@@ -14,8 +16,8 @@ export function Loading({ text = 'جاري التحميل...' }) {
 export function Splash() {
   return (
     <div className="splash">
-      <div className="logo-mark logo-lg">S</div>
-      <div className="splash-text">SOVA SYSTEM LOADING...</div>
+      <img className="splash-logo" src={COMPANY.logoLight} alt={COMPANY.nameEn} />
+      <div className="splash-text">جاري التحميل...</div>
       <div className="splash-bar pulse" />
     </div>
   )
