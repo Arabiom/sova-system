@@ -1532,7 +1532,7 @@ textarea.input {
 }
 .tier-row {
   display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr;
+  grid-template-columns: 2fr 1.5fr 1fr auto;
   gap: 10px;
   align-items: end;
 }
@@ -2058,7 +2058,7 @@ a.ex-card-head {
     padding: 28px 20px;
   }
   .tier-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr auto;
   }
   .tier-row .field:first-child {
     grid-column: 1 / -1;
@@ -2262,4 +2262,18 @@ a.ex-card-head {
 }
 .input-invalid {
   border-color: var(--dng) !important;
+}
+
+.tier-remove {
+  width: 38px;
+  height: 42px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--dng);
+  cursor: pointer;
+}
+.tier-remove:hover {
+  background: var(--dng-b);
 }

@@ -11,6 +11,8 @@ export function friendlyError(error) {
     case '42P01':
     case 'PGRST205':
       return 'قاعدة البيانات تحتاج تحديثاً (جدول غير موجود). شغّل ملف التحديث في Supabase.'
+    case 'PGRST204':
+      return 'قاعدة البيانات تحتاج تحديثاً (حقل غير موجود). شغّل آخر ملف تحديث في Supabase.'
     case '42501':
       return 'لا تملك صلاحية لهذه العملية. سجّل الدخول مرة أخرى.'
     case 'PGRST301':
@@ -31,7 +33,7 @@ export async function unwrap(query) {
     throw new Error(friendlyError(err), { cause: err })
   }
   const { data, error, count } = result
-  if (error) throw new Error(friendlyError(error))
+  if (error) throw new Error(friendlyError(error), { cause: error })
   return count ?? data
 }
 

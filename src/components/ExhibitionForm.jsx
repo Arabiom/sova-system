@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import DateInput from './DateInput.jsx'
-import { saveExhibition } from '../api/exhibitions.js'
+import { formTiers, saveExhibition } from '../api/exhibitions.js'
 import { useToast } from '../context/ToastContext.jsx'
 import { CITIES, EXHIBITION_STATUSES } from '../lib/constants.js'
 import { num } from '../lib/format.js'
@@ -8,14 +8,18 @@ import Button from './Button.jsx'
 import Field, { SelectOptions } from './Field.jsx'
 import Modal from './Modal.jsx'
 
-const TIER_PLACEHOLDERS = ['مثال: أمامي VIP', 'مثال: وسط', 'مثال: خلفي اقتصادي']
+const TIER_PLACEHOLDERS = ['مثال: ركن مدخل', 'مثال: كورنر هاير', 'مثال: وسط المعرض', 'مثال: صف داخلي']
 
 export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
   const toast = useToast()
-  const [form, setForm] = useState(initial)
+  const [form, setForm] = useState(() => ({ ...initial, tiers: formTiers(initial) }))
   const [saving, setSaving] = useState(false)
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
-  const tierBooths = [1, 2, 3].reduce((t, i) => t + num(form[`booth_tier${i}_count`]), 0)
+  const tierBooths = form.tiers.reduce((t, x) => t + num(x.count), 0)
+  const setTier = (index, key) => (e) =>
+    setForm((f) => ({ ...f, tiers: f.tiers.map((t, i) => (i === index ? { ...t, [key]: e.target.value } : t)) }))
+  const addTier = () => setForm((f) => ({ ...f, tiers: [...f.tiers, { name: '', price: '', count: '' }] }))
+  const removeTier = (index) => setForm((f) => ({ ...f, tiers: f.tiers.filter((_, i) => i !== index) }))
   const totalBooths = num(form.booths) || tierBooths
 
   const submit = async () => {
@@ -92,19 +96,25 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
       <div className="tier-box">
         <div className="tier-box-title">🏷️ فئات البوثات وأسعارها (اختياري — تقدير مبدئي)</div>
         <div className="muted tiny mb-10">تُستخدم للتخطيط فقط. الخارطة التفصيلية (أرقام المواقع وفئاتها) تُضاف من ملف المعرض.</div>
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="tier-row">
-            <Field label={`اسم الفئة ${i}`}>
-              <input className="input" placeholder={TIER_PLACEHOLDERS[i - 1]} value={form[`booth_tier${i}_name`] || ''} onChange={set(`booth_tier${i}_name`)} />
+        {form.tiers.map((tier, index) => (
+          <div key={index} className="tier-row">
+            <Field label={`اسم الفئة ${index + 1}`}>
+              <input className="input" placeholder={TIER_PLACEHOLDERS[index] || 'اسم الفئة'} value={tier.name ?? ''} onChange={setTier(index, 'name')} />
             </Field>
             <Field label="السعر (ر.ع)">
-              <input className="input" type="number" min="0" step="0.001" placeholder="0.000" value={form[`booth_tier${i}_price`] ?? ''} onChange={set(`booth_tier${i}_price`)} />
+              <input className="input" type="number" min="0" step="0.001" placeholder="0.000" value={tier.price ?? ''} onChange={setTier(index, 'price')} />
             </Field>
             <Field label="العدد">
-              <input className="input" type="number" min="0" placeholder="0" value={form[`booth_tier${i}_count`] ?? ''} onChange={set(`booth_tier${i}_count`)} />
+              <input className="input" type="number" min="0" placeholder="0" value={tier.count ?? ''} onChange={setTier(index, 'count')} />
             </Field>
+            <button type="button" className="tier-remove" title="حذف الفئة" onClick={() => removeTier(index)}>
+              ✕
+            </button>
           </div>
         ))}
+        <Button variant="outline" size="sm" onClick={addTier} className="mb-10">
+          + إضافة فئة
+        </Button>
         <div className="tier-total">
           مجموع الفئات: <strong>{tierBooths} بوث</strong> — إجمالي المعرض: <strong>{totalBooths} بوث</strong>
         </div>

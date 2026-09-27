@@ -120,3 +120,32 @@ describe('booth total typed on the exhibition', () => {
     expect(f.breakEven).toBe(10)
   })
 })
+
+describe('any number of planning tiers', () => {
+  it('saves every tier and fills the legacy columns with the first three', async () => {
+    const { toExhibitionRow, formTiers } = await import('../../api/exhibitions.js')
+    const tiers = [
+      { name: 'ركن مدخل', price: '200', count: '6' },
+      { name: 'كورنر هاير', price: 150, count: 6 },
+      { name: 'وسط المعرض', price: 125, count: 4 },
+      { name: 'صف داخلي', price: 100, count: 30 },
+      { name: '', price: '', count: '' }, // blank row is dropped
+    ]
+    const row = toExhibitionRow({ city: 'نزوى', mall: 'م', tiers })
+    expect(row.tiers).toHaveLength(4)
+    expect(row.tiers[3]).toEqual({ name: 'صف داخلي', price: 100, count: 30 })
+    expect(row).toMatchObject({ booth_tier1_name: 'ركن مدخل', booth_tier3_count: 4, booths: 46 })
+    // editing an old exhibition shows its three columns as rows
+    expect(formTiers({ booth_tier1_name: 'أ', booth_tier1_price: 5, booth_tier1_count: 2, booth_tier2_count: 0 })).toEqual([{ name: 'أ', price: 5, count: 2 }])
+    expect(formTiers({})).toEqual([{ name: '', price: '', count: '' }])
+  })
+
+  it('uses the tier list for capacity, revenue and break-even', async () => {
+    const { exhibitionFinancials, boothCapacity } = await import('../finance.js')
+    const ex = { id: 'x', tiers: [{ name: 'أ', price: 200, count: 6 }, { name: 'ب', price: 150, count: 6 }, { name: 'ج', price: 125, count: 4 }, { name: 'د', price: 100, count: 30 }] }
+    expect(boothCapacity(ex)).toBe(46)
+    const f = exhibitionFinancials({ exhibition: ex }, [{}, {}, {}])
+    expect(f.capacity).toBe(46)
+    expect(f.fullRevenue).toBe(5600) // 1200 + 900 + 500 + 3000
+  })
+})

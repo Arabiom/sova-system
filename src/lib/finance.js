@@ -28,9 +28,7 @@ export const balanceOf = (exhibitor) => num(exhibitor.contract) - num(exhibitor.
 
 /** Booth capacity of an exhibition: the total entered on the exhibition, else the sum of its tiers. */
 export function boothCapacity(exhibition) {
-  const tiers =
-    num(exhibition.booth_tier1_count) + num(exhibition.booth_tier2_count) + num(exhibition.booth_tier3_count)
-  return num(exhibition.booths) || tiers
+  return num(exhibition.booths) || planningTiers(exhibition).reduce((t, x) => t + x.count, 0)
 }
 
 /** Booked / total sites of an exhibition: from its site map when it has one, else exhibitors vs. planned tiers. */
@@ -82,14 +80,23 @@ export function groupTotals(rows, keyOf, valueOf = () => 1) {
   return Object.entries(totals).sort((a, b) => b[1] - a[1])
 }
 
-/** Tier rows of an exhibition, falling back to the defaults used when it was created. */
-export function tiersOf(exhibition, defaults) {
+/**
+ * Planning tiers of an exhibition: the `tiers` list (any number of tiers), else the three
+ * legacy tier columns. Legacy names/prices missing on a row fall back to `defaults`.
+ */
+export function planningTiers(exhibition, defaults = []) {
+  if (Array.isArray(exhibition.tiers) && exhibition.tiers.length) {
+    return exhibition.tiers.map((t) => ({ name: t.name || '', price: num(t.price), count: num(t.count) }))
+  }
   return [1, 2, 3].map((i, idx) => ({
-    name: exhibition[`booth_tier${i}_name`] || defaults[idx].name,
-    price: exhibition[`booth_tier${i}_price`] || defaults[idx].price,
+    name: exhibition[`booth_tier${i}_name`] || defaults[idx]?.name || '',
+    price: exhibition[`booth_tier${i}_price`] || defaults[idx]?.price || 0,
     count: num(exhibition[`booth_tier${i}_count`]),
   }))
 }
+
+/** Tier rows of an exhibition (see planningTiers). */
+export const tiersOf = (exhibition, defaults) => planningTiers(exhibition, defaults)
 
 /**
  * Invoice / contract reference: PREFIX-YYMMDD-XXXX (date + 4 random characters).
