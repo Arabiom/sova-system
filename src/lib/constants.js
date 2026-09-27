@@ -1,11 +1,19 @@
+// Company details — from the company's business reference sheet.
 export const COMPANY = {
   name: 'محور الأعمال المتكاملة',
+  legalName: 'محور الأعمال المتكاملة لتنظيم المعارض',
+  nameEn: 'Axis Integrated Business',
   brand: 'SOVA',
   brandFull: 'SOVA Exhibition',
   cr: 'CR# 1636161',
   location: 'مسقط، سلطنة عُمان',
-  whatsapp: '96879450062',
-  version: 'v3.0',
+  phone: '96955525',
+  whatsapp: '96895594980', // 95594980 with the Oman country code, for wa.me links
+  email: 'axis.integrated.business@gmail.com',
+  instagram: '@exhibitions.om',
+  bank: 'بنك مسقط — INTEGRATED BUSINESS AXIS',
+  signatory: 'عربي بن هلال',
+  version: 'v3.1',
 }
 
 export const VAT_RATE = 0.05
@@ -20,13 +28,17 @@ export const CATEGORIES = ['أزياء', 'عطور وبخور', 'إكسسوار'
 export const BOOTH_SIZES = ['2×2 متر', '3×2 متر', '4×2 متر', 'مخصص']
 
 export const PAYMENT_METHODS = ['نقد', 'تحويل بنكي', 'فيزا / ماستركارد', 'شيك']
-export const PAYMENT_TYPES = ['كامل', 'مقدمة', 'جزئية', 'أخيرة']
+export const PAYMENT_TYPES = ['كامل', 'مقدمة', 'جزئية', 'أخيرة', 'إرجاع']
+
+/** A payment of this type returns money to the exhibitor; it is stored as a negative amount. */
+export const REFUND_TYPE = 'إرجاع'
 
 export const PAYMENT_METHOD_META = {
   'نقد': { icon: '💵', color: 'var(--suc)' },
   'تحويل بنكي': { icon: '🏦', color: 'var(--ink)' },
   'فيزا / ماستركارد': { icon: '💳', color: 'var(--wrn)' },
   'شيك': { icon: '📝', color: '#7C3AED' },
+  'غير محدد': { icon: '❔', color: 'var(--muted)' },
 }
 
 export const CLIENT_STATUSES = ['نشط', 'محتمل', 'متوقف']
@@ -87,6 +99,7 @@ export const STATUS_TONES = {
   'لم يُدفع': 'danger',
   'مرفوض': 'danger',
   'ملغى': 'danger',
+  'إرجاع': 'danger',
   'نشط': 'success',
   'محتمل': 'gold',
   'متوقف': 'neutral',

@@ -92,7 +92,7 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
         <Field label="تصنيف النشاط">
           <SelectOptions options={CATEGORIES} value={form.category || ''} onChange={set('category')} />
         </Field>
-        <Field label="المعرض المخصص" required>
+        <Field label="المعرض المخصص" required hint={id ? 'تغيير المعرض (مثل التحويل لمعرض قادم) يحرر مواقعه في المعرض السابق' : undefined}>
           <select className="input" value={form.exhibition_id || ''} onChange={set('exhibition_id')}>
             <option value="">اختر...</option>
             {exhibitions.map((ex) => (
@@ -102,7 +102,7 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
             ))}
           </select>
         </Field>
-        <Field label="رقم البوث">
+        <Field label="رقم البوث" hint="إذا كان للمعرض خارطة مواقع، احجز الموقع من ملف المعرض ويُحدَّث هذا الحقل تلقائياً">
           <input className="input" placeholder="مثال: A-01" value={form.booth === '—' ? '' : form.booth || ''} onChange={set('booth')} />
         </Field>
         <Field label="حجم البوث">

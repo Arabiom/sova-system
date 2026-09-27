@@ -74,8 +74,15 @@ export function tiersOf(exhibition, defaults) {
   }))
 }
 
-/** Invoice / contract reference numbers in the format already stored in the database. */
-export const newReference = (prefix) => `${prefix}-${Date.now().toString().slice(-6)}`
+/**
+ * Invoice / contract reference: PREFIX-YYMMDD-XXXX (date + 4 random characters).
+ * The old PREFIX-<last 6 digits of the clock> format repeated every ~17 minutes.
+ */
+export function newReference(prefix, now = new Date()) {
+  const d = now.toISOString().slice(2, 10).replace(/-/g, '')
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, '0')
+  return `${prefix}-${d}-${rand}`
+}
 
 /**
  * Everything the exhibition file shows, from the exhibition and its related rows.

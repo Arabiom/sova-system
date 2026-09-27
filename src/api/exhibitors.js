@@ -28,7 +28,17 @@ export function toExhibitorRow(form) {
 export async function saveExhibitor(form, id) {
   const client_id = form.client_id || (await findOrCreateClient(form))
   const row = toExhibitorRow({ ...form, client_id })
-  return unwrap(id ? table().update(row).eq('id', id) : table().insert(row))
+  if (id) {
+    // Moved to another exhibition (e.g. transferred from a cancelled one): release the
+    // sites held in the old exhibition so they show as available there again.
+    const before = await unwrap(table().select('exhibition_id').eq('id', id).maybeSingle())
+    if (before && before.exhibition_id !== row.exhibition_id) {
+      await unwrap(supabase.from('exhibition_sites').update({ exhibitor_id: null }).eq('exhibitor_id', id))
+      row.booth = '—'
+    }
+    return unwrap(table().update(row).eq('id', id))
+  }
+  return unwrap(table().insert(row))
 }
 
 /** Insert an exhibitor row as given and return it (with its new id). */

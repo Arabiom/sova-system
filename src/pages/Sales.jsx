@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
-import { deletePayment, listPayments, recordPayment } from '../api/payments.js'
+import { deletePayment, listPayments, recordPayment, updatePayment } from '../api/payments.js'
 import Button from '../components/Button.jsx'
 import ExhibitionFilter from '../components/ExhibitionFilter.jsx'
 import { EmptyState, Loading } from '../components/Feedback.jsx'
@@ -13,9 +13,9 @@ import { ProgressBar } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { useToast } from '../context/ToastContext.jsx'
-import { PAYMENT_METHOD_META, PAYMENT_METHODS, PAYMENT_TYPES } from '../lib/constants.js'
+import { PAYMENT_METHOD_META, PAYMENT_METHODS, PAYMENT_TYPES, REFUND_TYPE } from '../lib/constants.js'
 import { balanceOf, exhibitionStats, sumBy, vatOf, withVat } from '../lib/finance.js'
-import { exhibitionLabel, formatOMR, monthOf, percent, todayISO } from '../lib/format.js'
+import { exhibitionLabel, exhibitionTitle, formatOMR, monthOf, num, percent, todayISO } from '../lib/format.js'
 import { downloadReceipt } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
 
@@ -24,18 +24,33 @@ const load = async () => {
   return { payments, exhibitors, exhibitions }
 }
 
-function PaymentForm({ exhibitors, onClose, onSaved }) {
+function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
   const toast = useToast()
-  const [form, setForm] = useState({ type: 'كامل', method: 'نقد', date: todayISO() })
+  const editing = Boolean(payment)
+  const [form, setForm] = useState(
+    editing
+      ? { ...payment, amount: Math.abs(num(payment.amount)) }
+      : { type: 'كامل', method: 'نقد', date: todayISO() },
+  )
   const [saving, setSaving] = useState(false)
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  const refund = form.type === REFUND_TYPE
+  const exhibitor = exhibitors.find((e) => e.id === form.exhibitor_id)
 
   const submit = async () => {
     if (!form.exhibitor_id || !(+form.amount > 0)) return toast('اختر العارض وأدخل المبلغ', 'error')
+    if (refund && exhibitor && +form.amount > num(exhibitor.paid) + (editing ? Math.abs(num(payment.amount)) : 0)) {
+      if (!confirm(`المبلغ المُرجَع أكبر مما دفعه ${exhibitor.brand} (${formatOMR(exhibitor.paid)}). متابعة؟`)) return
+    }
     setSaving(true)
     try {
-      const invoice = await recordPayment(form)
-      toast(`✅ تم تسجيل الدفعة — ${invoice}`)
+      if (editing) {
+        await updatePayment(payment, form)
+        toast('✅ تم تعديل الدفعة')
+      } else {
+        const invoice = await recordPayment(form)
+        toast(refund ? `✅ تم تسجيل الإرجاع — ${invoice}` : `✅ تم تسجيل الدفعة — ${invoice}`)
+      }
       onSaved()
     } catch (err) {
       toast(err.message, 'error')
@@ -44,40 +59,45 @@ function PaymentForm({ exhibitors, onClose, onSaved }) {
     }
   }
 
+  const methods = PAYMENT_METHODS.includes(form.method) || !form.method ? PAYMENT_METHODS : [...PAYMENT_METHODS, form.method]
+
   return (
     <Modal
-      title="تسجيل دفعة جديدة"
+      title={editing ? `تعديل ${refund ? 'إرجاع' : 'دفعة'} ${payment.invoice_no || ''}` : refund ? 'تسجيل مبلغ مُرجَع' : 'تسجيل دفعة جديدة'}
+      subtitle={editing ? exhibitor?.brand : undefined}
       onClose={onClose}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
             إلغاء
           </Button>
-          <Button onClick={submit} disabled={saving}>
-            {saving ? 'جاري...' : 'تسجيل الدفعة'}
+          <Button onClick={submit} disabled={saving} variant={refund ? 'danger' : 'primary'}>
+            {saving ? 'جاري...' : editing ? 'حفظ التعديل' : refund ? 'تسجيل الإرجاع' : 'تسجيل الدفعة'}
           </Button>
         </>
       }
     >
-      <Field label="العارض" required>
-        <select className="input" value={form.exhibitor_id || ''} onChange={set('exhibitor_id')}>
-          <option value="">اختر عارض...</option>
-          {exhibitors.map((e) => {
-            const balance = balanceOf(e)
-            return (
-              <option key={e.id} value={e.id}>
-                {e.brand} — مدفوع {formatOMR(e.paid)} / {formatOMR(e.contract)} {balance > 0 ? `(متبقي ${formatOMR(balance)})` : '✅'}
-              </option>
-            )
-          })}
-        </select>
-      </Field>
+      {!editing && (
+        <Field label="العارض" required>
+          <select className="input" value={form.exhibitor_id || ''} onChange={set('exhibitor_id')}>
+            <option value="">اختر عارض...</option>
+            {exhibitors.map((e) => {
+              const balance = balanceOf(e)
+              return (
+                <option key={e.id} value={e.id}>
+                  {e.brand} — مدفوع {formatOMR(e.paid)} / {formatOMR(e.contract)} {balance > 0 ? `(متبقي ${formatOMR(balance)})` : '✅'}
+                </option>
+              )
+            })}
+          </select>
+        </Field>
+      )}
       <div className="form-grid">
-        <Field label="المبلغ (ر.ع)" required>
+        <Field label={refund ? 'المبلغ المُرجَع (ر.ع)' : 'المبلغ (ر.ع)'} required>
           <input className="input" type="number" min="0" step="0.001" placeholder="0.000" value={form.amount || ''} onChange={set('amount')} />
         </Field>
         <Field label="طريقة الدفع">
-          <SelectOptions options={PAYMENT_METHODS} placeholder={null} value={form.method} onChange={set('method')} />
+          <SelectOptions options={methods} placeholder={null} value={form.method} onChange={set('method')} />
         </Field>
         <Field label="نوع الدفعة">
           <SelectOptions options={PAYMENT_TYPES} placeholder={null} value={form.type} onChange={set('type')} />
@@ -87,9 +107,10 @@ function PaymentForm({ exhibitors, onClose, onSaved }) {
         </Field>
       </div>
       <Field label="ملاحظة">
-        <input className="input" placeholder="مثال: دفعة مقدمة معرض نزوى" value={form.note || ''} onChange={set('note')} />
+        <input className="input" placeholder={refund ? 'مثال: إرجاع مبلغ المعرض الملغى' : 'مثال: دفعة مقدمة معرض نزوى'} value={form.note || ''} onChange={set('note')} />
       </Field>
-      {+form.amount > 0 && (
+      {refund && <div className="alert alert-warning">يُسجَّل كمبلغ سالب ويُخصم من إجمالي ما دفعه العارض ومن المحصّل.</div>}
+      {+form.amount > 0 && !refund && (
         <div className="summary-box">
           <div className="kv-row">
             <span>المبلغ</span>
@@ -114,6 +135,7 @@ export default function Sales() {
   const { data, loading, reload } = useData(load, null)
   const [scope, setScope] = useState('all')
   const [adding, setAdding] = useState(false)
+  const [editingPayment, setEditingPayment] = useState(null)
 
   if (loading || !data) return <Loading />
   const { payments, exhibitors, exhibitions } = data
@@ -154,7 +176,7 @@ export default function Sales() {
     <>
       <PageHeader title="المبيعات والمدفوعات" subtitle={`${payments.length} دفعة مسجلة`}>
         <ExhibitionFilter exhibitions={exhibitions} value={scope} onChange={setScope} />
-        <Button onClick={() => setAdding(true)}>+ تسجيل دفعة</Button>
+        <Button onClick={() => setAdding(true)}>+ تسجيل دفعة / إرجاع</Button>
       </PageHeader>
 
       <div className="grid-4 mb-16">
@@ -171,7 +193,7 @@ export default function Sales() {
             const pct = percent(s.collected, s.contract)
             return (
               <div key={ex.id} className="income-cell">
-                <div className="strong small">SOVA {ex.city}</div>
+                <div className="strong small">{exhibitionTitle(ex)}</div>
                 <div className="muted tiny mb-8">{monthOf(ex.date_from)}</div>
                 <div className="income-value">{formatOMR(s.collected)}</div>
                 <div className="muted tiny">من {formatOMR(s.contract)}</div>
@@ -187,9 +209,9 @@ export default function Sales() {
       </Panel>
 
       <div className="grid-4 mb-20">
-        {PAYMENT_METHODS.map((method) => {
+        {[...PAYMENT_METHODS, ...(scopePayments.some((p) => p.method === 'غير محدد') ? ['غير محدد'] : [])].map((method) => {
           const total = sumBy(scopePayments.filter((p) => p.method === method), 'amount')
-          const meta = PAYMENT_METHOD_META[method]
+          const meta = PAYMENT_METHOD_META[method] || PAYMENT_METHOD_META['غير محدد']
           return (
             <StatCard key={method} flat label={method} icon={meta.icon} accent={meta.color} value={formatOMR(total)} sub={`${percent(total, collected)}%`} />
           )
@@ -212,7 +234,7 @@ export default function Sales() {
                   <td className="mono muted tiny">{p.invoice_no || '—'}</td>
                   <td className="strong">{exhibitorOf(p.exhibitor_id)?.brand || '—'}</td>
                   <td className="muted small">{exhibitionLabel(exhibitionOfExhibitor(p.exhibitor_id))}</td>
-                  <td className="amount">{formatOMR(p.amount)}</td>
+                  <td className={num(p.amount) < 0 ? 'amount text-dng' : 'amount'}>{formatOMR(p.amount)}</td>
                   <td className="muted small">{formatOMR(vatOf(p.amount))}</td>
                   <td>
                     <Chip>{p.method}</Chip>
@@ -226,6 +248,9 @@ export default function Sales() {
                   </td>
                   <td>
                     <div className="row-actions">
+                      <Button size="sm" variant="outline" onClick={() => setEditingPayment(p)} title="تعديل">
+                        ✏️
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => printReceipt(p)} title="فاتورة PDF">
                         🖨️
                       </Button>
@@ -242,6 +267,17 @@ export default function Sales() {
         {!scopePayments.length && <EmptyState icon="💰" text="لا توجد مدفوعات" />}
       </Panel>
 
+      {editingPayment && (
+        <PaymentForm
+          exhibitors={exhibitors}
+          payment={editingPayment}
+          onClose={() => setEditingPayment(null)}
+          onSaved={() => {
+            setEditingPayment(null)
+            reload()
+          }}
+        />
+      )}
       {adding && (
         <PaymentForm
           exhibitors={exhibitors}

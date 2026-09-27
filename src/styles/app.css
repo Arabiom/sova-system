@@ -2071,3 +2071,7 @@ a.ex-card-head {
 .input-compact.w-full {
   width: 100%;
 }
+
+.amount.text-dng {
+  color: var(--dng);
+}

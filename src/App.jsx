@@ -1,17 +1,20 @@
+import { lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Splash } from './components/Feedback.jsx'
 import Layout from './components/Layout.jsx'
 import { useAuth } from './context/AuthContext.jsx'
-import Bookings from './pages/Bookings.jsx'
-import Clients from './pages/Clients.jsx'
-import Dashboard from './pages/Dashboard.jsx'
-import ExhibitionFile from './pages/ExhibitionFile.jsx'
-import Exhibitions from './pages/Exhibitions.jsx'
-import Exhibitors from './pages/Exhibitors.jsx'
 import Login from './pages/Login.jsx'
-import Reports from './pages/Reports.jsx'
-import Sales from './pages/Sales.jsx'
-import WhatsApp from './pages/WhatsApp.jsx'
+
+// Pages load on demand so the first screen appears quickly.
+const Bookings = lazy(() => import('./pages/Bookings.jsx'))
+const Clients = lazy(() => import('./pages/Clients.jsx'))
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'))
+const ExhibitionFile = lazy(() => import('./pages/ExhibitionFile.jsx'))
+const Exhibitions = lazy(() => import('./pages/Exhibitions.jsx'))
+const Exhibitors = lazy(() => import('./pages/Exhibitors.jsx'))
+const Reports = lazy(() => import('./pages/Reports.jsx'))
+const Sales = lazy(() => import('./pages/Sales.jsx'))
+const WhatsApp = lazy(() => import('./pages/WhatsApp.jsx'))
 
 /** Internal system: every page requires a signed-in staff member. */
 function Protected() {

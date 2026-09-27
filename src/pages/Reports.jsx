@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { listSites } from '../api/exhibitionFile.js'
+import { downloadBackup } from '../api/backup.js'
+import { listExpenses, listSites, listSponsors } from '../api/exhibitionFile.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
@@ -13,14 +14,21 @@ import { ProgressBar, ShareRow } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { COMPANY } from '../lib/constants.js'
-import { groupTotals, occupancyOf, summarize } from '../lib/finance.js'
+import { groupTotals, occupancyOf, summarize, sumBy } from '../lib/finance.js'
 import { exhibitionTitle, formatOMR, monthOf, num, percent } from '../lib/format.js'
 import { downloadReport } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
 
 const load = async () => {
-  const [exhibitions, exhibitors, payments, sites] = await Promise.all([listExhibitions(), listExhibitors(), listPayments(), listSites()])
-  return { exhibitions, exhibitors, payments, sites }
+  const [exhibitions, exhibitors, payments, sites, expenses, sponsors] = await Promise.all([
+    listExhibitions(),
+    listExhibitors(),
+    listPayments(),
+    listSites(),
+    listExpenses(),
+    listSponsors(),
+  ])
+  return { exhibitions, exhibitors, payments, sites, expenses, sponsors }
 }
 
 export default function Reports() {
@@ -28,9 +36,22 @@ export default function Reports() {
   const { data, loading } = useData(load, null)
   const [scope, setScope] = useState('all')
   const [exporting, setExporting] = useState(false)
+  const [backingUp, setBackingUp] = useState(false)
+
+  const backup = async () => {
+    setBackingUp(true)
+    try {
+      const counts = await downloadBackup()
+      toast(`💾 تم تنزيل النسخة الاحتياطية (${Object.values(counts).reduce((a, b) => a + b, 0)} سجل)`)
+    } catch (err) {
+      toast(`تعذّر إنشاء النسخة: ${err.message}`, 'error')
+    } finally {
+      setBackingUp(false)
+    }
+  }
 
   if (loading || !data) return <Loading />
-  const { exhibitions, exhibitors, payments, sites } = data
+  const { exhibitions, exhibitors, payments, sites, expenses, sponsors } = data
 
   const scopeExhibitors = scope === 'all' ? exhibitors : exhibitors.filter((e) => e.exhibition_id === scope)
   const scopeIds = new Set(scopeExhibitors.map((e) => e.id))
@@ -57,6 +78,9 @@ export default function Reports() {
     <>
       <PageHeader title="التقارير المالية 📊" subtitle={`${COMPANY.name} — SOVA`}>
         <ExhibitionFilter exhibitions={exhibitions} value={scope} onChange={setScope} />
+        <Button variant="outline" onClick={backup} disabled={backingUp} title="تنزيل كل البيانات في ملف واحد">
+          💾 نسخة احتياطية
+        </Button>
         <Button onClick={exportPdf} disabled={exporting}>
           🖨️ تصدير PDF
         </Button>
@@ -89,7 +113,7 @@ export default function Reports() {
           <table className="table">
             <thead>
               <tr>
-                {['المعرض', 'المدينة', 'العارضون', 'إجمالي العقود', 'المحصّل', 'المتبقي', 'نسبة التحصيل'].map((h) => (
+                {['المعرض', 'المدينة', 'المواقع', 'إجمالي العقود', 'المحصّل', 'المتبقي', 'نسبة التحصيل', 'المصروفات', 'الرعايات', 'الصافي حسب العقود'].map((h) => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -98,6 +122,9 @@ export default function Reports() {
               {exhibitions.map((ex) => {
                 const s = summarize(exhibitors.filter((e) => e.exhibition_id === ex.id))
                 const rate = s.collectionRate
+                const exp = sumBy(expenses.filter((x) => x.exhibition_id === ex.id), 'amount')
+                const spo = sumBy(sponsors.filter((x) => x.exhibition_id === ex.id), 'amount')
+                const net = s.contract + spo - exp
                 return (
                   <tr key={ex.id}>
                     <td>
@@ -121,6 +148,9 @@ export default function Reports() {
                         <strong>{rate}%</strong>
                       </div>
                     </td>
+                    <td className="num">{formatOMR(exp)}</td>
+                    <td className="num">{formatOMR(spo)}</td>
+                    <td className={`num strong ${net < 0 ? 'text-dng' : 'text-suc'}`}>{formatOMR(net)}</td>
                   </tr>
                 )
               })}

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { listBookings } from '../api/bookings.js'
-import { listSites } from '../api/exhibitionFile.js'
+import { listExpenses, listSites } from '../api/exhibitionFile.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
@@ -16,14 +16,15 @@ import { exhibitionTitle, formatOMR, isolateLtr, monthOf } from '../lib/format.j
 import { useData } from '../lib/useData.js'
 
 const load = async () => {
-  const [exhibitions, exhibitors, payments, bookings, sites] = await Promise.all([
+  const [exhibitions, exhibitors, payments, bookings, sites, expenses] = await Promise.all([
     listExhibitions(),
     listExhibitors(),
     listPayments(),
     listBookings(),
     listSites(),
+    listExpenses(),
   ])
-  return { exhibitions, exhibitors, payments, bookings, sites }
+  return { exhibitions, exhibitors, payments, bookings, sites, expenses }
 }
 
 const barColor = (status) =>
@@ -38,12 +39,12 @@ export default function Dashboard() {
   const { data, loading } = useData(load, null)
   if (loading || !data) return <Loading />
 
-  const { exhibitions, exhibitors, payments, bookings, sites } = data
+  const { exhibitions, exhibitors, payments, bookings, sites, expenses } = data
   const totals = summarize(exhibitors)
   const pending = bookings.filter((b) => b.status === 'معلق').length
   const confirmed = exhibitors.filter((e) => e.status === 'مؤكد').length
   const withBalance = exhibitors.filter((e) => balanceOf(e) > 0).length
-  const active = exhibitions.filter((e) => e.status !== 'منتهي').length
+  const active = exhibitions.filter((e) => !['منتهي', 'ملغى'].includes(e.status)).length
   const exhibitorsOf = (id) => exhibitors.filter((e) => e.exhibition_id === id)
   const brandOf = (id) => exhibitors.find((e) => e.id === id)?.brand || '—'
 
@@ -132,6 +133,55 @@ export default function Dashboard() {
           {!exhibitions.length && <div className="empty-inline">لا معارض</div>}
         </Panel>
       </div>
+
+      {(() => {
+        const unpaid = expenses.filter((x) => !x.paid)
+        if (!unpaid.length) return null
+        const exhibitionOf = (id) => exhibitions.find((e) => e.id === id)
+        const today = new Date(new Date().toISOString().slice(0, 10))
+        const daysTo = (d) => Math.round((new Date(d) - today) / 86_400_000)
+        return (
+          <Panel
+            icon="🧾"
+            title="مصروفات والتزامات غير مدفوعة"
+            subtitle={`${unpaid.length} بند • ${formatOMR(sumBy(unpaid, 'amount'))}`}
+            className="mb-16"
+          >
+            <div className="table-wrap">
+              <table className="table table-compact">
+                <thead>
+                  <tr>
+                    <th>البند</th>
+                    <th>المعرض</th>
+                    <th>المبلغ</th>
+                    <th>الاستحقاق</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unpaid.slice(0, 8).map((x) => {
+                    const days = x.due_date ? daysTo(x.due_date) : null
+                    return (
+                      <tr key={x.id} className="clickable" onClick={() => go(`/exhibitions/${x.exhibition_id}`)}>
+                        <td className="strong">{x.item}</td>
+                        <td className="small">{exhibitionTitle(exhibitionOf(x.exhibition_id))}</td>
+                        <td className="num strong">{formatOMR(x.amount)}</td>
+                        <td className="small nowrap">
+                          {x.due_date || '—'}
+                          {days !== null && (
+                            <div className={`tiny ${days < 0 ? 'text-dng strong' : days <= 14 ? 'text-wrn strong' : 'muted'}`}>
+                              {days < 0 ? `متأخر ${-days} يوم` : days === 0 ? 'اليوم' : `بعد ${days} يوم`}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        )
+      })()}
 
       <div className="grid-2">
         <Panel

@@ -139,3 +139,35 @@ export async function readFirstSheet(file) {
   if (!sheets.length) throw new Error('الملف لا يحتوي على أوراق.')
   return sheets[0].data
 }
+
+/**
+ * Compare an import plan with the exhibitors already registered in the exhibition so that
+ * importing (again) updates people instead of duplicating them.
+ * Each participant gets `existing` (the matched exhibitor or null) and `paidToRecord`
+ * (only the amount not already recorded in the system). `untouched` lists registered
+ * exhibitors that the file does not mention.
+ */
+export function matchPlan(plan, existingExhibitors) {
+  const used = new Set()
+  const findMatch = (p) => {
+    const key = phoneKey(p.phone)
+    const name = (p.brand || '').trim().toLowerCase()
+    return (
+      existingExhibitors.find((e) => !used.has(e.id) && key && phoneKey(e.phone) === key) ||
+      existingExhibitors.find((e) => !used.has(e.id) && name && (e.brand || '').trim().toLowerCase() === name) ||
+      null
+    )
+  }
+  const participants = plan.exhibitors.map((p) => {
+    const existing = findMatch(p)
+    if (existing) used.add(existing.id)
+    const already = existing ? num(existing.paid) : 0
+    return { ...p, existing, paidToRecord: Math.max(0, p.paid - already), paidAhead: Math.max(0, already - p.paid) }
+  })
+  return {
+    participants,
+    untouched: existingExhibitors.filter((e) => !used.has(e.id)),
+    created: participants.filter((p) => !p.existing).length,
+    updated: participants.filter((p) => p.existing).length,
+  }
+}

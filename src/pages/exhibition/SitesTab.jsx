@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { addSites, applyImport, assignSite, deleteAllSites, deleteTier, updateTier } from '../../api/exhibitionFile.js'
 import Button from '../../components/Button.jsx'
 import Field from '../../components/Field.jsx'
@@ -8,7 +8,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { DEFAULT_TIERS } from '../../lib/constants.js'
 import { tiersOf } from '../../lib/finance.js'
 import { formatOMR } from '../../lib/format.js'
-import { planImport, readFirstSheet } from '../../lib/importSheet.js'
+import { matchPlan, planImport, readFirstSheet } from '../../lib/importSheet.js'
 import { parseRanges, siteStatus, tierColor, tiersFromSites } from '../../lib/sites.js'
 
 function TierForm({ exhibitionId, tier, takenNumbers, onClose, onSaved }) {
@@ -150,12 +150,16 @@ function AssignModal({ site, exhibitors, holder, onClose, onSaved }) {
   )
 }
 
-function ImportModal({ exhibitionId, onClose, onDone }) {
+function ImportModal({ exhibitionId, existingSites, exhibitors, onClose, onDone }) {
   const toast = useToast()
   const [plan, setPlan] = useState(null)
   const [error, setError] = useState('')
   const [fileName, setFileName] = useState('')
   const [progress, setProgress] = useState(null)
+  const [replace, setReplace] = useState(false)
+  const running = useRef(false)
+  const matched = plan ? matchPlan(plan, exhibitors) : null
+  const needsReplace = existingSites > 0
 
   const onFile = async (e) => {
     const file = e.target.files?.[0]
@@ -171,14 +175,18 @@ function ImportModal({ exhibitionId, onClose, onDone }) {
   }
 
   const run = async () => {
-    setProgress({ done: 0, total: plan.exhibitors.length })
+    if (running.current) return
+    if (needsReplace && !replace) return toast('وافق على استبدال الخارطة الحالية أولاً', 'error')
+    running.current = true
+    setProgress({ done: 0, total: matched.participants.length })
     try {
-      await applyImport(exhibitionId, plan, (done, total) => setProgress({ done, total }))
-      toast(`✅ تم استيراد ${plan.sites.length} موقع و${plan.exhibitors.length} مشارك`)
+      await applyImport(exhibitionId, plan, matched, { replaceSites: needsReplace && replace }, (done, total) => setProgress({ done, total }))
+      toast(`✅ تم الاستيراد: ${plan.sites.length} موقع، ${matched.created} مشارك جديد، ${matched.updated} تحديث`)
       onDone()
     } catch (err) {
-      toast(err.message, 'error')
+      toast(`${err.message} — يمكنك إعادة المحاولة بأمان، لن تتكرر البيانات.`, 'error')
       setProgress(null)
+      running.current = false
     }
   }
 
@@ -195,7 +203,7 @@ function ImportModal({ exhibitionId, onClose, onDone }) {
           <Button variant="outline" onClick={onClose} disabled={Boolean(progress)}>
             إلغاء
           </Button>
-          <Button onClick={run} disabled={!plan || Boolean(progress)}>
+          <Button onClick={run} disabled={!plan || Boolean(progress) || (needsReplace && !replace)}>
             {progress ? `جاري الاستيراد... ${progress.done}/${progress.total}` : 'تأكيد الاستيراد'}
           </Button>
         </>
@@ -219,9 +227,9 @@ function ImportModal({ exhibitionId, onClose, onDone }) {
               <strong>{formatOMR(plan.totals.fullRevenue)}</strong>
             </div>
             <div className="mini-stat">
-              <span>المشاركون / المواقع المحجوزة</span>
+              <span>المشاركون: جديد / تحديث</span>
               <strong>
-                {plan.totals.participants} / {plan.totals.booked}
+                {matched.created} / {matched.updated}
               </strong>
             </div>
             <div className="mini-stat">
@@ -231,6 +239,21 @@ function ImportModal({ exhibitionId, onClose, onDone }) {
               </strong>
             </div>
           </div>
+
+          {needsReplace && (
+            <div className="alert alert-warning">
+              <div>
+                <strong>هذا المعرض لديه خارطة حالية ({existingSites} موقع).</strong>
+                <div className="mt-8">
+                  الاستيراد يستبدلها بخارطة الملف. المشاركون الحاليون <strong>لا يُحذفون</strong>: من يطابق الملف (بالهاتف أو الاسم) يُحدَّث ولا يتكرر، ودفعاتهم المسجلة تبقى كما هي.
+                </div>
+                <label className="check-row mt-8">
+                  <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
+                  <span>أوافق على استبدال الخارطة الحالية</span>
+                </label>
+              </div>
+            </div>
+          )}
 
           <div className="section-label">الفئات المكتشفة</div>
           <div className="tier-legend mb-16">
@@ -252,10 +275,11 @@ function ImportModal({ exhibitionId, onClose, onDone }) {
                   <th>الهاتف</th>
                   <th>العقد</th>
                   <th>المدفوع</th>
+                  <th>الإجراء</th>
                 </tr>
               </thead>
               <tbody>
-                {plan.exhibitors.map((p) => (
+                {matched.participants.map((p) => (
                   <tr key={p.numbers.join('-')}>
                     <td>{p.numbers.join('، ')}</td>
                     <td className="strong">{p.brand}</td>
@@ -263,11 +287,26 @@ function ImportModal({ exhibitionId, onClose, onDone }) {
                     <td className="ltr">{p.phone}</td>
                     <td className="num">{formatOMR(p.contract)}</td>
                     <td className="num">{formatOMR(p.paid)}</td>
+                    <td className="small">
+                      {p.existing ? <span className="badge badge-info">تحديث</span> : <span className="badge badge-success">جديد</span>}
+                      {p.paidToRecord > 0 && <div className="tiny muted mt-8">دفعة +{formatOMR(p.paidToRecord)}</div>}
+                      {p.paidAhead > 0 && <div className="tiny text-wrn mt-8">مسجل في النظام أكثر من الملف بـ {formatOMR(p.paidAhead)}</div>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {matched.untouched.length > 0 && (
+            <div className="alert alert-warning">
+              <div>
+                <strong>مشاركون مسجلون في هذا المعرض وغير موجودين في الملف ({matched.untouched.length}):</strong>{' '}
+                {matched.untouched.map((e) => e.brand).join('، ')}
+                <div className="mt-8">لن يُحذفوا، {needsReplace ? 'لكنهم سيبقون بدون موقع في الخارطة الجديدة.' : 'ويمكنك حجز مواقع لهم من الخارطة بعد الاستيراد.'}</div>
+              </div>
+            </div>
+          )}
 
           {plan.warnings.length > 0 && (
             <div className="alert alert-warning">
@@ -282,7 +321,7 @@ function ImportModal({ exhibitionId, onClose, onDone }) {
             </div>
           )}
           <div className="muted tiny">
-            سيُنشأ: خارطة المواقع، ومشارك لكل شركة مع ربطه بسجل العملاء (أو إنشاء عميل جديد)، ودفعة بقيمة المبلغ المدفوع لكل مشارك بطريقة دفع "غير محدد" يمكنك تعديلها لاحقاً.
+            المبالغ المدفوعة الجديدة تُسجَّل كدفعات بطريقة "غير محدد" — يمكنك تعديل طريقة الدفع لاحقاً من صفحة المبيعات. يمكن إعادة الاستيراد بأمان لتحديث البيانات من نسخة أحدث من الملف.
           </div>
         </>
       )}
@@ -364,7 +403,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, onChanged }) {
         {tierForm && (
           <TierForm exhibitionId={exhibition.id} tier={null} takenNumbers={taken} onClose={() => setTierForm(null)} onSaved={() => { setTierForm(null); onChanged() }} />
         )}
-        {importing && <ImportModal exhibitionId={exhibition.id} onClose={() => setImporting(false)} onDone={() => { setImporting(false); onChanged() }} />}
+        {importing && <ImportModal exhibitionId={exhibition.id} existingSites={sites.length} exhibitors={exhibitors} onClose={() => setImporting(false)} onDone={() => { setImporting(false); onChanged() }} />}
       </Panel>
     )
   }
@@ -380,6 +419,9 @@ export default function SitesTab({ exhibition, sites, exhibitors, onChanged }) {
           <div className="row-actions">
             <Button size="sm" onClick={() => setTierForm({ tier: null })}>
               + إضافة مواقع
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setImporting(true)}>
+              📥 استيراد / تحديث من Excel
             </Button>
             <Button size="sm" variant="danger" onClick={clearAll}>
               حذف الخارطة
@@ -468,6 +510,18 @@ export default function SitesTab({ exhibition, sites, exhibitors, onChanged }) {
           onClose={() => setTierForm(null)}
           onSaved={() => {
             setTierForm(null)
+            onChanged()
+          }}
+        />
+      )}
+      {importing && (
+        <ImportModal
+          exhibitionId={exhibition.id}
+          existingSites={sites.length}
+          exhibitors={exhibitors}
+          onClose={() => setImporting(false)}
+          onDone={() => {
+            setImporting(false)
             onChanged()
           }}
         />

@@ -53,8 +53,11 @@ export async function assignSite(site, exhibitor, { adjustContract = true, previ
 }
 
 // ── Expenses ─────────────────────────────────────────────────────────────
-export const listExpenses = (exhibitionId) =>
-  unwrap(expenses().select('*').eq('exhibition_id', exhibitionId).order('due_date', { ascending: true, nullsFirst: false }))
+/** Expenses of one exhibition, or of all exhibitions when no id is given. */
+export const listExpenses = (exhibitionId) => {
+  const q = expenses().select('*').order('due_date', { ascending: true, nullsFirst: false })
+  return unwrap(exhibitionId ? q.eq('exhibition_id', exhibitionId) : q)
+}
 
 export function toExpenseRow(form, exhibitionId) {
   return {
@@ -75,8 +78,10 @@ export const setExpensePaid = (id, paid) => unwrap(expenses().update({ paid }).e
 export const deleteExpense = (id) => unwrap(expenses().delete().eq('id', id))
 
 // ── Sponsors ─────────────────────────────────────────────────────────────
-export const listSponsors = (exhibitionId) =>
-  unwrap(sponsors().select('*').eq('exhibition_id', exhibitionId).order('created_at'))
+export const listSponsors = (exhibitionId) => {
+  const q = sponsors().select('*').order('created_at')
+  return unwrap(exhibitionId ? q.eq('exhibition_id', exhibitionId) : q)
+}
 
 export function toSponsorRow(form, exhibitionId) {
   return {
@@ -97,46 +102,72 @@ export const deleteSponsor = (id) => unwrap(sponsors().delete().eq('id', id))
 
 // ── Excel import ─────────────────────────────────────────────────────────
 /**
- * Apply a plan from planImport(): create the site map, then one exhibitor per participant
- * (linked to its client), assign their booths and record what they have paid so far.
+ * Apply a plan from planImport() + matchPlan(). Safe to run again with the same or an
+ * updated file:
+ *  - the site map is (re)built from the file (`replaceSites` must be set if one exists);
+ *  - participants already registered (same phone, else same name) are updated, others created,
+ *    all linked to their client record;
+ *  - only paid amounts not yet recorded are added as payments.
  * `onProgress(done, total)` is called after each participant.
  */
-export async function applyImport(exhibitionId, plan, onProgress = () => {}) {
+export async function applyImport(exhibitionId, plan, matched, { replaceSites = false } = {}, onProgress = () => {}) {
   const existing = await unwrap(sites().select('id').eq('exhibition_id', exhibitionId).limit(1))
-  if (existing.length) throw new Error('هذا المعرض لديه خارطة مواقع بالفعل. احذف الخارطة الحالية أولاً ثم أعد الاستيراد.')
+  if (existing.length && !replaceSites) throw new Error('هذا المعرض لديه خارطة مواقع بالفعل. وافق على استبدالها لإكمال الاستيراد.')
+  if (existing.length) await deleteAllSites(exhibitionId)
 
   await unwrap(sites().insert(plan.sites.map((s) => ({ exhibition_id: exhibitionId, number: s.number, tier: s.tier, price: s.price }))))
 
   const known = await unwrap(supabase.from('clients').select('id,name,phone'))
   let done = 0
-  for (const p of plan.exhibitors) {
-    const client_id = await findOrCreateClient({ brand: p.brand, manager: p.manager, phone: p.phone, category: p.category }, known)
-    const exhibitor = await createExhibitor({
-      client_id,
-      exhibition_id: exhibitionId,
-      brand: p.brand,
-      manager: p.manager,
-      phone: p.phone || '',
-      email: '',
-      category: p.category || '',
-      booth: formatRanges(p.numbers),
-      booth_size: '',
-      contract: p.contract,
-      paid: 0,
-      status: p.contract > 0 && p.paid >= p.contract ? 'مؤكد' : 'مبدئي',
-      notes: p.notes || '',
-    })
-    await unwrap(sites().update({ exhibitor_id: exhibitor.id }).eq('exhibition_id', exhibitionId).in('number', p.numbers))
-    if (p.paid > 0) {
+  for (const p of matched.participants) {
+    const client_id = p.existing?.client_id || (await findOrCreateClient({ brand: p.brand, manager: p.manager, phone: p.phone, category: p.category }, known))
+    const booth = formatRanges(p.numbers)
+    let exhibitorId
+    if (p.existing) {
+      const e = p.existing
+      const paidAfter = num(e.paid) + p.paidToRecord
+      await updateExhibitor(e.id, {
+        client_id,
+        contract: p.contract,
+        booth,
+        manager: e.manager || p.manager,
+        phone: e.phone || p.phone || '',
+        category: e.category || p.category || '',
+        notes: [e.notes, p.notes].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' | '),
+        status: e.status === 'مبدئي' && p.contract > 0 && paidAfter >= p.contract ? 'مؤكد' : e.status,
+      })
+      exhibitorId = e.id
+    } else {
+      const created = await createExhibitor({
+        client_id,
+        exhibition_id: exhibitionId,
+        brand: p.brand,
+        manager: p.manager,
+        phone: p.phone || '',
+        email: '',
+        category: p.category || '',
+        booth,
+        booth_size: '',
+        contract: p.contract,
+        paid: 0,
+        status: p.contract > 0 && p.paid >= p.contract ? 'مؤكد' : 'مبدئي',
+        notes: p.notes || '',
+      })
+      exhibitorId = created.id
+    }
+    await unwrap(sites().update({ exhibitor_id: exhibitorId }).eq('exhibition_id', exhibitionId).in('number', p.numbers))
+    if (p.paidToRecord > 0) {
       await recordPayment({
-        exhibitor_id: exhibitor.id,
-        amount: p.paid,
+        exhibitor_id: exhibitorId,
+        amount: p.paidToRecord,
         method: 'غير محدد',
-        type: p.paid >= p.contract ? 'كامل' : 'مقدمة',
+        type: p.existing ? 'جزئية' : p.paidToRecord >= p.contract ? 'كامل' : 'مقدمة',
         date: todayISO(),
         note: 'رصيد مستورد من ملف Excel',
       })
     }
-    onProgress(++done, plan.exhibitors.length)
+    onProgress(++done, matched.participants.length)
   }
+  // Registered exhibitors the file does not mention lost their sites with the replaced map.
+  if (existing.length) for (const e of matched.untouched) if (e.booth && e.booth !== '—') await updateExhibitor(e.id, { booth: '—' })
 }

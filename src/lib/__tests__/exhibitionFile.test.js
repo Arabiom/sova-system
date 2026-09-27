@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_TIERS } from '../constants.js'
 import { toCsv } from '../csv.js'
-import { clientHistory, exhibitionFinancials, occupancyOf } from '../finance.js'
+import { clientHistory, exhibitionFinancials, newReference, occupancyOf } from '../finance.js'
 import { phoneKey } from '../format.js'
-import { planImport } from '../importSheet.js'
+import { matchPlan, planImport } from '../importSheet.js'
+import { friendlyError } from '../../api/client.js'
+import { signedAmount } from '../../api/payments.js'
 import { formatRanges, parseRanges, siteStatus, tierColor, tiersFromSites } from '../sites.js'
 
 // The approved SOVA map from the business reference (46 sites, four price tiers).
@@ -187,5 +189,69 @@ describe('Excel participants import', () => {
 
   it('explains a file without the expected columns', () => {
     expect(() => planImport([['الاسم', 'الهاتف'], ['x', 1]])).toThrow('رقم الكشك')
+  })
+})
+
+describe('re-importing the same file', () => {
+  const plan = {
+    exhibitors: [
+      { brand: 'براند حسناء', manager: 'اميرة', phone: '77327714', numbers: [1, 2], contract: 350, paid: 100 },
+      { brand: 'دخونك', manager: 'ام يوسف', phone: '71499700', numbers: [17], contract: 100, paid: 80 },
+      { brand: 'ماهو', manager: 'خديجة', phone: '', numbers: [32], contract: 125, paid: 0 },
+    ],
+  }
+
+  it('creates everyone the first time', () => {
+    const m = matchPlan(plan, [])
+    expect(m).toMatchObject({ created: 3, updated: 0 })
+    expect(m.participants.map((p) => p.paidToRecord)).toEqual([100, 80, 0])
+  })
+
+  it('updates instead of duplicating, and records only new money', () => {
+    const existing = [
+      { id: 'a', brand: 'Hasna', phone: '+968 7732 7714', paid: 100 }, // same phone, different spelling
+      { id: 'b', brand: 'دخونك', phone: '71499700', paid: 50 },
+      { id: 'c', brand: 'ماهو', phone: '', paid: 0 }, // no phone: matched by name
+      { id: 'd', brand: 'عارض قديم', phone: '90000000', paid: 10 },
+    ]
+    const m = matchPlan(plan, existing)
+    expect(m).toMatchObject({ created: 0, updated: 3 })
+    expect(m.participants.map((p) => p.existing.id)).toEqual(['a', 'b', 'c'])
+    expect(m.participants.map((p) => p.paidToRecord)).toEqual([0, 30, 0])
+    expect(m.untouched.map((e) => e.id)).toEqual(['d'])
+  })
+
+  it('flags when the system already holds more than the file', () => {
+    const m = matchPlan(plan, [{ id: 'b', brand: 'دخونك', phone: '71499700', paid: 120 }])
+    expect(m.participants[1]).toMatchObject({ paidToRecord: 0, paidAhead: 40 })
+  })
+})
+
+describe('payments, references and errors', () => {
+  it('stores refunds as negative amounts whatever sign is typed', () => {
+    expect(signedAmount('إرجاع', 85)).toBe(-85)
+    expect(signedAmount('إرجاع', -85)).toBe(-85)
+    expect(signedAmount('كامل', -50)).toBe(50)
+  })
+
+  it('makes dated, non-repeating references', () => {
+    const now = new Date('2026-09-27T10:00:00Z')
+    expect(newReference('INV', now)).toMatch(/^INV-260927-[0-9A-Z]{4}$/)
+    const many = new Set(Array.from({ length: 200 }, () => newReference('INV', now)))
+    expect(many.size).toBeGreaterThan(195)
+  })
+
+  it('explains database errors in Arabic', () => {
+    expect(friendlyError({ code: '23503', message: 'violates foreign key constraint' })).toContain('بيانات مرتبطة')
+    expect(friendlyError({ code: 'PGRST205', message: 'Could not find the table' })).toContain('تحديث')
+    expect(friendlyError(new TypeError('Failed to fetch'))).toContain('الإنترنت')
+    expect(friendlyError({ message: 'something else' })).toBe('something else')
+  })
+
+  it('neutralises spreadsheet formulas in CSV but keeps negative numbers', () => {
+    const csv = toCsv([{ v: '=HYPERLINK("x")' }, { v: '-1340.000' }, { v: '@SUM(A1)' }], [{ label: 'v', value: (r) => r.v }])
+    expect(csv).toContain(`"'=HYPERLINK(""x"")"`)
+    expect(csv).toContain('\r\n-1340.000')
+    expect(csv).toContain("'@SUM(A1)")
   })
 })

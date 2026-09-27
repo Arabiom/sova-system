@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { countPendingBookings, watchBookings } from '../api/bookings.js'
 import { signOut, useAuth } from '../context/AuthContext.jsx'
 import { COMPANY } from '../lib/constants.js'
+import { Loading } from './Feedback.jsx'
 
 const NAV = [
   { section: 'الرئيسية' },
@@ -139,7 +140,9 @@ export default function Layout() {
       <div className="main">
         <Topbar page={page} onMenu={() => setMenuOpen(true)} />
         <main key={location.pathname} className="content fade-in">
-          <Outlet />
+          <Suspense fallback={<Loading />}>
+            <Outlet />
+          </Suspense>
         </main>
         <footer className="footer">
           <div>

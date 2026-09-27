@@ -1,7 +1,9 @@
 /** Build a CSV file Excel opens correctly with Arabic text (UTF-8 BOM, CRLF). */
 export function toCsv(rows, columns) {
   const escape = (v) => {
-    const s = v === null || v === undefined ? '' : String(v)
+    let s = v === null || v === undefined ? '' : String(v)
+    // Text starting with = + - @ would run as a formula in Excel; numbers are left alone.
+    if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`
     return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
   }
   const lines = [columns.map((c) => escape(c.label)).join(',')]

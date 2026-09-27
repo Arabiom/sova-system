@@ -34,9 +34,9 @@ function page(body, { footer = `${COMPANY.name} | ${COMPANY.cr} | ${COMPANY.bran
     <div style="background:${INK};padding:26px 48px;display:flex;justify-content:space-between;align-items:center">
       <div>
         <div style="color:${GOLD};font-size:30px;font-weight:900;letter-spacing:6px;line-height:1">SOVA</div>
-        <div style="color:#B4A078;font-size:12px;margin-top:6px">${COMPANY.name}</div>
+        <div style="color:#B4A078;font-size:12px;margin-top:6px">${COMPANY.legalName}</div>
       </div>
-      <div style="color:#B4A078;font-size:12px;text-align:left;direction:ltr">${COMPANY.cr}<br>${COMPANY.brandFull}</div>
+      <div style="color:#B4A078;font-size:11px;text-align:left;direction:ltr;line-height:1.7">${COMPANY.nameEn} • ${COMPANY.cr}<br>☎ ${COMPANY.phone} • WhatsApp ${COMPANY.whatsapp.replace(/^968/, '')}<br>${COMPANY.email} • ${COMPANY.instagram}</div>
     </div>
     <div style="flex:1;padding:32px 48px">${body}</div>
     <div style="background:${INK};color:${GOLD};font-size:11px;text-align:center;padding:14px">${escapeHtml(footer)}</div>
@@ -117,7 +117,7 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
     [
       'المعرض',
       exhibition
-        ? rawHtml(`SOVA ${escapeHtml(exhibition.city)} — من ${bdi(exhibition.date_from)} إلى ${bdi(exhibition.date_to)}`)
+        ? rawHtml(`${escapeHtml(exhibition.name?.trim() || `SOVA ${exhibition.city}`)} — من ${bdi(exhibition.date_from)} إلى ${bdi(exhibition.date_to)}`)
         : '—',
       'Exhibition',
     ],
@@ -149,9 +149,10 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
     <div style="margin-top:8px;font-size:12px;line-height:2">
       ${terms.map((t, i) => `<div>${i + 1}. ${t}</div>`).join('')}
     </div>
+    <div style="margin-top:12px;font-size:12px;color:#6B5A40">طريقة السداد: تحويل بنكي إلى ${COMPANY.bank}، أو نقداً مقابل إيصال.</div>
     <div style="display:flex;justify-content:space-between;margin-top:40px">
       ${signature('توقيع العارض')}
-      ${signature('إدارة SOVA')}
+      ${signature(`إدارة SOVA<br><span style="font-weight:400;font-size:12px">${COMPANY.signatory}</span>`)}
     </div>`)
 }
 
@@ -160,7 +161,7 @@ export function receiptHtml(payment, exhibitor, exhibition, { date = today() } =
     ['رقم الإيصال', payment.invoice_no || '—', 'Invoice No.'],
     ['التاريخ', payment.date || date, 'Date'],
     ['العارض', exhibitor?.brand || '—', 'Exhibitor'],
-    ['المعرض', exhibition ? rawHtml(`SOVA ${escapeHtml(exhibition.city)} — ${bdi(monthOf(exhibition.date_from))}`) : '—', 'Exhibition'],
+    ['المعرض', exhibition ? rawHtml(`${escapeHtml(exhibition.name?.trim() || `SOVA ${exhibition.city}`)} — ${bdi(monthOf(exhibition.date_from))}`) : '—', 'Exhibition'],
     ['المبلغ', omr(payment.amount), 'Amount'],
     ['الضريبة 5%', omr(vatOf(payment.amount)), 'VAT (5%)'],
     ['الإجمالي', omr(withVat(payment.amount)), 'Total'],
@@ -168,11 +169,15 @@ export function receiptHtml(payment, exhibitor, exhibition, { date = today() } =
     ['نوع الدفعة', payment.type || '—', 'Type'],
     ['ملاحظة', payment.note || '—', 'Note'],
   ]
+  const refund = num(payment.amount) < 0
   return page(`
-    ${title('إيصال دفع', 'Payment Receipt')}
+    ${refund ? title('إيصال إرجاع مبلغ', 'Refund Receipt') : title('إيصال دفع', 'Payment Receipt')}
     ${rowsTable(rows)}
-    <div style="margin-top:24px;background:${GOLD};padding:16px;border-radius:8px;text-align:center;font-size:18px;font-weight:900">
-      إجمالي المدفوع: ${bdi(omr(withVat(payment.amount)))}
+    <div style="margin-top:24px;background:${refund ? '#FDEAEA' : GOLD};padding:16px;border-radius:8px;text-align:center;font-size:18px;font-weight:900">
+      ${refund ? 'إجمالي المبلغ المُرجَع' : 'إجمالي المدفوع'}: ${bdi(omr(Math.abs(withVat(payment.amount))))}
+    </div>
+    <div style="margin-top:14px;font-size:12px;color:#6B5A40;text-align:center">
+      التحويل البنكي: ${COMPANY.bank}
     </div>`)
 }
 
@@ -189,7 +194,7 @@ export function reportHtml({ exhibitions, exhibitors, sites = [] }, exhibitionId
       const { booked, capacity } = occupancyOf(ex, sites, exhibitors)
       return `<div style="margin-bottom:16px;break-inside:avoid">
         <div style="background:${INK};color:${GOLD};padding:8px 14px;font-weight:800;font-size:14px;border-radius:6px 6px 0 0">
-          SOVA ${escapeHtml(ex.city)} — ${bdi(monthOf(ex.date_from))} <span style="color:#B4A078;font-weight:400">| ${escapeHtml(ex.mall || '')}</span>
+          ${escapeHtml(ex.name?.trim() || `SOVA ${ex.city}`)} — ${bdi(monthOf(ex.date_from))} <span style="color:#B4A078;font-weight:400">| ${escapeHtml(ex.mall || '')}</span>
         </div>
         ${rowsTable([
           ['المواقع المحجوزة', `${booked} / ${capacity}`, 'Sites'],
