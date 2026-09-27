@@ -14,7 +14,8 @@ describe('pdf templates', () => {
     expect(html).toContain('400.000 OMR')
     expect(html).toContain('20.000 OMR')
     expect(html).toContain('420.000 OMR')
-    expect(html).toContain('300.000 OMR')
+    expect(html).toContain('105.000 OMR') // paid 100 + VAT
+    expect(html).toContain('315.000 OMR') // remaining with VAT: 420 − 105
   })
 
   it('uses the stored invoice number on receipts', () => {

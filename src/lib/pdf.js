@@ -109,50 +109,92 @@ async function renderPdf(html, filename) {
 const safeName = (value) => String(value || 'SOVA').trim().replace(/[\s/\\?%*:|"<>]+/g, '-')
 
 export function contractHtml(exhibitor, exhibition, { contractNo, date = today() } = {}) {
-  const contract = num(exhibitor.contract)
-  const rows = [
-    ['رقم العقد', contractNo, 'Contract No.'],
-    ['التاريخ', date, 'Date'],
-    ['العلامة التجارية', exhibitor.brand || '—', 'Brand'],
-    ['المسؤول', exhibitor.manager || '—', 'Manager'],
-    ['الجوال', exhibitor.phone || '—', 'Phone'],
-    ['البريد', exhibitor.email || '—', 'Email'],
-    ['التصنيف', exhibitor.category || '—', 'Category'],
-    [
-      'المعرض',
-      exhibition
-        ? rawHtml(`${escapeHtml(exhibition.name?.trim() || `SOVA ${exhibition.city}`)} — من ${bdi(exhibition.date_from)} إلى ${bdi(exhibition.date_to)}`)
-        : '—',
-      'Exhibition',
-    ],
-    ['الموقع', exhibition?.mall || '—', 'Venue'],
-    ['رقم البوث', exhibitor.booth || '—', 'Booth No.'],
-    ['حجم البوث', exhibitor.booth_size || '—', 'Booth Size'],
-    ['قيمة العقد', omr(contract), 'Contract Value'],
-    ['ضريبة القيمة المضافة 5%', omr(vatOf(contract)), 'VAT (5%)'],
-    ['الإجمالي', omr(withVat(contract)), 'Total'],
-    ['المدفوع', omr(exhibitor.paid), 'Paid'],
-    ['المتبقي', omr(contract - num(exhibitor.paid)), 'Remaining'],
-    ['الحالة', exhibitor.status || '—', 'Status'],
-  ]
-  const terms = PARTICIPATION_TERMS.map((t) => `<strong>${t.title}:</strong> ${t.text}`)
-  const signature = (label) => `<div style="width:40%;text-align:center">
-      <div style="font-weight:700;font-size:13px;margin-bottom:40px">${label}</div>
-      <div style="border-top:1.5px solid ${INK}"></div>
+  const e = exhibitor
+  const contract = num(e.contract)
+  const paid = num(e.paid)
+  const pkg = BOOTH_PACKAGES.find((p) => p.name === e.booth_type)
+  const exName = exhibition ? escapeHtml(exhibition.name?.trim() || `SOVA ${exhibition.city}`) : '—'
+  const money = (v) => bdi(omr(v))
+  const box = (label, value) => `<div style="padding:6px 0;border-bottom:1px solid #EFE7D6">
+      <div style="font-size:11px;color:#6B5A40">${label}</div>
+      <div dir="auto" style="font-size:14px;font-weight:700;color:${INK};min-height:19px">${value}</div>
     </div>`
+  const section = (text) => `<div style="font-size:14px;font-weight:900;margin:14px 0 4px;padding-bottom:4px;border-bottom:2px solid ${GOLD}">${text}</div>`
+  const sumRow = (label, value, strong) =>
+    `<div style="display:flex;justify-content:space-between;padding:5px 0;${strong ? `font-weight:900;font-size:15px;border-top:1.5px solid ${INK};margin-top:2px` : 'font-size:13px'}">
+      <span>${label}</span><span>${money(value)}</span></div>`
 
-  return page(`
-    ${title('عقد حجز بوث معرض', 'Exhibition Booth Contract')}
-    ${rowsTable(rows)}
-    <div style="margin-top:14px;font-size:14px;font-weight:800">الشروط والأحكام</div>
-    <div style="margin-top:4px;font-size:10.5px;line-height:1.75">
-      ${terms.map((t, i) => `<div>${i + 1}. ${t}</div>`).join('')}
+  return page(
+    `<div style="display:flex;justify-content:space-between;align-items:flex-end">
+      <div>
+        <div style="font-size:26px;font-weight:900">عقد حجز موقع في معرض</div>
+        <div style="font-size:12px;color:#8A7A60;direction:ltr;text-align:right">Exhibition Booth Contract</div>
+      </div>
+      <div style="font-size:13px;line-height:1.8;text-align:left">
+        رقم العقد: <strong>${bdi(contractNo || '—')}</strong><br>
+        التاريخ: <strong>${bdi(date)}</strong>
+      </div>
     </div>
-    <div style="margin-top:8px;font-size:12px;color:#6B5A40">طريقة السداد: تحويل بنكي إلى ${COMPANY.bank}، أو نقداً مقابل إيصال.</div>
-    <div style="display:flex;justify-content:space-between;margin-top:22px">
-      ${signature('توقيع العارض')}
-      ${signature(`${COMPANY.legalName}<br><span style="font-weight:400;font-size:12px">${COMPANY.signatory}</span>`)}
-    </div>`)
+
+    ${section('الطرف الثاني — المشارك')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:30px">
+      ${box('اسم المشروع / العلامة التجارية', escapeHtml(e.brand || '—'))}
+      ${box('اسم المسؤول', escapeHtml(e.manager || '—'))}
+      ${box('رقم التواصل', bdi(e.phone || '—'))}
+      ${box(e.civil_id ? 'الرقم المدني' : 'البريد الإلكتروني', bdi(e.civil_id || e.email || '—'))}
+      ${box('القطاع / النشاط', escapeHtml(e.category || '—'))}
+      ${box('نوع المنتجات', escapeHtml(e.products || '—'))}
+    </div>
+
+    ${section('المعرض والموقع')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:30px">
+      ${box('المعرض', exName)}
+      ${box('المكان', escapeHtml(exhibition?.mall || '—'))}
+      ${box('المدة', exhibition ? `من ${bdi(exhibition.date_from)} إلى ${bdi(exhibition.date_to)}` : '—')}
+      ${box('رقم الموقع', `<span style="font-size:17px">${bdi(e.booth && e.booth !== '—' ? e.booth : '—')}</span>`)}
+      ${box('نظام البوث', `${escapeHtml(e.booth_type || '—')}${pkg ? `<div style="font-size:10.5px;font-weight:400;color:#6B5A40">${escapeHtml(pkg.includes)}</div>` : ''}`)}
+      ${box('المساحة', escapeHtml(e.booth_size || '—'))}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:18px;margin-top:14px;align-items:start">
+      <div style="background:#FDFAF5;border:1px solid #EFE7D6;border-radius:10px;padding:10px 14px">
+        <div style="font-size:14px;font-weight:900;margin-bottom:4px">القيمة المالية</div>
+        ${sumRow('قيمة العقد', contract)}
+        ${sumRow('ضريبة القيمة المضافة 5%', vatOf(contract))}
+        ${sumRow('الإجمالي', withVat(contract), true)}
+      </div>
+      <div style="background:#FDFAF5;border:1px solid #EFE7D6;border-radius:10px;padding:10px 14px">
+        <div style="font-size:14px;font-weight:900;margin-bottom:4px">السداد</div>
+        ${sumRow('المدفوع', withVat(paid))}
+        ${sumRow('المتبقي', Math.max(0, withVat(contract) - withVat(paid)), true)}
+        <div style="font-size:11px;color:#6B5A40;margin-top:4px">حالة العقد: <strong>${escapeHtml(e.status || '—')}</strong></div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#6B5A40;margin-top:6px">طريقة السداد: تحويل بنكي إلى ${COMPANY.bank}، أو نقداً مقابل إيصال. المبالغ بالريال العُماني.</div>
+
+    ${section('الشروط والأحكام')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:22px;row-gap:5px">
+      ${PARTICIPATION_TERMS.map(
+        (t, i) => `<div style="font-size:11px;line-height:1.6">
+          <strong style="color:${INK}">${bdi(i + 1)}. ${t.title}:</strong> <span style="color:#3A2E22">${t.text}</span>
+        </div>`,
+      ).join('')}
+    </div>
+
+    <div style="display:flex;justify-content:space-between;margin-top:22px;font-size:12px">
+      <div style="width:44%">
+        <div style="font-weight:800;min-height:38px">الطرف الثاني (المشارك)<br><span style="font-weight:600">${escapeHtml(e.manager || e.brand || '')}</span></div>
+        <div style="height:30px"></div>
+        <div style="border-top:1.5px solid ${INK};padding-top:3px;color:#6B5A40">التوقيع</div>
+      </div>
+      <div style="width:44%">
+        <div style="font-weight:800;min-height:38px">الطرف الأول: ${COMPANY.legalName}<br><span style="font-weight:600">${COMPANY.signatory}</span></div>
+        <div style="height:30px"></div>
+        <div style="border-top:1.5px solid ${INK};padding-top:3px;color:#6B5A40">التوقيع والختم</div>
+      </div>
+    </div>`,
+    { exactHeight: true },
+  )
 }
 
 export function receiptHtml(payment, exhibitor, exhibition, { date = today() } = {}) {
