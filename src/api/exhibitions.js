@@ -47,6 +47,8 @@ export function toExhibitionRow(form) {
     row[`booth_tier${i}_price`] = t?.price || tier.price
     row[`booth_tier${i}_count`] = t?.count || 0
   })
+  // Attached map image (only sent when the form has the field, so older databases still save).
+  if ('map_path' in form) row.map_path = form.map_path || null
   // The total typed on the form wins; otherwise the tiers add up to it.
   row.booths = num(form.booths) || tiers.reduce((sum, t) => sum + t.count, 0)
   // Legacy single-price column: the middle tier's price.
@@ -59,24 +61,35 @@ export function newExhibitionForm() {
   return { status: 'تخطيط', tiers: [{ name: '', price: '', count: '' }] }
 }
 
-/** Before migration 005 the `tiers` column does not exist: save the first three tiers only. */
-const missingTiersColumn = (err) => {
+/** Name of a column the database does not have yet (migration not run), from its error. */
+function missingColumn(err) {
   const e = err?.cause || err
-  return e?.code === 'PGRST204' ? /tiers/.test(e.message || '') : /tiers/.test(e?.message || '') && /column/i.test(e?.message || '')
+  const m = String(e?.message || '').match(/'(\w+)' column/)
+  return e?.code === 'PGRST204' && m ? m[1] : ''
 }
 
+/**
+ * Save the exhibition. Before migration 005 there is no `tiers` column: the first three
+ * tiers are still saved in the old columns. Before 006 there is no `map_path` column.
+ */
 export async function saveExhibition(form, id) {
-  const row = toExhibitionRow(form)
+  let row = toExhibitionRow(form)
   const write = (r) => unwrap(id ? table().update(r).eq('id', id) : table().insert(r))
-  try {
-    return await write(row)
-  } catch (err) {
-    if (!missingTiersColumn(err)) throw err
-    if (row.tiers.length > 3) {
-      throw new Error('لحفظ أكثر من 3 فئات شغّل تحديث قاعدة البيانات 005 في Supabase أولاً.', { cause: err })
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await write(row)
+    } catch (err) {
+      const column = missingColumn(err)
+      if (!column || attempt > 2 || !(column in row)) throw err
+      if (column === 'tiers' && row.tiers.length > 3) {
+        throw new Error('لحفظ أكثر من 3 فئات شغّل تحديث قاعدة البيانات 005 في Supabase أولاً.', { cause: err })
+      }
+      if (column === 'map_path' && row.map_path) {
+        throw new Error('لحفظ الخارطة شغّل تحديث قاعدة البيانات 006 في Supabase أولاً.', { cause: err })
+      }
+      const { [column]: _unused, ...rest } = row
+      row = rest
     }
-    const { tiers: _unused, ...legacy } = row
-    return write(legacy)
   }
 }
 

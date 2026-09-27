@@ -7,6 +7,8 @@ import { listExhibitors } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
 import Button from '../components/Button.jsx'
 import ExhibitionForm from '../components/ExhibitionForm.jsx'
+import ExhibitionMap from '../components/ExhibitionMap.jsx'
+import Panel from '../components/Panel.jsx'
 import { EmptyState, Loading } from '../components/Feedback.jsx'
 import { ProgressBar } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
@@ -195,6 +197,11 @@ export default function ExhibitionFile() {
         ))}
       </div>
 
+      {tab === 'sites' && ex.map_path && (
+        <Panel icon="🗺️" title="خارطة المعرض" className="map-panel">
+          <ExhibitionMap key={ex.map_path} path={ex.map_path} />
+        </Panel>
+      )}
       {tab === 'sites' && <SitesTab exhibition={ex} sites={sites} exhibitors={own} canManage={canManage} onChanged={reload} />}
       {tab === 'participants' && <ParticipantsTab exhibition={ex} exhibitions={exhibitions} exhibitors={own} clients={clients} onChanged={reload} />}
       {internal && tab === 'expenses' && <ExpensesTab exhibitionId={ex.id} expenses={expenses} onChanged={reload} />}

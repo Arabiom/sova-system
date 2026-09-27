@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import DateInput from './DateInput.jsx'
 import { formTiers, saveExhibition } from '../api/exhibitions.js'
+import { checkMapFile, MAP_MAX_MB, removeMapFile, uploadMap } from '../api/maps.js'
+import ExhibitionMap from './ExhibitionMap.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { CITIES, EXHIBITION_STATUSES } from '../lib/constants.js'
 import { num } from '../lib/format.js'
@@ -14,6 +16,29 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
   const toast = useToast()
   const [form, setForm] = useState(() => ({ ...initial, tiers: formTiers(initial) }))
   const [saving, setSaving] = useState(false)
+  // Map: a newly chosen file (uploaded on save), or the saved one being removed.
+  const [mapFile, setMapFile] = useState(null)
+  const [mapPreview, setMapPreview] = useState('')
+  const [removeMap, setRemoveMap] = useState(false)
+  const savedMap = initial.map_path || ''
+
+  const chooseMap = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const problem = checkMapFile(file)
+    if (problem) return toast(problem, 'error')
+    if (mapPreview) URL.revokeObjectURL(mapPreview)
+    setMapFile(file)
+    setMapPreview(file.type.startsWith('image/') ? URL.createObjectURL(file) : '')
+    setRemoveMap(false)
+  }
+  const clearMap = () => {
+    if (mapPreview) URL.revokeObjectURL(mapPreview)
+    setMapFile(null)
+    setMapPreview('')
+    setRemoveMap(Boolean(savedMap))
+  }
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const tierBooths = form.tiers.reduce((t, x) => t + num(x.count), 0)
   const setTier = (index, key) => (e) =>
@@ -27,7 +52,12 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
     if (form.date_to < form.date_from) return toast('تاريخ النهاية قبل تاريخ البداية', 'error')
     setSaving(true)
     try {
-      await saveExhibition(form, id)
+      let map_path = savedMap
+      if (mapFile) map_path = await uploadMap(mapFile)
+      else if (removeMap) map_path = ''
+      const mapChanged = map_path !== savedMap
+      await saveExhibition(mapChanged ? { ...form, map_path } : form, id)
+      if (mapChanged && savedMap) await removeMapFile(savedMap)
       toast(id ? '✅ تم التحديث' : '✅ تم إضافة المعرض')
       onSaved()
     } catch (err) {
@@ -117,6 +147,32 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
         </Button>
         <div className="tier-total">
           مجموع الفئات: <strong>{tierBooths} بوث</strong> — إجمالي المعرض: <strong>{totalBooths} بوث</strong>
+        </div>
+      </div>
+
+      <div className="tier-box mt-14">
+        <div className="tier-box-title">🗺️ خارطة المعرض</div>
+        <div className="muted tiny mb-10">صورة الخارطة التي صممتها (PNG أو JPG أو PDF، حتى {MAP_MAX_MB} ميجابايت). تظهر في ملف المعرض وصفحة تسجيل المشارك.</div>
+        {mapFile ? (
+          <div className="map-chosen">
+            {mapPreview ? <img src={mapPreview} alt="الخارطة المختارة" className="map-img" /> : <div className="map-pdf">📄 {mapFile.name}</div>}
+            <div className="muted tiny">تُرفع عند الحفظ</div>
+          </div>
+        ) : savedMap && !removeMap ? (
+          <ExhibitionMap path={savedMap} compact />
+        ) : (
+          <div className="muted small mb-10">{removeMap ? 'ستُحذف الخارطة عند الحفظ.' : 'لا توجد خارطة مرفقة.'}</div>
+        )}
+        <div className="row-actions mt-8">
+          <label className="btn btn-outline btn-sm file-pick">
+            {mapFile || (savedMap && !removeMap) ? '🔄 استبدال الخارطة' : '📎 إرفاق خارطة'}
+            <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" onChange={chooseMap} hidden />
+          </label>
+          {(mapFile || (savedMap && !removeMap)) && (
+            <Button size="sm" variant="danger" onClick={clearMap}>
+              🗑️ إزالة
+            </Button>
+          )}
         </div>
       </div>
 

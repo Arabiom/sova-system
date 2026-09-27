@@ -6,6 +6,7 @@ import { listSites } from '../api/exhibitionFile.js'
 import { registerParticipant, validateRegistration } from '../api/registration.js'
 import Button from '../components/Button.jsx'
 import { EmptyState, Loading } from '../components/Feedback.jsx'
+import ExhibitionMap from '../components/ExhibitionMap.jsx'
 import Field from '../components/Field.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import Panel from '../components/Panel.jsx'
@@ -217,6 +218,12 @@ export default function Register() {
           </Panel>
 
           <Panel icon="📍" title="نظام البوث والموقع" subtitle={BOOTH_NOTE}>
+            {exhibition?.map_path && (
+              <details className="map-details mb-16">
+                <summary>🗺️ عرض خارطة المعرض</summary>
+                <ExhibitionMap key={exhibition.map_path} path={exhibition.map_path} />
+              </details>
+            )}
             <Choices
               options={BOOTH_PACKAGES}
               keyOf={(p) => p.name}
