@@ -162,4 +162,8 @@ export const STATUS_TONES = {
   'متاح': 'neutral',
   'محجوز': 'warning',
   'مدفوع جزئياً': 'info',
+  'بانتظار المراجعة': 'warning',
+  'بانتظار التأكيد': 'warning',
+  'معتمد': 'info',
+  'تم التعويض': 'success',
 }

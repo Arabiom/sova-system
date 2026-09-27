@@ -13,6 +13,7 @@ const ExhibitionFile = lazy(() => import('./pages/ExhibitionFile.jsx'))
 const Exhibitions = lazy(() => import('./pages/Exhibitions.jsx'))
 const Exhibitors = lazy(() => import('./pages/Exhibitors.jsx'))
 const Register = lazy(() => import('./pages/Register.jsx'))
+const Expenses = lazy(() => import('./pages/Expenses.jsx'))
 const Reports = lazy(() => import('./pages/Reports.jsx'))
 const Sales = lazy(() => import('./pages/Sales.jsx'))
 const WhatsApp = lazy(() => import('./pages/WhatsApp.jsx'))
@@ -85,6 +86,7 @@ export default function App() {
             </Allow>
           }
         />
+        <Route path="/expenses" element={<Expenses />} />
         <Route path="/whatsapp" element={<WhatsApp />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
