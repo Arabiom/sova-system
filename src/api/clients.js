@@ -1,5 +1,5 @@
 import { phoneKey } from '../lib/format.js'
-import { supabase, unwrap } from './client.js'
+import { friendlyError, supabase, unwrap } from './client.js'
 
 const table = () => supabase.from('clients')
 
@@ -27,6 +27,27 @@ export const saveClient = (form, id) =>
 export const deleteClient = (id) => unwrap(table().delete().eq('id', id))
 
 /**
+ * Check a number or name against the WHOLE client database (migration 010): who added it and
+ * when. Returns [] when the check is not available yet (010 not run).
+ */
+export async function findClient(q) {
+  if (!String(q || '').trim()) return []
+  const { data, error } = await supabase.rpc('find_client', { q: String(q).trim() })
+  if (error) {
+    if (error.code === 'PGRST202' || /find_client/.test(error.message || '')) return []
+    throw new Error(friendlyError(error), { cause: error })
+  }
+  return data || []
+}
+
+/** The client already registered with this phone number (anyone's), or null. */
+export async function clientWithPhone(phone) {
+  if (!phoneKey(phone)) return null
+  const rows = await findClient(phone)
+  return rows.find((r) => r.matched_by === 'phone') || null
+}
+
+/**
  * The client matching this person/brand — same phone number, else same name — creating
  * it when there is none. `known` (optional) is an already-loaded client list to search first.
  */
@@ -38,6 +59,11 @@ export async function findOrCreateClient({ brand, manager, phone, email, categor
     (key && clients.find((c) => phoneKey(c.phone) === key)) ||
     (!key && name && clients.find((c) => c.name?.trim().toLowerCase() === name.toLowerCase()))
   if (match) return match.id
+  // Employees see only their own clients: the number may belong to a colleague's client.
+  if (key) {
+    const other = await clientWithPhone(phone)
+    if (other) return other.id
+  }
 
   const created = await unwrap(
     table()

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { deleteClient, listClients, saveClient } from '../api/clients.js'
+import { clientWithPhone, deleteClient, findClient, listClients, saveClient } from '../api/clients.js'
+import { listStaff } from '../api/staff.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import Button from '../components/Button.jsx'
@@ -14,10 +15,10 @@ import { useToast } from '../context/ToastContext.jsx'
 import { CITIES, CLIENT_SOURCES, CLIENT_STATUSES, SECTOR_SUGGESTIONS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
 import { clientHistory } from '../lib/finance.js'
-import { exhibitionLabel, exhibitionTitle, formatOMR, todayISO } from '../lib/format.js'
+import { exhibitionLabel, exhibitionTitle, formatDate, formatOMR, phoneKey, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { invitationMessage, openWhatsApp } from '../lib/whatsapp.js'
-import { useCan, useCanEdit } from '../context/AuthContext.jsx'
+import { useAuth, useCan, useCanEdit } from '../context/AuthContext.jsx'
 
 const load = async () => {
   const [clients, exhibitors, exhibitions] = await Promise.all([
@@ -25,7 +26,8 @@ const load = async () => {
     listExhibitors({ columns: 'id,client_id,exhibition_id,brand,booth,contract,paid,status' }),
     listExhibitions(),
   ])
-  return { clients, exhibitors, exhibitions }
+  const staff = await listStaff().catch(() => []) // names of who added each client (admin/finance)
+  return { clients, exhibitors, exhibitions, staff }
 }
 
 const SORTS = {
@@ -42,14 +44,77 @@ const SORTS = {
 
 const distinct = (values) => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ar'))
 
+/** "هذا المشروع تمت إضافته من قبل: «X» — أضافه أحمد بتاريخ …" */
+const duplicateText = (c) =>
+  `هذا المشروع تمت إضافته من قبل: «${c.name}» — أضافه ${c.owner_is_me ? 'أنت' : c.owner_name} بتاريخ ${formatDate(c.created_at)}`
+
+/** Check any number or name against the whole company database before adding a project. */
+function LookupBox() {
+  const [q, setQ] = useState('')
+  const [result, setResult] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const toast = useToast()
+  const run = async (e) => {
+    e?.preventDefault()
+    if (q.trim().length < 3) return toast('اكتب رقم الهاتف أو 3 أحرف من الاسم على الأقل', 'error')
+    setBusy(true)
+    try {
+      setResult(await findClient(q))
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <form className="panel panel-pad mb-16 lookup-box" onSubmit={run}>
+      <div className="strong mb-8">🔎 هل المشروع مسجل في قاعدة الشركة؟</div>
+      <div className="input-with-action">
+        <input className="input" placeholder="رقم الهاتف أو اسم المشروع" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Button type="submit" disabled={busy}>
+          {busy ? '...' : 'بحث'}
+        </Button>
+      </div>
+      {result && (
+        <div className="mt-8">
+          {result.length ? (
+            result.map((c) => (
+              <div key={c.id} className={`alert ${c.matched_by === 'phone' ? 'alert-danger' : 'alert-warning'} mb-8`}>
+                {c.matched_by === 'phone' ? '⛔ الرقم مسجل: ' : 'اسم مشابه: '}«{c.name}» — أضافه {c.owner_is_me ? 'أنت' : c.owner_name} بتاريخ {formatDate(c.created_at)}
+              </div>
+            ))
+          ) : (
+            <div className="alert alert-success">✓ غير مسجل — يمكنك إضافته</div>
+          )}
+        </div>
+      )}
+    </form>
+  )
+}
+
 function ClientForm({ initial, id, onClose, onSaved, sectors }) {
   const toast = useToast()
   const [form, setForm] = useState(initial)
   const [saving, setSaving] = useState(false)
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  const [duplicate, setDuplicate] = useState(null) // the client already registered with this number
+
+  // One number = one client in the whole company database (migration 010).
+  const checkPhone = async (phone = form.phone) => {
+    try {
+      const found = await clientWithPhone(phone)
+      const other = found && found.id !== id ? found : null
+      setDuplicate(other)
+      return other
+    } catch {
+      return null
+    }
+  }
 
   const submit = async () => {
     if (!form.name?.trim()) return toast('اكتب اسم العميل أو العلامة التجارية', 'error')
+    const taken = phoneKey(form.phone) ? await checkPhone() : null
+    if (taken) return toast(duplicateText(taken), 'error')
     setSaving(true)
     try {
       await saveClient(form, id)
@@ -85,8 +150,19 @@ function ClientForm({ initial, id, onClose, onSaved, sectors }) {
         <Field label="الشخص المسؤول">
           <input className="input" value={form.contact_name || ''} onChange={set('contact_name')} />
         </Field>
-        <Field label="الهاتف">
-          <input className="input" type="tel" dir="ltr" placeholder="9XXXXXXX" value={form.phone || ''} onChange={set('phone')} />
+        <Field label="الهاتف" hint="رقم واحد لكل مشروع — لا يُسجَّل الرقم مرتين في قاعدة الشركة">
+          <input
+            className={`input ${duplicate ? 'input-invalid' : ''}`}
+            type="tel"
+            dir="ltr"
+            placeholder="9XXXXXXX"
+            value={form.phone || ''}
+            onChange={(e) => {
+              set('phone')(e)
+              setDuplicate(null)
+            }}
+            onBlur={() => checkPhone()}
+          />
         </Field>
         <Field label="واتساب" hint="اتركه فارغاً إذا كان نفس رقم الهاتف">
           <input className="input" type="tel" dir="ltr" value={form.whatsapp || ''} onChange={set('whatsapp')} />
@@ -120,6 +196,7 @@ function ClientForm({ initial, id, onClose, onSaved, sectors }) {
           <SelectOptions options={CLIENT_STATUSES} placeholder={null} value={form.status || 'نشط'} onChange={set('status')} />
         </Field>
       </div>
+      {duplicate && <div className="alert alert-danger">⚠️ {duplicateText(duplicate)}</div>}
       <Field label="ملاحظات">
         <textarea className="input" rows={3} value={form.notes || ''} onChange={set('notes')} />
       </Field>
@@ -285,6 +362,8 @@ export default function Clients() {
   const canDelete = useCan('records.delete')
   const money = useCan('money.view') // marketing: names and details, no amounts
   const canEdit = useCanEdit() // a marketer edits only the clients they entered
+  const everyone = useCan('records.edit.any') // admin/finance see the whole database; others their own clients
+  const { session } = useAuth()
   const { data, loading, reload } = useData(load, null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({ sector: '', city: '', status: '', source: '', participation: '' })
@@ -294,7 +373,23 @@ export default function Clients() {
   const [inviting, setInviting] = useState(false)
 
   if (loading || !data) return <Loading />
-  const { clients, exhibitors, exhibitions } = data
+  const { clients, exhibitors, exhibitions, staff } = data
+  const addedBy = (c) => {
+    if (!c.created_by) return '—'
+    if (c.created_by === session?.user?.id) return 'أنت'
+    const s = staff.find((x) => x.user_id === c.created_by)
+    return s?.name || s?.email || '—'
+  }
+  // Numbers registered more than once before duplicates were blocked (manager's clean-up list).
+  const duplicateGroups = everyone
+    ? Object.values(
+        clients.reduce((groups, c) => {
+          const key = phoneKey(c.phone)
+          if (key) (groups[key] ||= []).push(c)
+          return groups
+        }, {}),
+      ).filter((g) => g.length > 1)
+    : []
 
   const enriched = clients.map((c) => ({ ...c, h: clientHistory(c, exhibitors, exhibitions) }))
   const sectors = distinct([...SECTOR_SUGGESTIONS, ...clients.map((c) => c.sector)])
@@ -355,6 +450,7 @@ export default function Clients() {
           ]
         : []),
       { label: 'ملاحظات', value: (c) => c.notes },
+      ...(everyone ? [{ label: 'أضافه', value: (c) => addedBy(c) }] : []),
     ])
 
   const totals = {
@@ -366,7 +462,10 @@ export default function Clients() {
 
   return (
     <>
-      <PageHeader title="العملاء" subtitle="قاعدة بيانات كل عملاء الشركة وسجل مشاركاتهم">
+      <PageHeader
+        title={everyone ? 'العملاء' : 'عملائي'}
+        subtitle={everyone ? 'قاعدة بيانات كل عملاء الشركة، ومن أضاف كل عميل، وسجل مشاركاتهم' : 'المشاريع التي أضفتها — ابحث أولاً للتأكد أن المشروع غير مسجل'}
+      >
         <Button variant="outline" onClick={exportCsv} disabled={!visible.length}>
           ⬇️ تصدير Excel
         </Button>
@@ -375,6 +474,19 @@ export default function Clients() {
         </Button>
         <Button onClick={() => setEditing({ form: { status: 'نشط' }, id: null })}>+ إضافة عميل</Button>
       </PageHeader>
+
+      <LookupBox />
+
+      {duplicateGroups.length > 0 && (
+        <div className="alert alert-warning">
+          ⚠️ {duplicateGroups.length} رقم مسجل لأكثر من عميل (من قبل منع التكرار):{' '}
+          {duplicateGroups
+            .slice(0, 5)
+            .map((g) => g.map((c) => c.name).join(' / '))
+            .join('، ')}
+          {duplicateGroups.length > 5 ? ' …' : ''} — ادمجها أو احذف المكرر.
+        </div>
+      )}
 
       <div className="grid-4 mb-16">
         <StatCard flat label="كل العملاء" value={totals.all} icon="👥" accent="var(--ink)" />
@@ -423,7 +535,7 @@ export default function Clients() {
           <table className="table" style={{ minWidth: 1000 }}>
             <thead>
               <tr>
-                {['العميل', 'الهاتف', 'القطاع', 'المدينة', 'المشاركات', 'آخر معرض', ...(money ? ['المدفوع', 'المتبقي'] : []), 'الحالة', ''].map((h) => (
+                {['العميل', 'الهاتف', 'القطاع', 'المدينة', 'المشاركات', 'آخر معرض', ...(money ? ['المدفوع', 'المتبقي'] : []), ...(everyone ? ['أضافه'] : []), 'الحالة', ''].map((h) => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -442,6 +554,7 @@ export default function Clients() {
                   <td className="small">{c.h.lastExhibition ? exhibitionLabel(c.h.lastExhibition) : '—'}</td>
                   {money && <td className="num text-suc strong">{formatOMR(c.h.paid)}</td>}
                   {money && <td className={`num ${c.h.outstanding > 0 ? 'text-dng strong' : 'muted'}`}>{formatOMR(c.h.outstanding)}</td>}
+                  {everyone && <td className="small">{addedBy(c)}</td>}
                   <td>
                     <StatusBadge status={c.status} />
                   </td>

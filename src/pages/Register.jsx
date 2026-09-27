@@ -4,6 +4,7 @@ import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listSites } from '../api/exhibitionFile.js'
 import { registerParticipant, validateRegistration } from '../api/registration.js'
+import { clientWithPhone } from '../api/clients.js'
 import Button from '../components/Button.jsx'
 import { EmptyState, Loading } from '../components/Feedback.jsx'
 import ExhibitionMap from '../components/ExhibitionMap.jsx'
@@ -14,7 +15,7 @@ import { useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { BOOTH_EXTRAS, BOOTH_NOTE, BOOTH_PACKAGES, FORM_PAYMENT_METHODS, FORM_SECTORS } from '../lib/constants.js'
 import { registrationTotals, vatOf, withoutVat, withVat } from '../lib/finance.js'
-import { exhibitionLabel, formatOMR, num, phoneKey, todayISO } from '../lib/format.js'
+import { exhibitionLabel, formatDate, formatOMR, num, phoneKey, todayISO } from '../lib/format.js'
 import { downloadRegistrationInvoice } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
 import { chosenExtras, MAX_SECTORS } from '../api/registration.js'
@@ -77,6 +78,7 @@ export default function Register() {
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(null)
+  const [known, setKnown] = useState(null) // the number is already in the client database (anyone's)
   const savingRef = useRef(false)
 
   const exhibitions = useMemo(() => data?.exhibitions || [], [data])
@@ -212,10 +214,26 @@ export default function Register() {
                 <input className="input" value={f.brand} onChange={set('brand')} />
               </Field>
               <Field label="رقم التواصل (واتساب)" required>
-                <input className="input" inputMode="tel" dir="ltr" placeholder="9XXXXXXX" value={f.phone} onChange={set('phone')} />
+                <input
+                  className="input"
+                  inputMode="tel"
+                  dir="ltr"
+                  placeholder="9XXXXXXX"
+                  value={f.phone}
+                  onChange={(e) => {
+                    set('phone')(e)
+                    setKnown(null)
+                  }}
+                  onBlur={() => clientWithPhone(f.phone).then(setKnown, () => setKnown(null))}
+                />
               </Field>
             </div>
             {duplicate && <div className="alert alert-warning">⚠️ {duplicate.brand} مسجّل بنفس رقم الهاتف في هذا المعرض.</div>}
+            {known && !known.owner_is_me && (
+              <div className="alert alert-warning">
+                ℹ️ هذا المشروع تمت إضافته من قبل في قاعدة العملاء: «{known.name}» — أضافه {known.owner_name} بتاريخ {formatDate(known.created_at)}. يُربط التسجيل بنفس العميل.
+              </div>
+            )}
             <Field label={`القطاع — اختر قطاعاً أو أكثر (حتى ${MAX_SECTORS})`} required>
               <Choices options={FORM_SECTORS} value={f.categories} onChange={toggleSector} />
             </Field>

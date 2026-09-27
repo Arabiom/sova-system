@@ -2366,3 +2366,11 @@ a.ex-card-head {
   opacity: 0.6;
   cursor: help;
 }
+.alert-success {
+  background: #e7f6ec;
+  border: 1px solid rgba(21, 128, 61, 0.25);
+  color: #15803d;
+}
+.lookup-box .alert {
+  margin-bottom: 8px;
+}
