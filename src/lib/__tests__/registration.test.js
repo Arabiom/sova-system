@@ -78,7 +78,8 @@ describe('tax invoice', () => {
   it('shows every form detail, VAT, what was paid and the pending state', () => {
     const payment = { invoice_no: 'INV-261227-AB12', amount: 210, method: 'تحويل عبر رقم الهاتف', transfer_ref: '99887766', date: '2026-10-01', status: PAYMENT_PENDING }
     const html = registrationInvoiceHtml({ exhibitor, exhibition, payment })
-    for (const text of ['فاتورة ضريبية', 'INV-261227-AB12', 'سارة', '12345678', 'متجر الورد', '91234567', 'زهور وهدايا', 'باقات', 'ركن مدخل', 'علاقة', 'نزوى جراند مول', '99887766']) {
+    for (const text of ['>فاتورة<', 'INV-261227-AB12', 'سارة', '12345678', 'متجر الورد', '91234567', 'زهور وهدايا', 'باقات', 'ركن مدخل', 'علاقة', 'نزوى جراند مول', '99887766']) {
+    expect(html).not.toContain('فاتورة ضريبية')
       expect(html).toContain(text)
     }
     expect(html).toContain('210.000 OMR') // subtotal

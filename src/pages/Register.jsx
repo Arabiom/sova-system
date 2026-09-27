@@ -183,7 +183,7 @@ export default function Register() {
 
   return (
     <>
-      <PageHeader title="تسجيل مشارك" subtitle="استمارة تسجيل المشاركين — تُصدر الفاتورة الضريبية مباشرة بعد الحفظ" />
+      <PageHeader title="تسجيل مشارك" subtitle="استمارة تسجيل المشاركين — تُصدر الفاتورة مباشرة بعد الحفظ" />
 
       {!exhibitions.length && <EmptyState icon="🏛️" text="لا توجد معارض قادمة. أضف معرضاً أولاً." />}
 

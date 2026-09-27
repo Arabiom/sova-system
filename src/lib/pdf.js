@@ -361,8 +361,8 @@ export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment 
   const invoicePage = page(
     `<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px">
       <div>
-        <div style="font-size:24px;font-weight:900">فاتورة ضريبية</div>
-        <div style="font-size:12px;color:#8A7A60;direction:ltr;text-align:right">Tax Invoice</div>
+        <div style="font-size:24px;font-weight:900">فاتورة</div>
+        <div style="font-size:12px;color:#8A7A60;direction:ltr;text-align:right">Invoice</div>
       </div>
       <div style="font-size:12px;line-height:1.8;text-align:left">
         رقم الفاتورة: ${bdi(payment?.invoice_no || '—')}<br>
