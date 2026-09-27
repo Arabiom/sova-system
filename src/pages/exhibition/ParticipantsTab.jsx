@@ -15,6 +15,7 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
   const toast = useToast()
   const [editing, setEditing] = useState(null)
   const canPay = useCan('payments.write')
+  const money = useCan('money.view') // marketing: names and details, no amounts
 
   const printContract = async (e) => {
     toast('📄 جاري طباعة العقد...')
@@ -47,7 +48,7 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
         <table className="table" style={{ minWidth: 820 }}>
           <thead>
             <tr>
-              {['المشارك', 'الهاتف', 'النشاط', 'المواقع', 'العقد', 'المدفوع', 'المتبقي', 'الحالة', ''].map((h) => (
+              {['المشارك', 'الهاتف', 'النشاط', 'المواقع', ...(money ? ['العقد', 'المدفوع', 'المتبقي'] : []), 'الحالة', ''].map((h) => (
                 <th key={h}>{h}</th>
               ))}
             </tr>
@@ -64,17 +65,19 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
                   <td className="ltr">{e.phone}</td>
                   <td className="small">{e.category || '—'}</td>
                   <td>{e.booth || '—'}</td>
-                  <td className="num">{formatOMR(e.contract)}</td>
-                  <td className="num text-suc strong">{formatOMR(e.paid)}</td>
-                  <td className={`num ${balance > 0 ? 'text-dng strong' : 'muted'}`}>{formatOMR(balance)}</td>
+                  {money && <td className="num">{formatOMR(e.contract)}</td>}
+                  {money && <td className="num text-suc strong">{formatOMR(e.paid)}</td>}
+                  {money && <td className={`num ${balance > 0 ? 'text-dng strong' : 'muted'}`}>{formatOMR(balance)}</td>}
                   <td>
                     <StatusBadge status={e.status} />
                   </td>
                   <td>
                     <div className="row-actions">
-                      <Button size="sm" variant="outline" onClick={() => printContract(e)} title="طباعة عقد">
-                        📄
-                      </Button>
+                      {money && (
+                        <Button size="sm" variant="outline" onClick={() => printContract(e)} title="طباعة عقد">
+                          📄
+                        </Button>
+                      )}
                       <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...e }, id: e.id })} title="تعديل">
                         ✏️
                       </Button>

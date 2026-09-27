@@ -25,6 +25,7 @@ const load = async () => {
 export default function Exhibitors() {
   const toast = useToast()
   const canDelete = useCan('records.delete')
+  const money = useCan('money.view') // marketing: names and details, no amounts
   const { data, loading, reload } = useData(load, null)
   const [editing, setEditing] = useState(null)
   const [search, setSearch] = useState('')
@@ -66,7 +67,7 @@ export default function Exhibitors() {
 
   return (
     <>
-      <PageHeader title="العارضون والعقود" subtitle={`${exhibitors.length} عارض مسجل`}>
+      <PageHeader title={money ? 'العارضون والعقود' : 'المشاركون'} subtitle={`${exhibitors.length} مشارك مسجل`}>
         <Button onClick={() => setEditing({ form: { status: 'مبدئي' }, id: null })}>+ إضافة عارض</Button>
       </PageHeader>
 
@@ -82,7 +83,7 @@ export default function Exhibitors() {
           <table className="table" style={{ minWidth: 950 }}>
             <thead>
               <tr>
-                {['العلامة', 'المسؤول', 'الجوال', 'التصنيف', 'المعرض', 'البوث', 'العقد', 'المدفوع', 'الحالة', ''].map((h) => (
+                {['العلامة', 'المسؤول', 'الجوال', 'التصنيف', 'المعرض', 'البوث', ...(money ? ['العقد', 'المدفوع'] : []), 'الحالة', ''].map((h) => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -98,19 +99,23 @@ export default function Exhibitors() {
                     <td>{e.category && <Chip>{e.category}</Chip>}</td>
                     <td className="small">{exhibitionLabel(exhibitionOf(e.exhibition_id))}</td>
                     <td>{e.booth || '—'}</td>
-                    <td className="num">{formatOMR(e.contract)}</td>
-                    <td>
-                      <span className={`strong num ${balance > 0 ? 'text-dng' : 'text-suc'}`}>{formatOMR(e.paid)}</span>
-                      {balance > 0 && <div className="tiny text-dng">متبقي {formatOMR(balance)}</div>}
-                    </td>
+                    {money && <td className="num">{formatOMR(e.contract)}</td>}
+                    {money && (
+                      <td>
+                        <span className={`strong num ${balance > 0 ? 'text-dng' : 'text-suc'}`}>{formatOMR(e.paid)}</span>
+                        {balance > 0 && <div className="tiny text-dng">متبقي {formatOMR(balance)}</div>}
+                      </td>
+                    )}
                     <td>
                       <StatusBadge status={e.status} />
                     </td>
                     <td>
                       <div className="row-actions">
-                        <Button size="sm" variant="outline" onClick={() => printContract(e)} title="طباعة عقد">
-                          📄
-                        </Button>
+                        {money && (
+                          <Button size="sm" variant="outline" onClick={() => printContract(e)} title="طباعة عقد">
+                            📄
+                          </Button>
+                        )}
                         <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...e }, id: e.id })} title="تعديل">
                           ✏️
                         </Button>

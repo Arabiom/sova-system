@@ -25,3 +25,12 @@ describe('role permissions', () => {
     expect(Object.keys(ROLES)).toEqual(['admin', 'finance', 'marketing'])
   })
 })
+
+describe('amounts are for admin and finance only', () => {
+  it('hides income and amounts from marketing', async () => {
+    const { can } = await import('../permissions.js')
+    expect(can('admin', 'money.view')).toBe(true)
+    expect(can('finance', 'money.view')).toBe(true)
+    expect(can('marketing', 'money.view')).toBe(false)
+  })
+})

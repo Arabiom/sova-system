@@ -15,6 +15,7 @@ import { COMPANY } from '../lib/constants.js'
 import { balanceOf, isConfirmed, occupancyOf, summarize, sumBy, withVat } from '../lib/finance.js'
 import { exhibitionTitle, formatOMR, isolateLtr, monthOf } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
+import { useCan } from '../context/AuthContext.jsx'
 
 const load = async () => {
   const [exhibitions, exhibitors, payments, bookings, sites, expenses] = await Promise.all([
@@ -38,6 +39,7 @@ const barColor = (status) =>
 export default function Dashboard() {
   const go = useNavigate()
   const { data, loading } = useData(load, null)
+  const money = useCan('money.view') // marketing: operations only, no amounts
   if (loading || !data) return <Loading />
 
   const { exhibitions, exhibitors, payments, awaiting, bookings, sites, expenses } = data
@@ -64,12 +66,14 @@ export default function Dashboard() {
         </Button>
       </PageHeader>
 
-      {awaiting.length > 0 && (
+      {money && awaiting.length > 0 && (
         <button type="button" className="alert alert-warning alert-link" onClick={() => go('/sales')}>
           ⏳ {awaiting.length} دفعة بانتظار تأكيد وصول المبلغ (بقيمة {formatOMR(withVat(sumBy(awaiting, 'amount')))} شامل الضريبة) — اضغط للمراجعة
         </button>
       )}
 
+      {money && (
+        <>
       <div className="section-label">المؤشرات المالية</div>
       <div className="grid-4">
         <StatCard label="إجمالي قيمة العقود" value={formatOMR(totals.contract)} sub={`${totals.count} عارض مسجل`} accent="var(--ink)" icon="📋" onClick={() => go('/reports')} />
@@ -84,12 +88,14 @@ export default function Dashboard() {
         />
         <StatCard label="المجموع الكلي شامل الضريبة" value={formatOMR(totals.paidWithVat)} sub={`نسبة التحصيل ${totals.collectionRate}%`} accent="var(--suc)" icon="🏆" onClick={() => go('/reports')} />
       </div>
+        </>
+      )}
 
       <div className="section-label">مؤشرات التشغيل</div>
       <div className="grid-4 mb-24">
         <StatCard label="عارضون مؤكدون" value={confirmed} sub={`${exhibitors.length - confirmed} قيد الإجراءات`} accent="var(--suc)" icon="🤝" onClick={() => go('/exhibitors')} />
         <StatCard label="طلبات حجز معلقة" value={pending} sub="تحتاج مراجعة ومتابعة" accent="var(--wrn)" icon="📬" onClick={() => go('/bookings')} />
-        <StatCard label="مدفوعات غير مكتملة" value={withBalance} sub="عارض بمبلغ متبقٍّ" accent="var(--dng)" icon="⚠️" onClick={() => go('/sales')} />
+        <StatCard label="مدفوعات غير مكتملة" value={withBalance} sub="عارض بمبلغ متبقٍّ" accent="var(--dng)" icon="⚠️" onClick={() => go(money ? '/sales' : '/exhibitors')} />
         <StatCard label="معارض نشطة" value={active} sub={`من إجمالي ${exhibitions.length} معرض`} accent="var(--purple)" icon="🏛️" onClick={() => go('/exhibitions')} />
       </div>
 
@@ -116,7 +122,7 @@ export default function Dashboard() {
                   val={occ.booked}
                   max={occ.capacity}
                   color={barColor(ex.status)}
-                  sub={`${isolateLtr(monthOf(ex.date_from))} • ${formatOMR(sumBy(own, 'paid'))}`}
+                  sub={`${isolateLtr(monthOf(ex.date_from))} • ${money ? formatOMR(sumBy(own, 'paid')) : `${own.length} مشارك`}`}
                 />
               )
             })
@@ -143,7 +149,7 @@ export default function Dashboard() {
 
       {(() => {
         const unpaid = expenses.filter((x) => !x.paid)
-        if (!unpaid.length) return null
+        if (!money || !unpaid.length) return null
         const exhibitionOf = (id) => exhibitions.find((e) => e.id === id)
         const today = new Date(new Date().toISOString().slice(0, 10))
         const daysTo = (d) => Math.round((new Date(d) - today) / 86_400_000)
@@ -190,7 +196,7 @@ export default function Dashboard() {
         )
       })()}
 
-      <div className="grid-2">
+      <div className={money ? 'grid-2' : ''}>
         <Panel
           icon="🤝"
           title="آخر العارضين"
@@ -206,7 +212,7 @@ export default function Dashboard() {
                 <tr>
                   <th>العلامة التجارية</th>
                   <th>التصنيف</th>
-                  <th>المدفوع</th>
+                  <th>{money ? 'المدفوع' : 'الجوال'}</th>
                   <th>الحالة</th>
                 </tr>
               </thead>
@@ -220,10 +226,16 @@ export default function Dashboard() {
                         <div className="muted tiny">{e.manager}</div>
                       </td>
                       <td className="muted small">{e.category || '—'}</td>
-                      <td>
-                        <div className={`strong ${balance > 0 ? 'text-wrn' : 'text-suc'}`}>{formatOMR(e.paid)}</div>
-                        {balance > 0 && <div className="tiny text-dng">متبقي {formatOMR(balance)}</div>}
-                      </td>
+                      {money ? (
+                        <td>
+                          <div className={`strong ${balance > 0 ? 'text-wrn' : 'text-suc'}`}>{formatOMR(e.paid)}</div>
+                          {balance > 0 && <div className="tiny text-dng">متبقي {formatOMR(balance)}</div>}
+                        </td>
+                      ) : (
+                        <td className="small" dir="ltr">
+                          {e.phone || '—'}
+                        </td>
+                      )}
                       <td>
                         <StatusBadge status={e.status} />
                       </td>
@@ -242,6 +254,7 @@ export default function Dashboard() {
           </div>
         </Panel>
 
+        {money && (
         <Panel
           icon="💰"
           title="آخر المدفوعات"
@@ -283,6 +296,7 @@ export default function Dashboard() {
             </table>
           </div>
         </Panel>
+        )}
       </div>
     </>
   )

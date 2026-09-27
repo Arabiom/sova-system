@@ -71,7 +71,7 @@ function Summary({ f, internal }) {
           }
         />
         )}
-        <StatCard flat label="الإيراد عند البيع الكامل" icon="🎯" accent="var(--gold)" value={formatOMR(f.fullRevenue)} sub={`متوسط سعر الموقع ${formatOMR(f.avgPrice)}`} />
+        {internal && <StatCard flat label="الإيراد عند البيع الكامل" icon="🎯" accent="var(--gold)" value={formatOMR(f.fullRevenue)} sub={`متوسط سعر الموقع ${formatOMR(f.avgPrice)}`} />}
         {internal && <StatCard flat label="المصروفات" icon="🧾" accent="var(--wrn)" value={formatOMR(f.expensesTotal)} sub={`مدفوع ${formatOMR(f.expensesPaid)}`} />}
       </div>
       <div className="occupancy-bar mb-16">
@@ -81,6 +81,8 @@ function Summary({ f, internal }) {
         )}
       </div>
 
+      {internal && (
+        <>
       <div className="section-label">المالية</div>
       <div className="grid-4 mb-24">
         <StatCard flat label="إجمالي العقود" icon="📋" accent="var(--ink)" value={formatOMR(f.contract)} sub={internal && f.sponsorship ? `+ رعايات ${formatOMR(f.sponsorship)}` : undefined} />
@@ -88,6 +90,8 @@ function Summary({ f, internal }) {
         {internal && <StatCard flat label="الصافي حسب العقود الحالية" icon="📈" accent={tone(f.netOnContracts)} value={formatOMR(f.netOnContracts)} sub="العقود + الرعايات − المصروفات" />}
         {internal && <StatCard flat label="الصافي عند البيع الكامل" icon="🏆" accent={tone(f.netAtFull)} value={formatOMR(f.netAtFull)} sub={`الرصيد النقدي الآن ${formatOMR(f.cashPosition)}`} />}
       </div>
+        </>
+      )}
     </>
   )
 }
@@ -133,8 +137,13 @@ export default function ExhibitionFile() {
       { label: 'المسؤول', value: (s) => byId.get(s.exhibitor_id)?.manager || '' },
       { label: 'الهاتف', value: (s) => byId.get(s.exhibitor_id)?.phone || '' },
       { label: 'النشاط', value: (s) => byId.get(s.exhibitor_id)?.category || '' },
-      { label: 'قيمة عقد المشارك', value: (s) => (byId.get(s.exhibitor_id) ? Number(byId.get(s.exhibitor_id).contract).toFixed(3) : '') },
-      { label: 'مدفوع المشارك', value: (s) => (byId.get(s.exhibitor_id) ? Number(byId.get(s.exhibitor_id).paid).toFixed(3) : '') },
+      // Contract and paid amounts: admin/finance only.
+      ...(internal
+        ? [
+            { label: 'قيمة عقد المشارك', value: (s) => (byId.get(s.exhibitor_id) ? Number(byId.get(s.exhibitor_id).contract).toFixed(3) : '') },
+            { label: 'مدفوع المشارك', value: (s) => (byId.get(s.exhibitor_id) ? Number(byId.get(s.exhibitor_id).paid).toFixed(3) : '') },
+          ]
+        : []),
     ])
   }
 

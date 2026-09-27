@@ -417,7 +417,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
       <Panel
         icon="🏷️"
         title="الفئات والأسعار"
-        subtitle={`${sites.length} موقع • ${formatOMR(tiers.reduce((t, x) => t + x.total, 0))} عند البيع الكامل`}
+        subtitle={canManage ? `${sites.length} موقع • ${formatOMR(tiers.reduce((t, x) => t + x.total, 0))} عند البيع الكامل` : `${sites.length} موقع`}
         className="mb-16"
         action={
           canManage && (
@@ -444,7 +444,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
                 <th>العدد</th>
                 <th>المحجوز</th>
                 <th>السعر</th>
-                <th>الإجمالي</th>
+                {canManage && <th>الإجمالي</th>}
                 <th />
               </tr>
             </thead>
@@ -461,7 +461,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
                     <td className="center">{t.count}</td>
                     <td className="center">{booked}</td>
                     <td className="num">{formatOMR(t.price)}</td>
-                    <td className="num strong">{formatOMR(t.total)}</td>
+                    {canManage && <td className="num strong">{formatOMR(t.total)}</td>}
                     <td>
                       {canManage && (
                       <div className="row-actions">

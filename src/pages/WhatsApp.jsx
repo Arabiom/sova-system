@@ -7,6 +7,7 @@ import { Loading } from '../components/Feedback.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { MESSAGE_TYPES, openWhatsApp } from '../lib/whatsapp.js'
+import { useCan } from '../context/AuthContext.jsx'
 import { useData } from '../lib/useData.js'
 
 const load = async () => {
@@ -23,6 +24,9 @@ export default function WhatsApp() {
   const toast = useToast()
   const { data, loading } = useData(load, null)
   const [type, setType] = useState('reminder')
+  // Booking confirmation and payment reminder quote amounts — admin/finance only.
+  const money = useCan('money.view')
+  const types = MESSAGE_TYPES.filter((m) => money || !['confirmed', 'payment'].includes(m.id))
   const [custom, setCustom] = useState('')
   const [scope, setScope] = useState('all')
   const [selected, setSelected] = useState([])
@@ -34,7 +38,7 @@ export default function WhatsApp() {
   const exhibitionOf = (id) => exhibitions.find((ex) => ex.id === id)
   const visible = scope === 'all' ? exhibitors : exhibitors.filter((e) => e.exhibition_id === scope)
   const messageFor = (exhibitor) => {
-    const template = MESSAGE_TYPES.find((m) => m.id === type)
+    const template = types.find((m) => m.id === type)
     return template?.build ? template.build(exhibitor, exhibitionOf(exhibitor.exhibition_id)) : custom
   }
   const previewTarget = exhibitors.find((e) => selected.includes(e.id))
@@ -79,7 +83,7 @@ export default function WhatsApp() {
           <section className="panel panel-pad mb-16">
             <div className="step-title">1️⃣ نوع الرسالة</div>
             <div className="type-grid">
-              {MESSAGE_TYPES.map((m) => (
+              {types.map((m) => (
                 <button key={m.id} className={`type-btn ${type === m.id ? 'active' : ''}`} style={{ '--accent': m.color }} onClick={() => setType(m.id)}>
                   {m.label}
                 </button>

@@ -129,6 +129,7 @@ function ClientForm({ initial, id, onClose, onSaved, sectors }) {
 
 function ClientDetails({ client, onClose, onEdit }) {
   const { h } = client
+  const money = useCan('money.view') // marketing: participation history without amounts
   const rows = [
     ['👤 المسؤول', client.contact_name],
     ['📱 الهاتف', client.phone],
@@ -163,11 +164,13 @@ function ClientDetails({ client, onClose, onEdit }) {
         </>
       }
     >
+      {money && (
       <div className="grid-3 mb-16">
         <StatCard flat label="إجمالي العقود" value={formatOMR(h.contract)} accent="var(--ink)" />
         <StatCard flat label="المدفوع" value={formatOMR(h.paid)} accent="var(--suc)" />
         <StatCard flat label="المتبقي" value={formatOMR(h.outstanding)} accent={h.outstanding > 0 ? 'var(--wrn)' : 'var(--suc)'} />
       </div>
+      )}
       {rows.map(([label, value]) => (
         <div key={label} className="detail-row">
           <span className="detail-label">{label}</span>
@@ -182,8 +185,8 @@ function ClientDetails({ client, onClose, onEdit }) {
               <tr>
                 <th>المعرض</th>
                 <th>الموقع</th>
-                <th>العقد</th>
-                <th>المدفوع</th>
+                {money && <th>العقد</th>}
+                {money && <th>المدفوع</th>}
                 <th>الحالة</th>
               </tr>
             </thead>
@@ -194,8 +197,8 @@ function ClientDetails({ client, onClose, onEdit }) {
                     {p.exhibition ? <Link to={`/exhibitions/${p.exhibition.id}`}>{exhibitionLabel(p.exhibition)}</Link> : '—'}
                   </td>
                   <td>{p.booth || '—'}</td>
-                  <td className="num">{formatOMR(p.contract)}</td>
-                  <td className="num">{formatOMR(p.paid)}</td>
+                  {money && <td className="num">{formatOMR(p.contract)}</td>}
+                  {money && <td className="num">{formatOMR(p.paid)}</td>}
                   <td>
                     <StatusBadge status={p.status} />
                   </td>
@@ -278,6 +281,7 @@ function InviteModal({ clients, exhibitions, onClose }) {
 export default function Clients() {
   const toast = useToast()
   const canDelete = useCan('records.delete')
+  const money = useCan('money.view') // marketing: names and details, no amounts
   const { data, loading, reload } = useData(load, null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({ sector: '', city: '', status: '', source: '', participation: '' })
@@ -340,9 +344,13 @@ export default function Clients() {
       { label: 'الحالة', value: (c) => c.status },
       { label: 'عدد المشاركات', value: (c) => c.h.count },
       { label: 'آخر معرض', value: (c) => (c.h.lastExhibition ? exhibitionTitle(c.h.lastExhibition) : '') },
-      { label: 'إجمالي العقود', value: (c) => c.h.contract.toFixed(3) },
-      { label: 'المدفوع', value: (c) => c.h.paid.toFixed(3) },
-      { label: 'المتبقي', value: (c) => c.h.outstanding.toFixed(3) },
+      ...(money
+        ? [
+            { label: 'إجمالي العقود', value: (c) => c.h.contract.toFixed(3) },
+            { label: 'المدفوع', value: (c) => c.h.paid.toFixed(3) },
+            { label: 'المتبقي', value: (c) => c.h.outstanding.toFixed(3) },
+          ]
+        : []),
       { label: 'ملاحظات', value: (c) => c.notes },
     ])
 
@@ -383,10 +391,10 @@ export default function Clients() {
           <option value="none">لم يشارك بعد</option>
           <option value="once">شارك مرة واحدة</option>
           <option value="repeat">شارك أكثر من مرة</option>
-          <option value="owing">عليه مبلغ متبقٍ</option>
+          {money && <option value="owing">عليه مبلغ متبقٍ</option>}
         </select>
         <select className="input toolbar-select" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="الترتيب">
-          {Object.entries(SORTS).map(([key, s]) => (
+          {Object.entries(SORTS).filter(([key]) => money || !['paid', 'outstanding'].includes(key)).map(([key, s]) => (
             <option key={key} value={key}>
               ترتيب: {s.label}
             </option>
@@ -412,7 +420,7 @@ export default function Clients() {
           <table className="table" style={{ minWidth: 1000 }}>
             <thead>
               <tr>
-                {['العميل', 'الهاتف', 'القطاع', 'المدينة', 'المشاركات', 'آخر معرض', 'المدفوع', 'المتبقي', 'الحالة', ''].map((h) => (
+                {['العميل', 'الهاتف', 'القطاع', 'المدينة', 'المشاركات', 'آخر معرض', ...(money ? ['المدفوع', 'المتبقي'] : []), 'الحالة', ''].map((h) => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -429,8 +437,8 @@ export default function Clients() {
                   <td className="small">{c.city || '—'}</td>
                   <td className="center strong">{c.h.count}</td>
                   <td className="small">{c.h.lastExhibition ? exhibitionLabel(c.h.lastExhibition) : '—'}</td>
-                  <td className="num text-suc strong">{formatOMR(c.h.paid)}</td>
-                  <td className={`num ${c.h.outstanding > 0 ? 'text-dng strong' : 'muted'}`}>{formatOMR(c.h.outstanding)}</td>
+                  {money && <td className="num text-suc strong">{formatOMR(c.h.paid)}</td>}
+                  {money && <td className={`num ${c.h.outstanding > 0 ? 'text-dng strong' : 'muted'}`}>{formatOMR(c.h.outstanding)}</td>}
                   <td>
                     <StatusBadge status={c.status} />
                   </td>

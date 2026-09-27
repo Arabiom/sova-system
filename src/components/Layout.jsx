@@ -16,7 +16,7 @@ const NAV = [
   { section: 'الأعمال' },
   { path: '/clients', icon: '◍', label: 'العملاء', desc: 'قاعدة بيانات العملاء', sub: 'كل عملاء الشركة وسجل مشاركاتهم' },
   { path: '/exhibitors', icon: '◉', label: 'العارضون والعقود', desc: 'إدارة العارضين', sub: 'قاعدة بيانات العارضين والعقود' },
-  { path: '/sales', icon: '◆', label: 'المبيعات والمدفوعات', desc: 'التتبع المالي', sub: 'التتبع المالي الشامل' },
+  { path: '/sales', icon: '◆', label: 'المبيعات والمدفوعات', desc: 'التتبع المالي', sub: 'التتبع المالي الشامل', perm: 'money.view' },
   { path: '/reports', icon: '◈', label: 'التقارير المالية', desc: 'تحليل الأداء', sub: 'تحليل الأداء والإيرادات', perm: 'reports.view' },
   { section: 'التواصل' },
   { path: '/whatsapp', icon: '◎', label: 'واتساب', desc: 'إرسال الإشعارات', sub: 'إرسال الإشعارات للعارضين' },

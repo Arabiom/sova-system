@@ -32,6 +32,7 @@ export default function Exhibitions() {
   const { data, loading, reload } = useData(load, null)
   const [editing, setEditing] = useState(null) // { form, id } while the modal is open
   const canManage = useCan('exhibitions.manage')
+  const money = useCan('money.view') // marketing: occupancy only, no amounts
 
   if (loading || !data) return <Loading />
   const { exhibitions, exhibitors, payments, sites } = data
@@ -87,10 +88,14 @@ export default function Exhibitions() {
               <div className="ex-card-stats">
                 {[
                   ['المواقع المحجوزة', `${stats.booked} / ${stats.capacity} (${stats.occupancy}%)`],
-                  ['الإيراد عند البيع الكامل', formatOMR(stats.fullRevenue)],
-                  ['إجمالي العقود', formatOMR(stats.contract)],
-                  ['المحصّل', formatOMR(stats.collected)],
-                  ['المتبقي للتحصيل', formatOMR(stats.outstanding)],
+                  ...(money
+                    ? [
+                        ['الإيراد عند البيع الكامل', formatOMR(stats.fullRevenue)],
+                        ['إجمالي العقود', formatOMR(stats.contract)],
+                        ['المحصّل', formatOMR(stats.collected)],
+                        ['المتبقي للتحصيل', formatOMR(stats.outstanding)],
+                      ]
+                    : [['المواقع المتاحة', `${stats.available}`]]),
                 ].map(([label, value]) => (
                   <div key={label} className="kv-row">
                     <span>{label}</span>

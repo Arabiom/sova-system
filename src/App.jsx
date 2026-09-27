@@ -61,7 +61,14 @@ export default function App() {
         <Route path="/clients" element={<Clients />} />
         <Route path="/bookings" element={<Bookings />} />
         <Route path="/exhibitors" element={<Exhibitors />} />
-        <Route path="/sales" element={<Sales />} />
+        <Route
+          path="/sales"
+          element={
+            <Allow permission="money.view">
+              <Sales />
+            </Allow>
+          }
+        />
         <Route
           path="/reports"
           element={

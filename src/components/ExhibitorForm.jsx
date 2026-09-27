@@ -6,6 +6,7 @@ import { exhibitionLabel } from '../lib/format.js'
 import Button from './Button.jsx'
 import Field, { SelectOptions } from './Field.jsx'
 import Modal from './Modal.jsx'
+import { useCan } from '../context/AuthContext.jsx'
 
 /**
  * Add / edit an exhibitor (one participation in one exhibition).
@@ -16,6 +17,7 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
   const toast = useToast()
   const [form, setForm] = useState(initial)
   const [saving, setSaving] = useState(false)
+  const money = useCan('money.view') // marketing does not see or change contract values
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const linked = clients.find((c) => c.id === form.client_id)
 
@@ -108,9 +110,11 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
         <Field label="حجم البوث">
           <SelectOptions options={BOOTH_SIZES} value={form.booth_size || ''} onChange={set('booth_size')} />
         </Field>
-        <Field label="قيمة العقد (ر.ع)">
-          <input className="input" type="number" min="0" step="0.001" placeholder="450.000" value={form.contract ?? ''} onChange={set('contract')} />
-        </Field>
+        {money && (
+          <Field label="قيمة العقد (ر.ع)">
+            <input className="input" type="number" min="0" step="0.001" placeholder="450.000" value={form.contract ?? ''} onChange={set('contract')} />
+          </Field>
+        )}
         <Field label="حالة العقد">
           <SelectOptions options={EXHIBITOR_STATUSES} placeholder={null} value={form.status || 'مبدئي'} onChange={set('status')} />
         </Field>
