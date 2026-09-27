@@ -20,10 +20,18 @@ export function registrationTotals({ boothPrice = 0, extras = [], otherAmount = 
   return { boothPrice: num(boothPrice), extrasTotal, subtotal, vat, total: baisa(subtotal + vat) }
 }
 
-export const vatOf = (amount) => num(amount) * VAT_RATE
-export const withVat = (amount) => num(amount) * (1 + VAT_RATE)
-/** The part of an amount paid *including* VAT that is before VAT (210 → 200), to the baisa. */
-export const withoutVat = (gross) => Math.round((num(gross) / (1 + VAT_RATE)) * 1000) / 1000
+// VAT applies only while the company is registered for it (company settings, migration 014).
+let vatRate = VAT_RATE
+
+/** Turn VAT on (registered: 5%) or off (not registered: no VAT anywhere). */
+export function setVatEnabled(on) {
+  vatRate = on ? VAT_RATE : 0
+}
+export const vatEnabled = () => vatRate > 0
+
+export const vatOf = (amount) => num(amount) * vatRate
+export const withVat = (amount) => num(amount) * (1 + vatRate)
+export const withoutVat = (gross) => Math.round((num(gross) / (1 + vatRate)) * 1000) / 1000
 
 /** What an exhibitor still owes on their contract. */
 export const balanceOf = (exhibitor) => num(exhibitor.contract) - num(exhibitor.paid)

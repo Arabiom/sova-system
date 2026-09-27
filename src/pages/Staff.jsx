@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { listStaff, removeStaff, updateStaff } from '../api/staff.js'
 import Button from '../components/Button.jsx'
 import { EmptyState, Loading } from '../components/Feedback.jsx'
+import CompanySettings from '../components/CompanySettings.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import Panel from '../components/Panel.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -57,6 +58,7 @@ export default function Staff() {
   return (
     <>
       <PageHeader title="الموظفون والصلاحيات" subtitle={`${staff.length} حساب`} />
+      <CompanySettings />
 
       <div className="grid-3 mb-16">
         {Object.entries(ROLES).map(([key, r]) => (

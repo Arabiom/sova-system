@@ -14,7 +14,7 @@ import Panel from '../components/Panel.jsx'
 import { useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { BOOTH_EXTRAS, BOOTH_NOTE, BOOTH_PACKAGES, FORM_PAYMENT_METHODS, FORM_SECTORS } from '../lib/constants.js'
-import { registrationTotals, vatOf, withoutVat, withVat } from '../lib/finance.js'
+import { registrationTotals, vatEnabled, vatOf, withoutVat, withVat } from '../lib/finance.js'
 import { exhibitionLabel, formatDate, formatOMR, num, phoneKey, todayISO } from '../lib/format.js'
 import { downloadRegistrationInvoice } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
@@ -95,7 +95,8 @@ export default function Register() {
   const freeSites = pkg ? ownSites.filter((s) => !s.exhibitor_id && num(s.price) === pkg.price) : []
   const extras = chosenExtras(f)
   const totals = registrationTotals({ boothPrice: pkg?.price || 0, extras })
-  const amount = num(f.amount) // paid, VAT included
+  const amount = num(f.amount) // paid (VAT included when the company charges VAT)
+  const withTax = vatEnabled() ? ' شامل الضريبة' : ''
   const amountNet = withoutVat(amount)
   const toggleSector = (name) => {
     const list = f.categories.includes(name) ? f.categories.filter((c) => c !== name) : [...f.categories, name]
@@ -117,7 +118,7 @@ export default function Register() {
     if (errors.length) return toast(`أكمل: ${errors.join('، ')}`, 'error')
     if (takenBooth) return toast(`الموقع ${takenBooth.numbers.join('، ')} محجوز مسبقاً لـ «${takenBooth.exhibitor.brand}» في هذا المعرض`, 'error')
     if (duplicate && !confirm(`${duplicate.brand} مسجّل بنفس رقم الهاتف في هذا المعرض. تسجيل مشاركة جديدة؟`)) return
-    if (amount > totals.total + 0.0005 && !confirm(`المبلغ المدفوع أكبر من الإجمالي شامل الضريبة (${formatOMR(totals.total)}). متابعة؟`)) return
+    if (amount > totals.total + 0.0005 && !confirm(`المبلغ المدفوع أكبر من الإجمالي${withTax} (${formatOMR(totals.total)}). متابعة؟`)) return
 
     savingRef.current = true
     setSaving(true)
@@ -158,11 +159,11 @@ export default function Register() {
               <strong className="mono">{payment?.invoice_no || '—'}</strong>
             </div>
             <div className="kv-row">
-              <span>الإجمالي شامل الضريبة</span>
+              <span>الإجمالي{withTax}</span>
               <strong>{formatOMR(t.total)}</strong>
             </div>
             <div className="kv-row">
-              <span>المدفوع شامل الضريبة</span>
+              <span>المدفوع{withTax}</span>
               <strong className="text-suc">{formatOMR(withVat(payment?.amount || 0))}</strong>
             </div>
             <div className="kv-row kv-total">
@@ -333,20 +334,22 @@ export default function Register() {
                 <span>الرسوم الإضافية</span>
                 <strong>{formatOMR(totals.extrasTotal)}</strong>
               </div>
-              <div className="kv-row muted small">
-                <span>ضريبة القيمة المضافة 5%</span>
-                <span>{formatOMR(totals.vat)}</span>
-              </div>
+              {vatEnabled() && (
+                <div className="kv-row muted small">
+                  <span>ضريبة القيمة المضافة 5%</span>
+                  <span>{formatOMR(totals.vat)}</span>
+                </div>
+              )}
               <div className="kv-row kv-total">
-                <span>الإجمالي شامل الضريبة</span>
+                <span>الإجمالي{withTax}</span>
                 <strong>{formatOMR(totals.total)}</strong>
               </div>
             </div>
             <div className="form-grid">
               <Field
-                label="المبلغ المدفوع (شامل الضريبة)"
+                label={vatEnabled() ? 'المبلغ المدفوع (شامل الضريبة)' : 'المبلغ المدفوع'}
                 hint={
-                  amount > 0
+                  amount > 0 && vatEnabled()
                     ? `منها ${formatOMR(amountNet)} قيمة الاشتراك + ${formatOMR(vatOf(amountNet))} ضريبة 5%`
                     : 'المبلغ الذي استلمته فعلاً من المشارك. اتركه فارغاً إذا لم يدفع بعد'
                 }

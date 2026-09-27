@@ -5,7 +5,7 @@
 // placed onto A4 pages. Both libraries are loaded on demand to keep the app bundle small.
 
 import { BOOTH_NOTE, BOOTH_PACKAGES, COMPANY, PARTICIPATION_TERMS } from './constants.js'
-import { isConfirmed, occupancyOf, registrationTotals, summarize, vatOf, withVat } from './finance.js'
+import { isConfirmed, occupancyOf, registrationTotals, summarize, vatEnabled, vatOf, withVat } from './finance.js'
 import { fixed3, monthOf, num } from './format.js'
 import { tiersFromSites } from './sites.js'
 
@@ -182,9 +182,9 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
     <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:16px;margin-top:10px;align-items:start">
       <div style="background:#FDFAF5;border:1px solid #EFE7D6;border-radius:10px;padding:8px 14px">
         <div style="font-size:13.5px;font-weight:900;margin-bottom:2px">القيمة المالية</div>
-        ${sumRow('قيمة العقد', contract)}
-        ${sumRow('ضريبة القيمة المضافة 5%', vatOf(contract))}
-        ${sumRow('الإجمالي', withVat(contract), true)}
+        ${vatEnabled()
+          ? `${sumRow('قيمة العقد', contract)}${sumRow('ضريبة القيمة المضافة 5%', vatOf(contract))}${sumRow('الإجمالي', withVat(contract), true)}`
+          : sumRow('قيمة العقد', contract, true)}
       </div>
       <div style="background:#FDFAF5;border:1px solid #EFE7D6;border-radius:10px;padding:8px 14px">
         <div style="font-size:13.5px;font-weight:900;margin-bottom:2px">السداد</div>
@@ -227,8 +227,12 @@ export function receiptHtml(payment, exhibitor, exhibition, { date = today() } =
     ['العارض', exhibitor?.brand || '—', 'Exhibitor'],
     ['المعرض', exhibition ? rawHtml(`${escapeHtml(exhibition.name?.trim() || `SOVA ${exhibition.city}`)} — ${bdi(monthOf(exhibition.date_from))}`) : '—', 'Exhibition'],
     ['المبلغ', omr(payment.amount), 'Amount'],
-    ['الضريبة 5%', omr(vatOf(payment.amount)), 'VAT (5%)'],
-    ['الإجمالي', omr(withVat(payment.amount)), 'Total'],
+    ...(vatEnabled()
+      ? [
+          ['الضريبة 5%', omr(vatOf(payment.amount)), 'VAT (5%)'],
+          ['الإجمالي', omr(withVat(payment.amount)), 'Total'],
+        ]
+      : []),
     ['طريقة الدفع', payment.method || '—', 'Method'],
     ['نوع الدفعة', payment.type || '—', 'Type'],
     ['ملاحظة', payment.note || '—', 'Note'],
@@ -265,7 +269,7 @@ export function reportHtml({ exhibitions, exhibitors, sites = [] }, exhibitionId
           ['إجمالي العقود', omr(s.contract), 'Total Contracts'],
           ['المحصّل', omr(s.paid), 'Collected'],
           ['المتبقي', omr(s.remaining), 'Pending'],
-          ['الضريبة 5%', omr(s.vat), 'VAT (5%)'],
+          ...(vatEnabled() ? [['الضريبة 5%', omr(s.vat), 'VAT (5%)']] : []),
         ])}
       </div>`
     })
@@ -276,7 +280,7 @@ export function reportHtml({ exhibitions, exhibitors, sites = [] }, exhibitionId
     ${sections || '<div style="text-align:center;color:#8A7A60">لا توجد معارض</div>'}
     <div style="margin-top:12px;background:${GOLD};padding:16px;border-radius:8px;font-size:15px;font-weight:800;line-height:2;text-align:center">
       إجمالي المحصّل: ${bdi(omr(totals.paid))}<br>
-      إجمالي الضريبة 5%: ${bdi(omr(totals.vat))}<br>
+      ${vatEnabled() ? `إجمالي الضريبة 5%: ${bdi(omr(totals.vat))}<br>` : ''}
       إجمالي المتبقي: ${bdi(omr(totals.remaining))}
     </div>`,
     { footer: `${COMPANY.legalName} | ${COMPANY.cr} | تقرير مالي سري`, fixedHeight: selected.length <= 3 },
@@ -461,9 +465,9 @@ export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment 
       <thead><tr><th style="${th}">البند</th><th style="${th}">الكمية</th><th style="${th}">سعر الوحدة</th><th style="${th}">المبلغ</th></tr></thead>
       <tbody>
         ${items.map(([name, qty, price]) => `<tr><td style="${td}">${name}</td><td style="${td}">${bdi(qty)}</td><td style="${td}">${money(price)}</td><td style="${td}">${money(qty * price)}</td></tr>`).join('')}
-        ${sumRow('المجموع قبل الضريبة', c.subtotal)}
-        ${sumRow('ضريبة القيمة المضافة 5%', c.vat)}
-        ${sumRow('الإجمالي شامل الضريبة', c.total, true)}
+        ${vatEnabled()
+          ? `${sumRow('المجموع قبل الضريبة', c.subtotal)}${sumRow('ضريبة القيمة المضافة 5%', c.vat)}${sumRow('الإجمالي شامل الضريبة', c.total, true)}`
+          : sumRow('الإجمالي', c.total, true)}
       </tbody>
     </table>
 

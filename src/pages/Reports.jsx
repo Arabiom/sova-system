@@ -14,7 +14,7 @@ import { ProgressBar, ShareRow } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { COMPANY } from '../lib/constants.js'
-import { groupTotals, occupancyOf, summarize, sumBy } from '../lib/finance.js'
+import { groupTotals, occupancyOf, summarize, sumBy, vatEnabled } from '../lib/finance.js'
 import { exhibitionTitle, formatOMR, monthOf, num, percent } from '../lib/format.js'
 import { downloadReport } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
@@ -88,7 +88,7 @@ export default function Reports() {
 
       <div className="grid-4 mb-24">
         <StatCard flat label="إجمالي قيمة العقود" value={formatOMR(totals.contract)} accent="var(--gold)" icon="📋" />
-        <StatCard flat label="إجمالي المحصّل" value={formatOMR(totals.paid)} sub={`ضريبة: ${formatOMR(totals.vat)}`} accent="var(--suc)" icon="✅" />
+        <StatCard flat label="إجمالي المحصّل" value={formatOMR(totals.paid)} sub={vatEnabled() ? `ضريبة: ${formatOMR(totals.vat)}` : `نسبة التحصيل ${totals.collectionRate}%`} accent="var(--suc)" icon="✅" />
         <StatCard flat label="متبقي للتحصيل" value={formatOMR(totals.remaining)} sub={totals.contract ? `${percent(totals.remaining, totals.contract)}% من العقود` : '—'} accent="var(--wrn)" icon="⏳" />
         <StatCard flat label="نسبة التحصيل" value={`${totals.collectionRate}%`} sub={`${totals.count} عارض`} accent="var(--ink)" icon="📈" />
       </div>

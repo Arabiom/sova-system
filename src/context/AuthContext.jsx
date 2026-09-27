@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { fetchMyStaff } from '../api/staff.js'
+import { applySettings, DEFAULT_SETTINGS, fetchSettings } from '../api/settings.js'
 import { supabase } from '../lib/supabase.js'
 import { can, canEditRecord } from '../lib/permissions.js'
 
@@ -19,8 +20,13 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!userId) return
     let cancelled = false
-    fetchMyStaff(userId).then(
-      (value) => !cancelled && setStaff({ userId, value, error: '' }),
+    // Staff role and company settings (VAT on/off) load together, before any page renders.
+    Promise.all([fetchMyStaff(userId), fetchSettings().catch(() => DEFAULT_SETTINGS)]).then(
+      ([value, settings]) => {
+        if (cancelled) return
+        applySettings(settings)
+        setStaff({ userId, value, error: '' })
+      },
       (err) => !cancelled && setStaff({ userId, value: null, error: err.message }),
     )
     return () => {

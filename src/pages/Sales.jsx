@@ -16,7 +16,7 @@ import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { PAYMENT_METHOD_META, PAYMENT_METHODS, PAYMENT_TYPES, REFUND_TYPE } from '../lib/constants.js'
-import { balanceOf, exhibitionStats, isConfirmed, sumBy, vatOf, withVat } from '../lib/finance.js'
+import { balanceOf, exhibitionStats, isConfirmed, sumBy, vatEnabled, vatOf, withVat } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatOMR, monthOf, num, percent, todayISO } from '../lib/format.js'
 import { downloadReceipt, downloadRegistrationInvoice } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
@@ -119,10 +119,12 @@ function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
             <span>المبلغ</span>
             <strong>{formatOMR(form.amount)}</strong>
           </div>
-          <div className="kv-row muted small">
-            <span>ضريبة 5%</span>
-            <span>{formatOMR(vatOf(form.amount))}</span>
-          </div>
+          {vatEnabled() && (
+            <div className="kv-row muted small">
+              <span>ضريبة 5%</span>
+              <span>{formatOMR(vatOf(form.amount))}</span>
+            </div>
+          )}
           <div className="kv-row kv-total">
             <span>الإجمالي</span>
             <strong className="text-suc">{formatOMR(withVat(form.amount))}</strong>
@@ -212,7 +214,7 @@ export default function Sales() {
             <table className="table" style={{ minWidth: 760 }}>
               <thead>
                 <tr>
-                  {['رقم الفاتورة', 'العارض', 'المعرض', 'المبلغ شامل الضريبة', 'الطريقة', 'رقم الحساب / المحوَّل إليه', 'التاريخ', ''].map((h) => (
+                  {['رقم الفاتورة', 'العارض', 'المعرض', vatEnabled() ? 'المبلغ شامل الضريبة' : 'المبلغ', 'الطريقة', 'رقم الحساب / المحوَّل إليه', 'التاريخ', ''].map((h) => (
                     <th key={h}>{h}</th>
                   ))}
                 </tr>
@@ -257,9 +259,13 @@ export default function Sales() {
 
       <div className="grid-4 mb-16">
         <StatCard flat label="إجمالي العقود" value={formatOMR(contracts)} sub={`${scopeExhibitors.length} عارض`} accent="var(--ink)" icon="📋" />
-        <StatCard flat label="إجمالي المحصّل" value={formatOMR(collected)} sub={`ضريبة: ${formatOMR(vat)}`} accent="var(--gold)" icon="💵" />
+        <StatCard flat label="إجمالي المحصّل" value={formatOMR(collected)} sub={vatEnabled() ? `ضريبة: ${formatOMR(vat)}` : `من ${formatOMR(contracts)} عقود`} accent="var(--gold)" icon="💵" />
         <StatCard flat label="المبلغ المتبقي" value={formatOMR(remaining)} sub={`${percent(remaining, contracts)}% من العقود`} accent={remaining > 0 ? 'var(--wrn)' : 'var(--suc)'} icon="⏳" />
-        <StatCard flat label="المجموع شامل الضريبة" value={formatOMR(collected + vat)} sub={`نسبة ${percent(collected, contracts)}%`} accent="var(--suc)" icon="🏆" />
+        {vatEnabled() ? (
+          <StatCard flat label="المجموع شامل الضريبة" value={formatOMR(collected + vat)} sub={`نسبة ${percent(collected, contracts)}%`} accent="var(--suc)" icon="🏆" />
+        ) : (
+          <StatCard flat label="نسبة التحصيل" value={`${percent(collected, contracts)}%`} sub="المحصّل من قيمة العقود" accent="var(--suc)" icon="🏆" />
+        )}
       </div>
 
       <Panel icon="🏛️" title="الدخل حسب المعرض" className="mb-20">
@@ -299,7 +305,7 @@ export default function Sales() {
           <table className="table" style={{ minWidth: 800 }}>
             <thead>
               <tr>
-                {['رقم الفاتورة', 'العارض', 'المعرض', 'المبلغ', 'ضريبة 5%', 'الطريقة', 'النوع', 'التاريخ', 'ملاحظة', ''].map((h) => (
+                {['رقم الفاتورة', 'العارض', 'المعرض', 'المبلغ', ...(vatEnabled() ? ['ضريبة 5%'] : []), 'الطريقة', 'النوع', 'التاريخ', 'ملاحظة', ''].map((h) => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -311,7 +317,7 @@ export default function Sales() {
                   <td className="strong">{exhibitorOf(p.exhibitor_id)?.brand || '—'}</td>
                   <td className="muted small">{exhibitionLabel(exhibitionOfExhibitor(p.exhibitor_id))}</td>
                   <td className={num(p.amount) < 0 ? 'amount text-dng' : 'amount'}>{formatOMR(p.amount)}</td>
-                  <td className="muted small">{formatOMR(vatOf(p.amount))}</td>
+                  {vatEnabled() && <td className="muted small">{formatOMR(vatOf(p.amount))}</td>}
                   <td>
                     <Chip>{p.method}</Chip>
                   </td>

@@ -149,3 +149,25 @@ describe('any number of planning tiers', () => {
     expect(f.fullRevenue).toBe(5600) // 1200 + 900 + 500 + 3000
   })
 })
+
+describe('VAT off until the company registers', () => {
+  it('adds no VAT anywhere when turned off, and 5% when on', async () => {
+    const { setVatEnabled, vatEnabled, vatOf, withVat, withoutVat, registrationTotals } = await import('../finance.js')
+    const { contractHtml, registrationInvoiceHtml } = await import('../pdf.js')
+    try {
+      setVatEnabled(false)
+      expect(vatEnabled()).toBe(false)
+      expect([vatOf(200), withVat(200), withoutVat(200)]).toEqual([0, 200, 200])
+      expect(registrationTotals({ boothPrice: 200 })).toMatchObject({ subtotal: 200, vat: 0, total: 200 })
+      const contract = contractHtml({ brand: 'B', contract: 200, paid: 100 }, null, { contractNo: 'C', date: 'x' })
+      expect(contract).not.toContain('ضريبة')
+      expect(contract).toContain('100.000 OMR') // remaining, no VAT
+      const invoice = registrationInvoiceHtml({ exhibitor: { brand: 'B', contract: 200, paid: 0, booth_type: 'ركن مدخل', extras: [] }, payment: { amount: 200, status: 'مؤكد' } })
+      expect(invoice).not.toContain('ضريبة القيمة المضافة')
+      setVatEnabled(true)
+      expect(withVat(200)).toBe(210)
+    } finally {
+      setVatEnabled(true)
+    }
+  })
+})

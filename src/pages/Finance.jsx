@@ -29,7 +29,7 @@ import { useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { DEFAULT_TIERS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
-import { companyOverview, exhibitionFinancials, monthlyFlow, receivables, sumBy } from '../lib/finance.js'
+import { companyOverview, exhibitionFinancials, monthlyFlow, receivables, sumBy, vatEnabled } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatOMR, num, percent, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { openWhatsApp, paymentReminderMessage } from '../lib/whatsapp.js'
@@ -144,7 +144,7 @@ function Overview({ o, flow, go }) {
             </table>
           </div>
           {!flow.length && <div className="empty-inline">لا توجد حركة بعد</div>}
-          <div className="muted tiny mt-8">مصروفات المعارض تُحسب في شهر استحقاقها. المبالغ قبل الضريبة.</div>
+          <div className="muted tiny mt-8">مصروفات المعارض تُحسب في شهر استحقاقها.{vatEnabled() ? ' المبالغ قبل الضريبة.' : ''}</div>
         </Panel>
       </div>
     </>
@@ -177,7 +177,7 @@ function Receivables({ data, canRemind }) {
       </Button>
       <div className="toolbar-count">{rows.length} مشارك</div>
     </div>
-    <Panel icon="⏳" title={`المتبقي للتحصيل: ${formatOMR(total)}`} subtitle="من عليه مبلغ متبقٍ من قيمة عقده — الأكبر أولاً • قبل الضريبة">
+    <Panel icon="⏳" title={`المتبقي للتحصيل: ${formatOMR(total)}`} subtitle={`من عليه مبلغ متبقٍ من قيمة عقده — الأكبر أولاً${vatEnabled() ? ' • قبل الضريبة' : ''}`}>
       <div className="table-wrap">
         <table className="table">
           <thead>

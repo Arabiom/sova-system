@@ -11,8 +11,8 @@ import Panel from '../components/Panel.jsx'
 import { ProgressRow } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
-import { COMPANY } from '../lib/constants.js'
-import { balanceOf, isConfirmed, occupancyOf, summarize, sumBy, withVat } from '../lib/finance.js'
+import { COMPANY, DEFAULT_TIERS } from '../lib/constants.js'
+import { balanceOf, exhibitionFinancials, isConfirmed, occupancyOf, summarize, sumBy, vatEnabled, withVat } from '../lib/finance.js'
 import { exhibitionTitle, formatOMR, isolateLtr, monthOf } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { useCan } from '../context/AuthContext.jsx'
@@ -48,7 +48,13 @@ export default function Dashboard() {
   const pending = bookings.filter((b) => b.status === 'معلق').length
   const confirmed = exhibitors.filter((e) => e.status === 'مؤكد').length
   const withBalance = exhibitors.filter((e) => balanceOf(e) > 0).length
-  const active = exhibitions.filter((e) => !['منتهي', 'ملغى'].includes(e.status)).length
+  const activeList = exhibitions.filter((e) => !['منتهي', 'ملغى'].includes(e.status))
+  const active = activeList.length
+  // Income if every site of the upcoming / running exhibitions is sold.
+  const expectedIncome = activeList.reduce(
+    (t, ex) => t + exhibitionFinancials({ exhibition: ex, sites: sites.filter((s) => s.exhibition_id === ex.id) }, DEFAULT_TIERS).fullRevenue,
+    0,
+  )
   const exhibitorsOf = (id) => exhibitors.filter((e) => e.exhibition_id === id)
   const brandOf = (id) => exhibitors.find((e) => e.id === id)?.brand || '—'
 
@@ -71,7 +77,7 @@ export default function Dashboard() {
 
       {money && awaiting.length > 0 && (
         <button type="button" className="alert alert-warning alert-link" onClick={() => go('/sales')}>
-          ⏳ {awaiting.length} دفعة بانتظار تأكيد وصول المبلغ (بقيمة {formatOMR(withVat(sumBy(awaiting, 'amount')))} شامل الضريبة) — اضغط للمراجعة
+          ⏳ {awaiting.length} دفعة بانتظار تأكيد وصول المبلغ (بقيمة {formatOMR(withVat(sumBy(awaiting, 'amount')))}{vatEnabled() ? ' شامل الضريبة' : ''}) — اضغط للمراجعة
         </button>
       )}
 
@@ -80,7 +86,7 @@ export default function Dashboard() {
       <div className="section-label">المؤشرات المالية</div>
       <div className="grid-4">
         <StatCard label="إجمالي قيمة العقود" value={formatOMR(totals.contract)} sub={`${totals.count} عارض مسجل`} accent="var(--ink)" icon="📋" onClick={() => go('/reports')} />
-        <StatCard label="إجمالي المحصّل" value={formatOMR(totals.paid)} sub={`ضريبة القيمة المضافة: ${formatOMR(totals.vat)}`} accent="var(--gold)" icon="💵" onClick={() => go('/sales')} />
+        <StatCard label="إجمالي المحصّل" value={formatOMR(totals.paid)} sub={vatEnabled() ? `ضريبة القيمة المضافة: ${formatOMR(totals.vat)}` : `نسبة التحصيل ${totals.collectionRate}%`} accent="var(--gold)" icon="💵" onClick={() => go('/sales')} />
         <StatCard
           label="المبلغ المتبقي للتحصيل"
           value={formatOMR(totals.remaining)}
@@ -89,7 +95,11 @@ export default function Dashboard() {
           icon="⏳"
           onClick={() => go('/sales')}
         />
-        <StatCard label="المجموع الكلي شامل الضريبة" value={formatOMR(totals.paidWithVat)} sub={`نسبة التحصيل ${totals.collectionRate}%`} accent="var(--suc)" icon="🏆" onClick={() => go('/reports')} />
+        {vatEnabled() ? (
+          <StatCard label="المجموع الكلي شامل الضريبة" value={formatOMR(totals.paidWithVat)} sub={`نسبة التحصيل ${totals.collectionRate}%`} accent="var(--suc)" icon="🏆" onClick={() => go('/reports')} />
+        ) : (
+          <StatCard label="الدخل المتوقع من المعارض" value={formatOMR(expectedIncome)} sub="بيع كل المواقع في المعارض القادمة والجارية" accent="var(--suc)" icon="🏆" onClick={() => go('/finance')} />
+        )}
       </div>
         </>
       )}
