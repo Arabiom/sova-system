@@ -18,6 +18,7 @@ import { balanceOf, exhibitionStats, sumBy, vatOf, withVat } from '../lib/financ
 import { exhibitionLabel, exhibitionTitle, formatOMR, monthOf, num, percent, todayISO } from '../lib/format.js'
 import { downloadReceipt } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
+import { useCan } from '../context/AuthContext.jsx'
 
 const load = async () => {
   const [payments, exhibitors, exhibitions] = await Promise.all([listPayments(), listExhibitors(), listExhibitions()])
@@ -136,6 +137,7 @@ export default function Sales() {
   const [scope, setScope] = useState('all')
   const [adding, setAdding] = useState(false)
   const [editingPayment, setEditingPayment] = useState(null)
+  const canWrite = useCan('payments.write')
 
   if (loading || !data) return <Loading />
   const { payments, exhibitors, exhibitions } = data
@@ -176,7 +178,7 @@ export default function Sales() {
     <>
       <PageHeader title="المبيعات والمدفوعات" subtitle={`${payments.length} دفعة مسجلة`}>
         <ExhibitionFilter exhibitions={exhibitions} value={scope} onChange={setScope} />
-        <Button onClick={() => setAdding(true)}>+ تسجيل دفعة / إرجاع</Button>
+        {canWrite && <Button onClick={() => setAdding(true)}>+ تسجيل دفعة / إرجاع</Button>}
       </PageHeader>
 
       <div className="grid-4 mb-16">
@@ -248,15 +250,19 @@ export default function Sales() {
                   </td>
                   <td>
                     <div className="row-actions">
-                      <Button size="sm" variant="outline" onClick={() => setEditingPayment(p)} title="تعديل">
-                        ✏️
-                      </Button>
+                      {canWrite && (
+                        <Button size="sm" variant="outline" onClick={() => setEditingPayment(p)} title="تعديل">
+                          ✏️
+                        </Button>
+                      )}
                       <Button size="sm" variant="outline" onClick={() => printReceipt(p)} title="فاتورة PDF">
                         🖨️
                       </Button>
-                      <Button size="sm" variant="danger" onClick={() => remove(p)} title="حذف">
-                        🗑️
-                      </Button>
+                      {canWrite && (
+                        <Button size="sm" variant="danger" onClick={() => remove(p)} title="حذف">
+                          🗑️
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>

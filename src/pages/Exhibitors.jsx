@@ -15,6 +15,7 @@ import { balanceOf, newReference } from '../lib/finance.js'
 import { exhibitionLabel, formatOMR } from '../lib/format.js'
 import { downloadContract } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
+import { useCan } from '../context/AuthContext.jsx'
 
 const load = async () => {
   const [exhibitors, exhibitions, clients] = await Promise.all([listExhibitors(), listExhibitions(), listClients()])
@@ -23,6 +24,7 @@ const load = async () => {
 
 export default function Exhibitors() {
   const toast = useToast()
+  const canDelete = useCan('records.delete')
   const { data, loading, reload } = useData(load, null)
   const [editing, setEditing] = useState(null)
   const [search, setSearch] = useState('')
@@ -112,9 +114,9 @@ export default function Exhibitors() {
                         <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...e }, id: e.id })} title="تعديل">
                           ✏️
                         </Button>
-                        <Button size="sm" variant="danger" onClick={() => remove(e)} title="حذف">
+{canDelete && (<Button size="sm" variant="danger" onClick={() => remove(e)} title="حذف">
                           🗑️
-                        </Button>
+                        </Button>)}
                       </div>
                     </td>
                   </tr>

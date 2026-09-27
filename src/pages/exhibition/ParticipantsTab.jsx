@@ -9,10 +9,12 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { balanceOf, newReference } from '../../lib/finance.js'
 import { formatOMR } from '../../lib/format.js'
 import { downloadContract } from '../../lib/pdf.js'
+import { useCan } from '../../context/AuthContext.jsx'
 
 export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, clients, onChanged }) {
   const toast = useToast()
   const [editing, setEditing] = useState(null)
+  const canPay = useCan('payments.write')
 
   const printContract = async (e) => {
     toast('📄 جاري طباعة العقد...')
@@ -30,9 +32,11 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
       subtitle={`${exhibitors.length} مشارك`}
       action={
         <div className="row-actions">
-          <Link to="/sales" className="btn btn-outline btn-sm">
-            💳 تسجيل دفعة
-          </Link>
+          {canPay && (
+            <Link to="/sales" className="btn btn-outline btn-sm">
+              💳 تسجيل دفعة
+            </Link>
+          )}
           <Button size="sm" onClick={() => setEditing({ form: { status: 'مبدئي', exhibition_id: exhibition.id }, id: null })}>
             + إضافة مشارك
           </Button>

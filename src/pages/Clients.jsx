@@ -17,6 +17,7 @@ import { clientHistory } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatOMR, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { invitationMessage, openWhatsApp } from '../lib/whatsapp.js'
+import { useCan } from '../context/AuthContext.jsx'
 
 const load = async () => {
   const [clients, exhibitors, exhibitions] = await Promise.all([
@@ -276,6 +277,7 @@ function InviteModal({ clients, exhibitions, onClose }) {
 
 export default function Clients() {
   const toast = useToast()
+  const canDelete = useCan('records.delete')
   const { data, loading, reload } = useData(load, null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({ sector: '', city: '', status: '', source: '', participation: '' })
@@ -437,9 +439,9 @@ export default function Clients() {
                       <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...c }, id: c.id })} title="تعديل">
                         ✏️
                       </Button>
-                      <Button size="sm" variant="danger" onClick={() => remove(c)} title="حذف">
+{canDelete && (<Button size="sm" variant="danger" onClick={() => remove(c)} title="حذف">
                         🗑️
-                      </Button>
+                      </Button>)}
                     </div>
                   </td>
                 </tr>

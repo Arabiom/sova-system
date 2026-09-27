@@ -2075,3 +2075,9 @@ a.ex-card-head {
 .amount.text-dng {
   color: var(--dng);
 }
+
+.steps-list {
+  margin-right: 20px;
+  line-height: 2.1;
+  font-size: 13px;
+}

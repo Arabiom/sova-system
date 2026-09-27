@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { countPendingBookings, watchBookings } from '../api/bookings.js'
 import { signOut, useAuth } from '../context/AuthContext.jsx'
 import { COMPANY } from '../lib/constants.js'
+import { can, ROLES } from '../lib/permissions.js'
 import { Loading } from './Feedback.jsx'
 
 const NAV = [
@@ -15,9 +16,11 @@ const NAV = [
   { path: '/clients', icon: '◍', label: 'العملاء', desc: 'قاعدة بيانات العملاء', sub: 'كل عملاء الشركة وسجل مشاركاتهم' },
   { path: '/exhibitors', icon: '◉', label: 'العارضون والعقود', desc: 'إدارة العارضين', sub: 'قاعدة بيانات العارضين والعقود' },
   { path: '/sales', icon: '◆', label: 'المبيعات والمدفوعات', desc: 'التتبع المالي', sub: 'التتبع المالي الشامل' },
-  { path: '/reports', icon: '◈', label: 'التقارير المالية', desc: 'تحليل الأداء', sub: 'تحليل الأداء والإيرادات' },
+  { path: '/reports', icon: '◈', label: 'التقارير المالية', desc: 'تحليل الأداء', sub: 'تحليل الأداء والإيرادات', perm: 'reports.view' },
   { section: 'التواصل' },
-  { path: '/whatsapp', icon: '◎', label: 'واتساب SOVA', desc: 'إرسال الإشعارات', sub: 'إرسال الإشعارات للعارضين', isNew: true },
+  { path: '/whatsapp', icon: '◎', label: 'واتساب SOVA', desc: 'إرسال الإشعارات', sub: 'إرسال الإشعارات للعارضين' },
+  { section: 'الإدارة', perm: 'staff.manage' },
+  { path: '/staff', icon: '◐', label: 'الموظفون', desc: 'الحسابات والصلاحيات', sub: 'إدارة حسابات الموظفين وصلاحياتهم', perm: 'staff.manage' },
 ]
 
 /** Number of pending booking requests, kept live through Supabase realtime. */
@@ -32,9 +35,9 @@ function usePendingCount() {
 }
 
 function Sidebar({ open, onNavigate, pendingCount }) {
-  const { session } = useAuth()
+  const { session, role, staff } = useAuth()
   const email = session?.user?.email || ''
-  const name = email.split('@')[0] || 'المدير'
+  const name = staff?.name || email.split('@')[0] || 'المدير'
 
   return (
     <nav className={`sidebar ${open ? 'open' : ''}`}>
@@ -55,7 +58,7 @@ function Sidebar({ open, onNavigate, pendingCount }) {
       </div>
 
       <div className="sidebar-nav">
-        {NAV.map((item) =>
+        {NAV.filter((item) => !item.perm || can(role, item.perm)).map((item) =>
           item.section ? (
             <div key={item.section} className="nav-section">
               {item.section}
@@ -79,7 +82,10 @@ function Sidebar({ open, onNavigate, pendingCount }) {
           <div className="avatar">{name[0]?.toUpperCase()}</div>
           <div className="sidebar-user-info">
             <div className="sidebar-user-name">{name}</div>
-            <div className="sidebar-user-email">{email}</div>
+            <div className="sidebar-user-email">
+              {ROLES[role]?.label ? `${ROLES[role].label} • ` : ''}
+              {email}
+            </div>
           </div>
           <div className="online-dot" title="متصل" />
         </div>

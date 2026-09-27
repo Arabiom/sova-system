@@ -329,7 +329,7 @@ function ImportModal({ exhibitionId, existingSites, exhibitors, onClose, onDone 
   )
 }
 
-export default function SitesTab({ exhibition, sites, exhibitors, onChanged }) {
+export default function SitesTab({ exhibition, sites, exhibitors, canManage = true, onChanged }) {
   const toast = useToast()
   const [tierForm, setTierForm] = useState(null) // { tier } | { tier: null }
   const [assigning, setAssigning] = useState(null)
@@ -387,7 +387,10 @@ export default function SitesTab({ exhibition, sites, exhibitors, onChanged }) {
         <div className="empty">
           <div className="empty-icon">🗺️</div>
           <div className="strong mb-8">لم تُضف خارطة المواقع بعد</div>
-          <div className="small mb-16">أضف أرقام المواقع وفئاتها وأسعارها، أو استوردها مع المشاركين من ملف Excel.</div>
+          <div className="small mb-16">
+            {canManage ? 'أضف أرقام المواقع وفئاتها وأسعارها، أو استوردها مع المشاركين من ملف Excel.' : 'تُضاف الخارطة من قبل الإدارة أو المالية.'}
+          </div>
+          {canManage && (
           <div className="page-actions center-actions">
             <Button onClick={() => setImporting(true)}>📥 استيراد من Excel</Button>
             <Button variant="outline" onClick={() => setTierForm({ tier: null })}>
@@ -399,6 +402,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, onChanged }) {
               </Button>
             )}
           </div>
+          )}
         </div>
         {tierForm && (
           <TierForm exhibitionId={exhibition.id} tier={null} takenNumbers={taken} onClose={() => setTierForm(null)} onSaved={() => { setTierForm(null); onChanged() }} />
@@ -416,6 +420,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, onChanged }) {
         subtitle={`${sites.length} موقع • ${formatOMR(tiers.reduce((t, x) => t + x.total, 0))} عند البيع الكامل`}
         className="mb-16"
         action={
+          canManage && (
           <div className="row-actions">
             <Button size="sm" onClick={() => setTierForm({ tier: null })}>
               + إضافة مواقع
@@ -427,6 +432,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, onChanged }) {
               حذف الخارطة
             </Button>
           </div>
+          )
         }
       >
         <div className="table-wrap">
@@ -457,6 +463,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, onChanged }) {
                     <td className="num">{formatOMR(t.price)}</td>
                     <td className="num strong">{formatOMR(t.total)}</td>
                     <td>
+                      {canManage && (
                       <div className="row-actions">
                         <Button size="sm" variant="outline" onClick={() => setTierForm({ tier: t })} title="تعديل">
                           ✏️
@@ -465,6 +472,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, onChanged }) {
                           🗑️
                         </Button>
                       </div>
+                      )}
                     </td>
                   </tr>
                 )

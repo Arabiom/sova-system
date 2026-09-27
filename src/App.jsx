@@ -2,7 +2,7 @@ import { lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Splash } from './components/Feedback.jsx'
 import Layout from './components/Layout.jsx'
-import { useAuth } from './context/AuthContext.jsx'
+import { signOut, useAuth, useCan } from './context/AuthContext.jsx'
 import Login from './pages/Login.jsx'
 
 // Pages load on demand so the first screen appears quickly.
@@ -15,13 +15,38 @@ const Exhibitors = lazy(() => import('./pages/Exhibitors.jsx'))
 const Reports = lazy(() => import('./pages/Reports.jsx'))
 const Sales = lazy(() => import('./pages/Sales.jsx'))
 const WhatsApp = lazy(() => import('./pages/WhatsApp.jsx'))
+const Staff = lazy(() => import('./pages/Staff.jsx'))
 
 /** Internal system: every page requires a signed-in staff member. */
 function Protected() {
-  const { session, loading } = useAuth()
+  const { session, loading, role, staffError } = useAuth()
   if (loading) return <Splash />
   if (!session) return <Login />
+  if (!role) return <NoAccess error={staffError} />
   return <Layout />
+}
+
+/** Signed in, but no staff role (removed by an admin, or the role could not be loaded). */
+function NoAccess({ error }) {
+  return (
+    <div className="login">
+      <div className="login-box">
+        <div className="login-card center">
+          <div className="empty-icon">🔒</div>
+          <div className="login-title">لا توجد صلاحية دخول</div>
+          <div className="login-hint">{error || 'حسابك غير مفعّل في النظام. تواصل مع مدير النظام لإضافة صلاحيتك.'}</div>
+          <button className="btn btn-outline btn-full" onClick={signOut}>
+            تسجيل الخروج
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Route only for roles with `permission`; others land on the dashboard. */
+function Allow({ permission, children }) {
+  return useCan(permission) ? children : <Navigate to="/dashboard" replace />
 }
 
 export default function App() {
@@ -35,7 +60,22 @@ export default function App() {
         <Route path="/bookings" element={<Bookings />} />
         <Route path="/exhibitors" element={<Exhibitors />} />
         <Route path="/sales" element={<Sales />} />
-        <Route path="/reports" element={<Reports />} />
+        <Route
+          path="/reports"
+          element={
+            <Allow permission="reports.view">
+              <Reports />
+            </Allow>
+          }
+        />
+        <Route
+          path="/staff"
+          element={
+            <Allow permission="staff.manage">
+              <Staff />
+            </Allow>
+          }
+        />
         <Route path="/whatsapp" element={<WhatsApp />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>

@@ -15,6 +15,7 @@ import { exhibitionFinancials, tiersOf } from '../lib/finance.js'
 import { exhibitionTitle, formatOMR } from '../lib/format.js'
 import { tierColor, tiersFromSites } from '../lib/sites.js'
 import { useData } from '../lib/useData.js'
+import { useCan } from '../context/AuthContext.jsx'
 
 const load = async () => {
   const [exhibitions, exhibitors, payments, sites] = await Promise.all([
@@ -30,6 +31,7 @@ export default function Exhibitions() {
   const toast = useToast()
   const { data, loading, reload } = useData(load, null)
   const [editing, setEditing] = useState(null) // { form, id } while the modal is open
+  const canManage = useCan('exhibitions.manage')
 
   if (loading || !data) return <Loading />
   const { exhibitions, exhibitors, payments, sites } = data
@@ -50,7 +52,7 @@ export default function Exhibitions() {
   return (
     <>
       <PageHeader title="المعارض والمواعيد" subtitle={`${exhibitions.length} معرض مسجل`}>
-        <Button onClick={openNew}>🏛️ + إضافة معرض</Button>
+        {canManage && <Button onClick={openNew}>🏛️ + إضافة معرض</Button>}
       </PageHeader>
 
       <div className="cards-grid">
@@ -100,21 +102,23 @@ export default function Exhibitions() {
                 <Link to={`/exhibitions/${ex.id}`} className="btn btn-primary btn-sm">
                   📂 ملف المعرض
                 </Link>
+                {canManage && (<>
                 <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...ex }, id: ex.id })}>
                   ✏️ تعديل
                 </Button>
                 <Button size="sm" variant="danger" onClick={() => remove(ex)} aria-label="حذف">
                   🗑️
                 </Button>
+                </>)}
               </div>
             </article>
           )
         })}
 
-        <button className="add-card" onClick={openNew}>
+        {canManage && <button className="add-card" onClick={openNew}>
           <div className="add-card-icon">🏛️</div>
           <div className="strong">+ إضافة معرض جديد</div>
-        </button>
+        </button>}
       </div>
 
       {editing && (
