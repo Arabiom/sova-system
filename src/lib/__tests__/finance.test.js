@@ -39,9 +39,10 @@ describe('finance', () => {
     expect(balanceOf(exhibitors[2])).toBe(300)
   })
 
-  it('uses tier counts for capacity, falling back to the legacy booths column', () => {
+  it('uses the total entered on the exhibition, falling back to the tier counts', () => {
     expect(boothCapacity({ booth_tier1_count: 10, booth_tier2_count: '15', booth_tier3_count: 11 })).toBe(36)
     expect(boothCapacity({ booths: 20 })).toBe(20)
+    expect(boothCapacity({ booths: 46, booth_tier1_count: 10 })).toBe(46)
     expect(boothCapacity({})).toBe(0)
   })
 
@@ -103,5 +104,19 @@ describe('row mapping', () => {
     const row = toExhibitorRow({ brand: 'B', manager: 'M', exhibition_id: 'x', contract: '450.5', paid: 999 })
     expect(row).toMatchObject({ booth: '—', contract: 450.5, status: 'مبدئي' })
     expect(row).not.toHaveProperty('paid')
+  })
+})
+
+describe('booth total typed on the exhibition', () => {
+  it('is saved as typed and drives capacity without skewing the average price', async () => {
+    const { toExhibitionRow } = await import('../../api/exhibitions.js')
+    const { exhibitionFinancials } = await import('../finance.js')
+    expect(toExhibitionRow({ city: 'نزوى', mall: 'م', booths: '46' }).booths).toBe(46)
+    expect(toExhibitionRow({ city: 'نزوى', mall: 'م', booth_tier1_count: 10, booth_tier2_count: 5 }).booths).toBe(15)
+    const ex = { id: 'x', booths: 40, booth_tier1_count: 10, booth_tier1_price: 200, booth_tier2_count: 10, booth_tier2_price: 100, booth_tier3_count: 0 }
+    const f = exhibitionFinancials({ exhibition: ex, expenses: [{ amount: 1500 }] }, [{}, {}, {}])
+    expect(f.capacity).toBe(40)
+    expect(f.avgPrice).toBe(150) // (10×200 + 10×100) / 20 priced booths
+    expect(f.breakEven).toBe(10)
   })
 })

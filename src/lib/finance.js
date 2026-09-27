@@ -26,11 +26,11 @@ export const withVat = (amount) => num(amount) * (1 + VAT_RATE)
 /** What an exhibitor still owes on their contract. */
 export const balanceOf = (exhibitor) => num(exhibitor.contract) - num(exhibitor.paid)
 
-/** Booth capacity of an exhibition: the three tiers, else the legacy `booths` column. */
+/** Booth capacity of an exhibition: the total entered on the exhibition, else the sum of its tiers. */
 export function boothCapacity(exhibition) {
   const tiers =
     num(exhibition.booth_tier1_count) + num(exhibition.booth_tier2_count) + num(exhibition.booth_tier3_count)
-  return tiers || num(exhibition.booths)
+  return num(exhibition.booths) || tiers
 }
 
 /** Booked / total sites of an exhibition: from its site map when it has one, else exhibitors vs. planned tiers. */
@@ -112,8 +112,11 @@ export function exhibitionFinancials({ exhibition, sites = [], exhibitors = [], 
   const hasSites = sites.length > 0
 
   const planTiers = hasSites ? [] : tiersOf(exhibition, defaults)
-  const capacity = hasSites ? sites.length : planTiers.reduce((t, x) => t + x.count, 0)
+  const tierCount = planTiers.reduce((t, x) => t + x.count, 0)
+  const capacity = hasSites ? sites.length : num(exhibition.booths) || tierCount
   const fullRevenue = hasSites ? sumBy(sites, 'price') : planTiers.reduce((t, x) => t + x.count * num(x.price), 0)
+  // Average price over the booths that have a price (the entered total may include unpriced ones).
+  const pricedCount = hasSites ? sites.length : tierCount
   const booked = hasSites ? sites.filter((s) => s.exhibitor_id).length : own.length
 
   const contract = sumBy(own, 'contract')
@@ -124,7 +127,7 @@ export function exhibitionFinancials({ exhibition, sites = [], exhibitors = [], 
   const expensesPaid = sumBy(expenses.filter((x) => x.paid), 'amount')
 
   // Break-even: sites to sell (at the average list price) to cover expenses not covered by sponsors.
-  const avgPrice = capacity ? fullRevenue / capacity : 0
+  const avgPrice = pricedCount ? fullRevenue / pricedCount : 0
   const toCover = Math.max(0, expensesTotal - sponsorship)
   const breakEven = avgPrice ? Math.ceil(toCover / avgPrice - 1e-9) : 0
 

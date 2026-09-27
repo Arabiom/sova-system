@@ -15,7 +15,8 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
   const [form, setForm] = useState(initial)
   const [saving, setSaving] = useState(false)
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
-  const totalBooths = [1, 2, 3].reduce((t, i) => t + num(form[`booth_tier${i}_count`]), 0)
+  const tierBooths = [1, 2, 3].reduce((t, i) => t + num(form[`booth_tier${i}_count`]), 0)
+  const totalBooths = num(form.booths) || tierBooths
 
   const submit = async () => {
     if (!form.city || !form.mall || !form.date_from || !form.date_to) return toast('أكمل البيانات المطلوبة', 'error')
@@ -67,8 +68,15 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
         <Field label="الحالة">
           <SelectOptions options={EXHIBITION_STATUSES} placeholder={null} value={form.status || 'تخطيط'} onChange={set('status')} />
         </Field>
-        <Field label="إجمالي البوثات">
-          <input className="input input-readonly" value={`${totalBooths} بوث`} readOnly />
+        <Field
+          label="إجمالي البوثات"
+          hint={
+            num(form.booths) && tierBooths && num(form.booths) !== tierBooths
+              ? `⚠️ مجموع الفئات تحت ${tierBooths} بوث`
+              : 'عدد البوثات في هذا المعرض'
+          }
+        >
+          <input className="input" type="number" min="0" placeholder={tierBooths ? String(tierBooths) : 'مثال: 46'} value={form.booths || ''} onChange={set('booths')} />
         </Field>
         <Field label="المناسبة">
           <input className="input" placeholder="مثال: العيد الوطني" value={form.occasion || ''} onChange={set('occasion')} />
@@ -82,7 +90,7 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
       </div>
 
       <div className="tier-box">
-        <div className="tier-box-title">🏷️ فئات البوثات وأسعارها (تقدير مبدئي)</div>
+        <div className="tier-box-title">🏷️ فئات البوثات وأسعارها (اختياري — تقدير مبدئي)</div>
         <div className="muted tiny mb-10">تُستخدم للتخطيط فقط. الخارطة التفصيلية (أرقام المواقع وفئاتها) تُضاف من ملف المعرض.</div>
         {[1, 2, 3].map((i) => (
           <div key={i} className="tier-row">
@@ -98,7 +106,7 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
           </div>
         ))}
         <div className="tier-total">
-          الإجمالي: <strong>{totalBooths} بوث</strong>
+          مجموع الفئات: <strong>{tierBooths} بوث</strong> — إجمالي المعرض: <strong>{totalBooths} بوث</strong>
         </div>
       </div>
 

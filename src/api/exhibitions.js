@@ -28,7 +28,8 @@ export function toExhibitionRow(form) {
     row[`booth_tier${i}_count`] = num(form[`booth_tier${i}_count`])
     booths += row[`booth_tier${i}_count`]
   })
-  row.booths = booths
+  // The total typed on the form wins; otherwise the tiers add up to it.
+  row.booths = num(form.booths) || booths
   // Legacy single-price column: the middle tier's price.
   row.booth_price = row.booth_tier2_price
   return row
@@ -40,7 +41,7 @@ export function newExhibitionForm() {
   DEFAULT_TIERS.forEach((tier, idx) => {
     form[`booth_tier${idx + 1}_name`] = tier.name
     form[`booth_tier${idx + 1}_price`] = tier.price
-    form[`booth_tier${idx + 1}_count`] = tier.count
+    form[`booth_tier${idx + 1}_count`] = ''
   })
   return form
 }
