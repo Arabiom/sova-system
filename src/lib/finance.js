@@ -180,3 +180,81 @@ export function clientHistory(client, exhibitors, exhibitions) {
     lastExhibition: rows[0]?.exhibition || null,
   }
 }
+
+/** Participants who still owe money (contract − confirmed paid), largest balance first. */
+export function receivables(exhibitors, exhibitions) {
+  return exhibitors
+    .map((e) => ({ exhibitor: e, exhibition: exhibitions.find((x) => x.id === e.exhibition_id), remaining: balanceOf(e) }))
+    .filter((r) => r.remaining > 0.0005)
+    .sort((a, b) => b.remaining - a.remaining)
+}
+
+const APPROVED_CLAIMS = ['معتمد', 'تم التعويض']
+
+/**
+ * The whole company's money in one place: what was sold, collected and is still owed, and
+ * every kind of expense (exhibitions, company overheads, staff claims). Amounts before VAT.
+ */
+export function companyOverview({ exhibitors = [], payments = [], expenses = [], sponsors = [], companyExpenses = [], staffExpenses = [] }) {
+  const contracts = sumBy(exhibitors, 'contract')
+  const collected = sumBy(payments.filter(isConfirmed), 'amount')
+  const awaiting = sumBy(payments.filter((p) => !isConfirmed(p)), 'amount')
+  const sponsorship = sumBy(sponsors, 'amount')
+  const sponsorshipPaid = sumBy(sponsors.filter((s) => s.status === 'مدفوع'), 'amount')
+
+  const exhibitionExpenses = sumBy(expenses, 'amount')
+  const exhibitionExpensesPaid = sumBy(expenses.filter((x) => x.paid), 'amount')
+  const company = sumBy(companyExpenses, 'amount')
+  const companyPaid = sumBy(companyExpenses.filter((x) => x.paid), 'amount')
+  const claims = staffExpenses.filter((x) => APPROVED_CLAIMS.includes(x.status))
+  const staffClaims = sumBy(claims, 'amount')
+  const staffReimbursed = sumBy(claims.filter((x) => x.status === 'تم التعويض'), 'amount')
+
+  const expensesAll = exhibitionExpenses + company + staffClaims
+  const expensesPaidAll = exhibitionExpensesPaid + companyPaid + staffReimbursed
+  return {
+    contracts,
+    collected,
+    receivable: contracts - collected,
+    awaiting,
+    collectionRate: percent(collected, contracts),
+    sponsorship,
+    sponsorshipPaid,
+    exhibitionExpenses,
+    exhibitionExpensesPaid,
+    company,
+    companyPaid,
+    staffClaims,
+    staffReimbursed,
+    staffOwed: staffClaims - staffReimbursed,
+    expensesAll,
+    expensesPaidAll,
+    payable: expensesAll - expensesPaidAll,
+    // on paper: everything sold and sponsored minus every expense
+    net: contracts + sponsorship - expensesAll,
+    // in hand: money received minus money already paid out
+    cash: collected + sponsorshipPaid - expensesPaidAll,
+  }
+}
+
+/**
+ * Money in and out per month (YYYY-MM), newest first. In: confirmed payments by payment date.
+ * Out: paid company expenses by date, paid exhibition expenses by due date (else when added),
+ * staff claims reimbursed by the review date.
+ */
+export function monthlyFlow({ payments = [], expenses = [], companyExpenses = [], staffExpenses = [] }) {
+  const months = {}
+  const add = (date, key, amount) => {
+    const m = String(date || '').slice(0, 7)
+    if (!/^\d{4}-\d{2}$/.test(m)) return
+    months[m] ||= { month: m, in: 0, exhibitions: 0, company: 0, staff: 0 }
+    months[m][key] += num(amount)
+  }
+  payments.filter(isConfirmed).forEach((p) => add(p.date || p.created_at, 'in', p.amount))
+  expenses.filter((x) => x.paid).forEach((x) => add(x.due_date || x.created_at, 'exhibitions', x.amount))
+  companyExpenses.filter((x) => x.paid).forEach((x) => add(x.date, 'company', x.amount))
+  staffExpenses.filter((x) => x.status === 'تم التعويض').forEach((x) => add(x.reviewed_at || x.date, 'staff', x.amount))
+  return Object.values(months)
+    .map((m) => ({ ...m, out: m.exhibitions + m.company + m.staff, net: m.in - m.exhibitions - m.company - m.staff }))
+    .sort((a, b) => b.month.localeCompare(a.month))
+}
