@@ -71,7 +71,12 @@ function rowsTable(rows) {
   </table>`
 }
 
-async function renderPdf(html, filename) {
+/**
+ * Render HTML pages into an A4 PDF. With `onePage`, everything is fitted onto a single page:
+ * if the content is taller than A4 (longer data, bigger fonts on this device) it is scaled down
+ * rather than cut off or spilled onto a second page.
+ */
+async function renderPdf(html, filename, { onePage = false, fitPages = false } = {}) {
   const [{ jsPDF }, { default: html2canvas }] = await Promise.all([import('jspdf'), import('html2canvas')])
 
   const host = document.createElement('div')
@@ -83,10 +88,28 @@ async function renderPdf(html, filename) {
     if (document.fonts?.ready) await document.fonts.ready
     // Wait for the company logo (and any other image) so it is in the capture.
     await Promise.all([...host.querySelectorAll('img')].map((img) => img.decode().catch(() => {})))
-    const canvas = await html2canvas(host.firstElementChild, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
-
+    const capture = (el) => html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const pageWidthMm = 210
+
+    // Fit a captured page onto one A4 page, shrinking it (centred) if it is taller than A4.
+    const addFitted = (c) => {
+      const heightMm = (c.height * pageWidthMm) / c.width
+      const scale = Math.min(1, 297 / heightMm)
+      const w = pageWidthMm * scale
+      pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', (pageWidthMm - w) / 2, 0, w, heightMm * scale)
+    }
+    if (onePage || fitPages) {
+      const pages = fitPages ? [...host.firstElementChild.children] : [host.firstElementChild]
+      for (let i = 0; i < pages.length; i++) {
+        if (i > 0) pdf.addPage()
+        addFitted(await capture(pages[i]))
+      }
+      pdf.save(filename)
+      return
+    }
+
+    const canvas = await capture(host.firstElementChild)
     const sliceHeightPx = Math.floor((canvas.width * 297) / pageWidthMm)
 
     // Ignore a leftover sliver of a few pixels at the end (rounding), which would be a blank page.
@@ -115,19 +138,19 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
   const pkg = BOOTH_PACKAGES.find((p) => p.name === e.booth_type)
   const exName = exhibition ? escapeHtml(exhibition.name?.trim() || `SOVA ${exhibition.city}`) : '—'
   const money = (v) => bdi(omr(v))
-  const box = (label, value) => `<div style="padding:6px 0;border-bottom:1px solid #EFE7D6">
-      <div style="font-size:11px;color:#6B5A40">${label}</div>
-      <div dir="auto" style="font-size:14px;font-weight:700;color:${INK};min-height:19px">${value}</div>
+  const box = (label, value) => `<div style="padding:4px 0;border-bottom:1px solid #EFE7D6">
+      <div style="font-size:10.5px;color:#6B5A40">${label}</div>
+      <div dir="auto" style="font-size:13.5px;font-weight:700;color:${INK};line-height:1.45">${value}</div>
     </div>`
-  const section = (text) => `<div style="font-size:14px;font-weight:900;margin:14px 0 4px;padding-bottom:4px;border-bottom:2px solid ${GOLD}">${text}</div>`
+  const section = (text) => `<div style="font-size:14px;font-weight:900;margin:10px 0 2px;padding-bottom:3px;border-bottom:2px solid ${GOLD}">${text}</div>`
   const sumRow = (label, value, strong) =>
-    `<div style="display:flex;justify-content:space-between;padding:5px 0;${strong ? `font-weight:900;font-size:15px;border-top:1.5px solid ${INK};margin-top:2px` : 'font-size:13px'}">
+    `<div style="display:flex;justify-content:space-between;padding:3px 0;${strong ? `font-weight:900;font-size:15px;border-top:1.5px solid ${INK};margin-top:2px` : 'font-size:13px'}">
       <span>${label}</span><span>${money(value)}</span></div>`
 
   return page(
     `<div style="display:flex;justify-content:space-between;align-items:flex-end">
       <div>
-        <div style="font-size:26px;font-weight:900">عقد حجز موقع في معرض</div>
+        <div style="font-size:24px;font-weight:900;line-height:1.3">عقد حجز موقع في معرض</div>
         <div style="font-size:12px;color:#8A7A60;direction:ltr;text-align:right">Exhibition Booth Contract</div>
       </div>
       <div style="font-size:13px;line-height:1.8;text-align:left">
@@ -156,15 +179,15 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
       ${box('المساحة', escapeHtml(e.booth_size || '—'))}
     </div>
 
-    <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:18px;margin-top:14px;align-items:start">
-      <div style="background:#FDFAF5;border:1px solid #EFE7D6;border-radius:10px;padding:10px 14px">
-        <div style="font-size:14px;font-weight:900;margin-bottom:4px">القيمة المالية</div>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:16px;margin-top:10px;align-items:start">
+      <div style="background:#FDFAF5;border:1px solid #EFE7D6;border-radius:10px;padding:8px 14px">
+        <div style="font-size:13.5px;font-weight:900;margin-bottom:2px">القيمة المالية</div>
         ${sumRow('قيمة العقد', contract)}
         ${sumRow('ضريبة القيمة المضافة 5%', vatOf(contract))}
         ${sumRow('الإجمالي', withVat(contract), true)}
       </div>
-      <div style="background:#FDFAF5;border:1px solid #EFE7D6;border-radius:10px;padding:10px 14px">
-        <div style="font-size:14px;font-weight:900;margin-bottom:4px">السداد</div>
+      <div style="background:#FDFAF5;border:1px solid #EFE7D6;border-radius:10px;padding:8px 14px">
+        <div style="font-size:13.5px;font-weight:900;margin-bottom:2px">السداد</div>
         ${sumRow('المدفوع', withVat(paid))}
         ${sumRow('المتبقي', Math.max(0, withVat(contract) - withVat(paid)), true)}
         <div style="font-size:11px;color:#6B5A40;margin-top:4px">حالة العقد: <strong>${escapeHtml(e.status || '—')}</strong></div>
@@ -173,27 +196,27 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
     <div style="font-size:11px;color:#6B5A40;margin-top:6px">طريقة السداد: تحويل بنكي إلى ${COMPANY.bank}، أو نقداً مقابل إيصال. المبالغ بالريال العُماني.</div>
 
     ${section('الشروط والأحكام')}
-    <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:22px;row-gap:5px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:22px;row-gap:3px">
       ${PARTICIPATION_TERMS.map(
-        (t, i) => `<div style="font-size:11px;line-height:1.6">
+        (t, i) => `<div style="font-size:10.5px;line-height:1.55">
           <strong style="color:${INK}">${bdi(i + 1)}. ${t.title}:</strong> <span style="color:#3A2E22">${t.text}</span>
         </div>`,
       ).join('')}
     </div>
 
-    <div style="display:flex;justify-content:space-between;margin-top:22px;font-size:12px">
+    <div style="display:flex;justify-content:space-between;margin-top:16px;font-size:12px">
       <div style="width:44%">
         <div style="font-weight:800;min-height:38px">الطرف الثاني (المشارك)<br><span style="font-weight:600">${escapeHtml(e.manager || e.brand || '')}</span></div>
-        <div style="height:30px"></div>
+        <div style="height:26px"></div>
         <div style="border-top:1.5px solid ${INK};padding-top:3px;color:#6B5A40">التوقيع</div>
       </div>
       <div style="width:44%">
         <div style="font-weight:800;min-height:38px">الطرف الأول: ${COMPANY.legalName}<br><span style="font-weight:600">${COMPANY.signatory}</span></div>
-        <div style="height:30px"></div>
+        <div style="height:26px"></div>
         <div style="border-top:1.5px solid ${INK};padding-top:3px;color:#6B5A40">التوقيع والختم</div>
       </div>
     </div>`,
-    { exactHeight: true },
+    { fixedHeight: true },
   )
 }
 
@@ -261,7 +284,7 @@ export function reportHtml({ exhibitions, exhibitors, sites = [] }, exhibitionId
 }
 
 export function downloadContract(exhibitor, exhibition, contractNo) {
-  return renderPdf(contractHtml(exhibitor, exhibition, { contractNo }), `AIB-Contract-${safeName(exhibitor.brand)}.pdf`)
+  return renderPdf(contractHtml(exhibitor, exhibition, { contractNo }), `AIB-Contract-${safeName(exhibitor.brand)}.pdf`, { onePage: true })
 }
 
 export function downloadReceipt(payment, exhibitor, exhibition) {
@@ -467,7 +490,7 @@ export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment 
       <div style="width:44%;border-top:1.5px solid ${INK};padding-top:4px">اسم المشارك وتوقيعه</div>
       <div style="width:44%;border-top:1.5px solid ${INK};padding-top:4px">عن الإدارة — ${COMPANY.legalName}</div>
     </div>`,
-    { exactHeight: true },
+    { fixedHeight: true },
   )
 
   const termsPage = page(
@@ -487,7 +510,7 @@ export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment 
       <div style="width:44%;border-top:1.5px solid ${INK};padding-top:4px">اسم المشارك وتوقيعه: ${escapeHtml(e.manager || '')}</div>
       <div style="width:44%;border-top:1.5px solid ${INK};padding-top:4px">عن الإدارة — ${COMPANY.legalName}</div>
     </div>`,
-    { exactHeight: true },
+    { fixedHeight: true },
   )
 
   return `<div>${invoicePage}${termsPage}</div>`
@@ -495,5 +518,5 @@ export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment 
 
 export function downloadRegistrationInvoice(data) {
   const ref = data.payment?.invoice_no || safeName(data.exhibitor.brand)
-  return renderPdf(registrationInvoiceHtml(data), `AIB-Invoice-${safeName(ref)}.pdf`)
+  return renderPdf(registrationInvoiceHtml(data), `AIB-Invoice-${safeName(ref)}.pdf`, { fitPages: true })
 }
