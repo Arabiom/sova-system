@@ -153,7 +153,8 @@ export default function Expenses() {
   const [busy, setBusy] = useState(null)
 
   const expenses = useMemo(() => data?.expenses || [], [data])
-  if (loading || !data) return <Loading />
+  if (loading) return <Loading />
+  if (!data) return <EmptyState icon="🧾" text="تعذّر تحميل المصروفات. إذا ظهرت رسالة «جدول غير موجود» فشغّل ملف التحديث 008 في Supabase ثم حدّث الصفحة." />
   const { exhibitions, staff } = data
 
   const nameOf = (id) => {
