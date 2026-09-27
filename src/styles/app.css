@@ -588,6 +588,8 @@ textarea.input {
 }
 .stat-card.clickable {
   cursor: pointer;
+  /* Room for the "اضغط للتفاصيل" hint so a long sub-line never runs underneath it. */
+  padding-bottom: 38px;
 }
 .stat-card.clickable:hover {
   box-shadow: var(--shadow-md);
