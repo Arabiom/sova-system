@@ -16,6 +16,13 @@ export function boothCapacity(exhibition) {
   return tiers || num(exhibition.booths)
 }
 
+/** Booked / total sites of an exhibition: from its site map when it has one, else exhibitors vs. planned tiers. */
+export function occupancyOf(exhibition, sites, exhibitors) {
+  const own = sites.filter((x) => x.exhibition_id === exhibition.id)
+  if (own.length) return { booked: own.filter((x) => x.exhibitor_id).length, capacity: own.length }
+  return { booked: exhibitors.filter((e) => e.exhibition_id === exhibition.id).length, capacity: boothCapacity(exhibition) }
+}
+
 /** Headline figures for a set of exhibitors (contract value vs. collected). */
 export function summarize(exhibitors) {
   const contract = sumBy(exhibitors, 'contract')
@@ -69,3 +76,71 @@ export function tiersOf(exhibition, defaults) {
 
 /** Invoice / contract reference numbers in the format already stored in the database. */
 export const newReference = (prefix) => `${prefix}-${Date.now().toString().slice(-6)}`
+
+/**
+ * Everything the exhibition file shows, from the exhibition and its related rows.
+ * When the site map exists it is the source of truth for capacity and full revenue;
+ * otherwise the three planning tiers stored on the exhibition are used.
+ */
+export function exhibitionFinancials({ exhibition, sites = [], exhibitors = [], payments = [], expenses = [], sponsors = [] }, defaults) {
+  const own = exhibitors.filter((e) => e.exhibition_id === exhibition.id)
+  const ownIds = new Set(own.map((e) => e.id))
+  const hasSites = sites.length > 0
+
+  const planTiers = hasSites ? [] : tiersOf(exhibition, defaults)
+  const capacity = hasSites ? sites.length : planTiers.reduce((t, x) => t + x.count, 0)
+  const fullRevenue = hasSites ? sumBy(sites, 'price') : planTiers.reduce((t, x) => t + x.count * num(x.price), 0)
+  const booked = hasSites ? sites.filter((s) => s.exhibitor_id).length : own.length
+
+  const contract = sumBy(own, 'contract')
+  const collected = payments.filter((p) => ownIds.has(p.exhibitor_id)).reduce((t, p) => t + num(p.amount), 0)
+  const sponsorship = sumBy(sponsors, 'amount')
+  const sponsorshipPaid = sumBy(sponsors.filter((s) => s.status === 'مدفوع'), 'amount')
+  const expensesTotal = sumBy(expenses, 'amount')
+  const expensesPaid = sumBy(expenses.filter((x) => x.paid), 'amount')
+
+  // Break-even: sites to sell (at the average list price) to cover expenses not covered by sponsors.
+  const avgPrice = capacity ? fullRevenue / capacity : 0
+  const toCover = Math.max(0, expensesTotal - sponsorship)
+  const breakEven = avgPrice ? Math.ceil(toCover / avgPrice - 1e-9) : 0
+
+  return {
+    hasSites,
+    capacity,
+    booked,
+    available: Math.max(0, capacity - booked),
+    occupancy: percent(booked, capacity),
+    fullRevenue,
+    avgPrice,
+    contract,
+    collected,
+    outstanding: contract - collected,
+    sponsorship,
+    sponsorshipPaid,
+    expensesTotal,
+    expensesPaid,
+    netAtFull: fullRevenue + sponsorship - expensesTotal,
+    netOnContracts: contract + sponsorship - expensesTotal,
+    cashPosition: collected + sponsorshipPaid - expensesPaid,
+    breakEven,
+    breakEvenPct: percent(breakEven, capacity),
+  }
+}
+
+/** A client's history across exhibitions. */
+export function clientHistory(client, exhibitors, exhibitions) {
+  const rows = exhibitors
+    .filter((e) => e.client_id === client.id)
+    .map((e) => ({ ...e, exhibition: exhibitions.find((x) => x.id === e.exhibition_id) }))
+    .sort((a, b) => String(b.exhibition?.date_from || '').localeCompare(String(a.exhibition?.date_from || '')))
+  const contract = sumBy(rows, 'contract')
+  const paid = sumBy(rows, 'paid')
+  return {
+    participations: rows,
+    count: rows.length,
+    contract,
+    paid,
+    outstanding: contract - paid,
+    lastExhibition: rows[0]?.exhibition || null,
+  }
+}

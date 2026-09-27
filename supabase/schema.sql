@@ -1,5 +1,8 @@
 -- SOVA — database structure as used by the app.
 --
+-- Later changes live in supabase/migrations/ (002 adds clients, exhibition_sites,
+-- exhibition_expenses, exhibition_sponsors and extra exhibition columns).
+--
 -- REFERENCE ONLY: this was reconstructed from the application code, not exported from the
 -- live Supabase project. Column types are best guesses; compare with the real project
 -- (Supabase → Table Editor / Database → Schema) before running any of it.

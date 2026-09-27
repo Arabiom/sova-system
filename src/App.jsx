@@ -3,7 +3,9 @@ import { Splash } from './components/Feedback.jsx'
 import Layout from './components/Layout.jsx'
 import { useAuth } from './context/AuthContext.jsx'
 import Bookings from './pages/Bookings.jsx'
+import Clients from './pages/Clients.jsx'
 import Dashboard from './pages/Dashboard.jsx'
+import ExhibitionFile from './pages/ExhibitionFile.jsx'
 import Exhibitions from './pages/Exhibitions.jsx'
 import Exhibitors from './pages/Exhibitors.jsx'
 import Login from './pages/Login.jsx'
@@ -25,6 +27,8 @@ export default function App() {
       <Route element={<Protected />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/exhibitions" element={<Exhibitions />} />
+        <Route path="/exhibitions/:id" element={<ExhibitionFile />} />
+        <Route path="/clients" element={<Clients />} />
         <Route path="/bookings" element={<Bookings />} />
         <Route path="/exhibitors" element={<Exhibitors />} />
         <Route path="/sales" element={<Sales />} />

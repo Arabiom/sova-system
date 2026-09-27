@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { listSites } from '../api/exhibitionFile.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
@@ -11,14 +13,14 @@ import { ProgressBar, ShareRow } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { COMPANY } from '../lib/constants.js'
-import { boothCapacity, groupTotals, summarize } from '../lib/finance.js'
-import { formatOMR, monthOf, num, percent } from '../lib/format.js'
+import { groupTotals, occupancyOf, summarize } from '../lib/finance.js'
+import { exhibitionTitle, formatOMR, monthOf, num, percent } from '../lib/format.js'
 import { downloadReport } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
 
 const load = async () => {
-  const [exhibitions, exhibitors, payments] = await Promise.all([listExhibitions(), listExhibitors(), listPayments()])
-  return { exhibitions, exhibitors, payments }
+  const [exhibitions, exhibitors, payments, sites] = await Promise.all([listExhibitions(), listExhibitors(), listPayments(), listSites()])
+  return { exhibitions, exhibitors, payments, sites }
 }
 
 export default function Reports() {
@@ -28,7 +30,7 @@ export default function Reports() {
   const [exporting, setExporting] = useState(false)
 
   if (loading || !data) return <Loading />
-  const { exhibitions, exhibitors, payments } = data
+  const { exhibitions, exhibitors, payments, sites } = data
 
   const scopeExhibitors = scope === 'all' ? exhibitors : exhibitors.filter((e) => e.exhibition_id === scope)
   const scopeIds = new Set(scopeExhibitors.map((e) => e.id))
@@ -99,12 +101,14 @@ export default function Reports() {
                 return (
                   <tr key={ex.id}>
                     <td>
-                      <strong>SOVA {ex.city}</strong>
+                      <Link to={`/exhibitions/${ex.id}`} className="strong">
+                        {exhibitionTitle(ex)}
+                      </Link>
                       <div className="muted tiny">{monthOf(ex.date_from)}</div>
                     </td>
                     <td>{ex.city}</td>
                     <td>
-                      {s.count} / {boothCapacity(ex)}
+                      {occupancyOf(ex, sites, exhibitors).booked} / {occupancyOf(ex, sites, exhibitors).capacity}
                     </td>
                     <td className="num">{formatOMR(s.contract)}</td>
                     <td className="strong text-suc num">{formatOMR(s.paid)}</td>

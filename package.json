@@ -20,7 +20,8 @@
     "jspdf": "^4.2.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "react-router-dom": "^7.18.4"
+    "react-router-dom": "^7.18.4",
+    "read-excel-file": "^9.3.10"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

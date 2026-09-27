@@ -12,7 +12,7 @@ export const VAT_RATE = 0.05
 
 export const CITIES = ['مسقط', 'نزوى', 'صحار', 'صلالة', 'البريمي', 'مطرح', 'السيب', 'بهلاء', 'عبري', 'إبراء']
 
-export const EXHIBITION_STATUSES = ['تخطيط', 'قادم', 'جاري', 'منتهي']
+export const EXHIBITION_STATUSES = ['تخطيط', 'قادم', 'جاري', 'منتهي', 'ملغى']
 export const EXHIBITOR_STATUSES = ['مبدئي', 'قيد التوقيع', 'مؤكد']
 export const BOOKING_STATUSES = ['معلق', 'مقبول', 'مرفوض']
 
@@ -28,6 +28,38 @@ export const PAYMENT_METHOD_META = {
   'فيزا / ماستركارد': { icon: '💳', color: 'var(--wrn)' },
   'شيك': { icon: '📝', color: '#7C3AED' },
 }
+
+export const CLIENT_STATUSES = ['نشط', 'محتمل', 'متوقف']
+export const CLIENT_SOURCES = ['إنستقرام', 'واتساب', 'توصية', 'معرض سابق', 'زيارة مباشرة', 'أخرى']
+
+/** Suggestions for the free-text sector field (the business uses its own wording too). */
+export const SECTOR_SUGGESTIONS = [
+  'أزياء نسائية',
+  'أزياء رجالية',
+  'أقمشة',
+  'عطور وبخور',
+  'مستحضرات تجميل',
+  'إكسسوار',
+  'قاعات أفراح وضيافة',
+  'زهور وهدايا',
+  'تصوير وطباعة',
+  'حلويات وكيك',
+  'منتجات غذائية',
+  'سياحة وسفر',
+  'خدمات أعمال',
+]
+
+export const EXPENSE_CATEGORIES = [
+  'إيجار / شيك حجز المساحة',
+  'تشغيل',
+  'تجهيزات وديكور',
+  'تسويق وإعلانات',
+  'طباعة',
+  'رسوم وتراخيص',
+  'أخرى',
+]
+
+export const SPONSOR_STATUSES = ['متفق عليه', 'مدفوع']
 
 /** Default booth tiers for a new exhibition. */
 export const DEFAULT_TIERS = [
@@ -54,4 +86,12 @@ export const STATUS_TONES = {
   'جزئية': 'warning',
   'لم يُدفع': 'danger',
   'مرفوض': 'danger',
+  'ملغى': 'danger',
+  'نشط': 'success',
+  'محتمل': 'gold',
+  'متوقف': 'neutral',
+  'متفق عليه': 'warning',
+  'متاح': 'neutral',
+  'محجوز': 'warning',
+  'مدفوع جزئياً': 'info',
 }

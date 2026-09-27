@@ -5,8 +5,9 @@
 // placed onto A4 pages. Both libraries are loaded on demand to keep the app bundle small.
 
 import { COMPANY } from './constants.js'
-import { exhibitionStats, summarize, vatOf, withVat } from './finance.js'
+import { occupancyOf, summarize, vatOf, withVat } from './finance.js'
 import { fixed3, monthOf, num } from './format.js'
+import { tiersFromSites } from './sites.js'
 
 const A4_WIDTH_PX = 794 // 210mm at 96dpi
 const A4_HEIGHT_PX = 1120 // a hair under 297mm at 96dpi, so rounding never spills onto a 2nd page
@@ -43,6 +44,10 @@ function page(body, { footer = `${COMPANY.name} | ${COMPANY.cr} | ${COMPANY.bran
 }
 
 function title(ar, en) {
+  return title_(ar, en)
+}
+
+function title_(ar, en) {
   return `<div style="text-align:center;margin-bottom:24px">
     <div style="font-size:22px;font-weight:900">${ar}</div>
     <div style="font-size:13px;color:#8A7A60;direction:ltr">${en}</div>
@@ -171,7 +176,7 @@ export function receiptHtml(payment, exhibitor, exhibition, { date = today() } =
     </div>`)
 }
 
-export function reportHtml({ exhibitions, exhibitors, payments }, exhibitionId = 'all', { date = today() } = {}) {
+export function reportHtml({ exhibitions, exhibitors, sites = [] }, exhibitionId = 'all', { date = today() } = {}) {
   const selected = exhibitionId === 'all' ? exhibitions : exhibitions.filter((e) => e.id === exhibitionId)
   const scopeExhibitors =
     exhibitionId === 'all' ? exhibitors : exhibitors.filter((e) => e.exhibition_id === exhibitionId)
@@ -181,13 +186,13 @@ export function reportHtml({ exhibitions, exhibitors, payments }, exhibitionId =
     .map((ex) => {
       const own = exhibitors.filter((e) => e.exhibition_id === ex.id)
       const s = summarize(own)
-      const { capacity } = exhibitionStats(ex, exhibitors, payments)
+      const { booked, capacity } = occupancyOf(ex, sites, exhibitors)
       return `<div style="margin-bottom:16px;break-inside:avoid">
         <div style="background:${INK};color:${GOLD};padding:8px 14px;font-weight:800;font-size:14px;border-radius:6px 6px 0 0">
           SOVA ${escapeHtml(ex.city)} — ${bdi(monthOf(ex.date_from))} <span style="color:#B4A078;font-weight:400">| ${escapeHtml(ex.mall || '')}</span>
         </div>
         ${rowsTable([
-          ['العارضون', `${s.count} / ${capacity}`, 'Exhibitors'],
+          ['المواقع المحجوزة', `${booked} / ${capacity}`, 'Sites'],
           ['إجمالي العقود', omr(s.contract), 'Total Contracts'],
           ['المحصّل', omr(s.paid), 'Collected'],
           ['المتبقي', omr(s.remaining), 'Pending'],
@@ -219,4 +224,96 @@ export function downloadReceipt(payment, exhibitor, exhibition) {
 
 export function downloadReport(data, exhibitionId) {
   return renderPdf(reportHtml(data, exhibitionId), `SOVA-Financial-Report-${new Date().toISOString().slice(0, 10)}.pdf`)
+}
+
+function table(headers, rows, { total } = {}) {
+  if (!rows.length) return '<div style="color:#8A7A60;font-size:12px;padding:6px 0">لا يوجد</div>'
+  const th = headers.map((h) => `<th style="background:${INK};color:${GOLD};padding:7px 8px;font-size:11px;text-align:right">${h}</th>`).join('')
+  const body = rows
+    .map((cells, i) => `<tr style="background:${i % 2 ? '#fff' : '#FDFAF5'}">${cells.map((c) => `<td style="padding:6px 8px;font-size:11px;border-bottom:1px solid #F0E8D8">${c}</td>`).join('')}</tr>`)
+    .join('')
+  const foot = total
+    ? `<tr>${total.map((c) => `<td style="padding:7px 8px;font-size:11px;font-weight:800;border-top:2px solid ${INK}">${c}</td>`).join('')}</tr>`
+    : ''
+  return `<table style="width:100%;border-collapse:collapse;margin-bottom:6px"><thead><tr>${th}</tr></thead><tbody>${body}${foot}</tbody></table>`
+}
+
+const section = (heading) => `<div style="font-size:15px;font-weight:900;margin:20px 0 8px;padding-bottom:4px;border-bottom:2px solid ${GOLD}">${heading}</div>`
+
+export function exhibitionFileHtml({ exhibition: ex, sites, exhibitors, expenses, sponsors, financials: f }, { date = today() } = {}) {
+  const title = ex.name?.trim() || `SOVA ${ex.city}`
+  const tiers = sites.length ? tiersFromSites(sites) : []
+  const info = [
+    ['التاريخ', rawHtml(`من ${bdi(ex.date_from)} إلى ${bdi(ex.date_to)}`), 'Dates'],
+    ['المول', ex.mall || '—', 'Venue'],
+    ['العنوان', ex.address || '—', 'Address'],
+    ['أوقات العمل', ex.hours || '—', 'Hours'],
+    ['المناسبة', ex.occasion || '—', 'Occasion'],
+    ['الحالة', ex.status || '—', 'Status'],
+  ]
+  const money = (v) => bdi(omr(v))
+
+  return page(
+    `${title_(`ملف معرض: ${escapeHtml(title)}`, `Exhibition File — ${escapeHtml(date)}`)}
+    ${rowsTable(info)}
+
+    ${section('الملخص المالي')}
+    ${rowsTable([
+      ['المواقع', `${f.booked} محجوز من ${f.capacity} (إشغال ${f.occupancy}%)`, 'Sites'],
+      ['نقطة التعادل', `${f.breakEven} موقع (${f.breakEvenPct}%)`, 'Break-even'],
+      ['الإيراد عند البيع الكامل', rawHtml(money(f.fullRevenue)), 'Full revenue'],
+      ['إجمالي العقود', rawHtml(money(f.contract)), 'Contracts'],
+      ['الرعايات', rawHtml(money(f.sponsorship)), 'Sponsorship'],
+      ['المصروفات', rawHtml(money(f.expensesTotal)), 'Expenses'],
+      ['المحصّل', rawHtml(money(f.collected)), 'Collected'],
+      ['المتبقي للتحصيل', rawHtml(money(f.outstanding)), 'Outstanding'],
+      ['الصافي حسب العقود', rawHtml(money(f.netOnContracts)), 'Net (contracts)'],
+      ['الصافي عند البيع الكامل', rawHtml(money(f.netAtFull)), 'Net (full)'],
+    ])}
+
+    ${section('الفئات والأسعار')}
+    ${table(
+      ['الفئة', 'أرقام المواقع', 'العدد', 'السعر', 'الإجمالي'],
+      tiers.map((t) => [escapeHtml(t.name), escapeHtml(t.ranges), t.count, money(t.price), money(t.total)]),
+      { total: tiers.length ? ['الإجمالي', '', tiers.reduce((a, t) => a + t.count, 0), '', money(tiers.reduce((a, t) => a + t.total, 0))] : null },
+    )}
+
+    ${section(`المشاركون (${exhibitors.length})`)}
+    ${table(
+      ['المشارك', 'المسؤول', 'الهاتف', 'المواقع', 'العقد', 'المدفوع', 'المتبقي'],
+      exhibitors.map((e) => [
+        escapeHtml(e.brand),
+        escapeHtml(e.manager || ''),
+        bdi(e.phone || ''),
+        escapeHtml(e.booth || '—'),
+        money(e.contract),
+        money(e.paid),
+        money(num(e.contract) - num(e.paid)),
+      ]),
+      {
+        total: exhibitors.length
+          ? ['الإجمالي', '', '', '', money(f.contract), money(exhibitors.reduce((a, e) => a + num(e.paid), 0)), money(exhibitors.reduce((a, e) => a + num(e.contract) - num(e.paid), 0))]
+          : null,
+      },
+    )}
+
+    ${section('المصروفات')}
+    ${table(
+      ['البند', 'التصنيف', 'المبلغ', 'الاستحقاق', 'الحالة'],
+      expenses.map((x) => [escapeHtml(x.item), escapeHtml(x.category || ''), money(x.amount), bdi(x.due_date || '—'), x.paid ? 'مدفوع' : 'غير مدفوع']),
+      { total: expenses.length ? ['الإجمالي', '', money(f.expensesTotal), '', ''] : null },
+    )}
+
+    ${section('الرعاة')}
+    ${table(
+      ['الراعي', 'المسؤول', 'القيمة', 'الحالة'],
+      sponsors.map((s) => [escapeHtml(s.name), escapeHtml(s.contact_name || ''), money(s.amount), escapeHtml(s.status || '')]),
+    )}`,
+    { footer: `${COMPANY.name} | ${COMPANY.cr} | ملف معرض — ${title}`, fixedHeight: false },
+  )
+}
+
+export function downloadExhibitionFile(data) {
+  const name = data.exhibition.name?.trim() || `SOVA-${data.exhibition.city}`
+  return renderPdf(exhibitionFileHtml(data), `ملف-معرض-${safeName(name)}.pdf`)
 }

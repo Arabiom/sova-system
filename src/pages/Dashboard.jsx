@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { listBookings } from '../api/bookings.js'
+import { listSites } from '../api/exhibitionFile.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
@@ -10,18 +11,19 @@ import Panel from '../components/Panel.jsx'
 import { ProgressRow } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
-import { balanceOf, boothCapacity, summarize, sumBy } from '../lib/finance.js'
-import { formatOMR, isolateLtr, monthOf } from '../lib/format.js'
+import { balanceOf, occupancyOf, summarize, sumBy } from '../lib/finance.js'
+import { exhibitionTitle, formatOMR, isolateLtr, monthOf } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 
 const load = async () => {
-  const [exhibitions, exhibitors, payments, bookings] = await Promise.all([
+  const [exhibitions, exhibitors, payments, bookings, sites] = await Promise.all([
     listExhibitions(),
     listExhibitors(),
     listPayments(),
     listBookings(),
+    listSites(),
   ])
-  return { exhibitions, exhibitors, payments, bookings }
+  return { exhibitions, exhibitors, payments, bookings, sites }
 }
 
 const barColor = (status) =>
@@ -36,7 +38,7 @@ export default function Dashboard() {
   const { data, loading } = useData(load, null)
   if (loading || !data) return <Loading />
 
-  const { exhibitions, exhibitors, payments, bookings } = data
+  const { exhibitions, exhibitors, payments, bookings, sites } = data
   const totals = summarize(exhibitors)
   const pending = bookings.filter((b) => b.status === 'معلق').length
   const confirmed = exhibitors.filter((e) => e.status === 'مؤكد').length
@@ -98,12 +100,13 @@ export default function Dashboard() {
           {exhibitions.length ? (
             exhibitions.map((ex) => {
               const own = exhibitorsOf(ex.id)
+              const occ = occupancyOf(ex, sites, exhibitors)
               return (
                 <ProgressRow
                   key={ex.id}
-                  label={`SOVA ${ex.city}`}
-                  val={own.length}
-                  max={boothCapacity(ex)}
+                  label={exhibitionTitle(ex)}
+                  val={occ.booked}
+                  max={occ.capacity}
                   color={barColor(ex.status)}
                   sub={`${isolateLtr(monthOf(ex.date_from))} • ${formatOMR(sumBy(own, 'paid'))}`}
                 />
@@ -116,11 +119,11 @@ export default function Dashboard() {
 
         <Panel icon="📅" title="المعارض" subtitle={`${exhibitions.length} معرض مسجل`}>
           {exhibitions.map((ex) => (
-            <div key={ex.id} className="list-row clickable" onClick={() => go('/exhibitions')}>
+            <div key={ex.id} className="list-row clickable" onClick={() => go(`/exhibitions/${ex.id}`)}>
               <div>
-                <div className="strong">SOVA {ex.city}</div>
+                <div className="strong">{exhibitionTitle(ex)}</div>
                 <div className="muted small">
-                  {exhibitorsOf(ex.id).length}/{boothCapacity(ex)} بوث • {isolateLtr(monthOf(ex.date_from))}
+                  {occupancyOf(ex, sites, exhibitors).booked}/{occupancyOf(ex, sites, exhibitors).capacity} موقع • {isolateLtr(monthOf(ex.date_from))}
                 </div>
               </div>
               <StatusBadge status={ex.status} />

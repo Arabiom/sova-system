@@ -1,4 +1,5 @@
 import { supabase, unwrap } from './client.js'
+import { findOrCreateClient } from './clients.js'
 import { createExhibitor } from './exhibitors.js'
 
 const table = () => supabase.from('bookings')
@@ -12,7 +13,9 @@ export const countPendingBookings = () =>
 
 /** Accept a booking: create a provisional exhibitor from it, then mark the booking accepted. */
 export async function acceptBooking(booking) {
+  const client_id = await findOrCreateClient(booking)
   await createExhibitor({
+    client_id,
     brand: booking.brand,
     manager: booking.manager,
     phone: booking.phone,

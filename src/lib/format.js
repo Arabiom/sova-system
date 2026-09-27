@@ -26,5 +26,15 @@ export const todayISO = () => new Date().toISOString().slice(0, 10)
 
 export const percent = (part, whole) => (whole ? Math.round((part / whole) * 100) : 0)
 
+/** Display name of an exhibition: its own name when set, else "SOVA <city>". */
+export const exhibitionTitle = (ex) => (ex ? ex.name?.trim() || `SOVA ${ex.city}` : '—')
+
 /** Short label used everywhere an exhibition is referenced: "مسقط — 2026-03". */
-export const exhibitionLabel = (ex) => (ex ? `${ex.city} — ${isolateLtr(monthOf(ex.date_from))}` : '—')
+export const exhibitionLabel = (ex) =>
+  ex ? `${ex.name?.trim() || ex.city} — ${isolateLtr(monthOf(ex.date_from))}` : '—'
+
+/** Digits only, without a leading 00/968 country prefix — used to match phone numbers. */
+export function phoneKey(phone) {
+  const digits = String(phone ?? '').replace(/\D/g, '').replace(/^00/, '')
+  return digits.length > 8 && digits.startsWith('968') ? digits.slice(3) : digits
+}

@@ -124,6 +124,24 @@ export function welcomeMessage(_person, exhibition) {
 ${COMPANY.cr}`
 }
 
+/** Invitation to take part in an upcoming exhibition, sent to a client. */
+export function invitationMessage(client, exhibition) {
+  const ex = exhibition || {}
+  const title = ex.name?.trim() || `معرض SOVA ${ex.city || ''}`
+  return `السلام عليكم ورحمة الله وبركاته 🌟
+${client.contact_name ? `\nعزيزنا / ${client.contact_name}\n` : ''}
+يسعدنا دعوتكم للمشاركة في:
+
+🏛️ *${title}*${ex.occasion ? ` — ${ex.occasion}` : ''}
+📅 ${ex.date_from || ''} – ${ex.date_to || ''}
+📍 ${ex.mall || ''}${ex.hours ? `\n🕙 ${ex.hours}` : ''}
+
+المواقع محدودة، والأولوية للحجز المبكر.
+للحجز والاستفسار راسلونا على هذا الرقم.
+
+*فريق SOVA — ${COMPANY.name}*`
+}
+
 export const MESSAGE_TYPES = [
   { id: 'reminder', label: '⏰ تذكير بموعد المعرض', color: 'var(--gold)', build: exhibitionReminderMessage },
   { id: 'confirmed', label: '✅ تأكيد الحجز', color: 'var(--suc)', build: confirmationMessage },

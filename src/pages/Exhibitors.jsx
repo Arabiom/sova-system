@@ -1,103 +1,24 @@
 import { useState } from 'react'
 import { listExhibitions } from '../api/exhibitions.js'
-import { deleteExhibitor, listExhibitors, saveExhibitor } from '../api/exhibitors.js'
+import { listClients } from '../api/clients.js'
+import { deleteExhibitor, listExhibitors } from '../api/exhibitors.js'
 import Button from '../components/Button.jsx'
 import { EmptyState, Loading } from '../components/Feedback.jsx'
-import Field, { SelectOptions } from '../components/Field.jsx'
-import Modal from '../components/Modal.jsx'
+import ExhibitionFilter from '../components/ExhibitionFilter.jsx'
+import ExhibitorForm from '../components/ExhibitorForm.jsx'
+import { SelectOptions } from '../components/Field.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { useToast } from '../context/ToastContext.jsx'
-import { BOOTH_SIZES, CATEGORIES, EXHIBITOR_STATUSES } from '../lib/constants.js'
+import { CATEGORIES } from '../lib/constants.js'
 import { balanceOf, newReference } from '../lib/finance.js'
 import { exhibitionLabel, formatOMR } from '../lib/format.js'
 import { downloadContract } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
 
 const load = async () => {
-  const [exhibitors, exhibitions] = await Promise.all([listExhibitors(), listExhibitions()])
-  return { exhibitors, exhibitions }
-}
-
-function ExhibitorForm({ initial, id, exhibitions, onClose, onSaved }) {
-  const toast = useToast()
-  const [form, setForm] = useState(initial)
-  const [saving, setSaving] = useState(false)
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
-
-  const submit = async () => {
-    if (!form.brand || !form.manager || !form.exhibition_id) return toast('أكمل البيانات المطلوبة', 'error')
-    setSaving(true)
-    try {
-      await saveExhibitor(form, id)
-      toast(id ? '✅ تم التحديث' : '✅ تم إضافة العارض')
-      onSaved()
-    } catch (err) {
-      toast(err.message, 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Modal
-      title={id ? 'تعديل العارض' : 'إضافة عارض جديد'}
-      onClose={onClose}
-      footer={
-        <>
-          <Button variant="outline" onClick={onClose}>
-            إلغاء
-          </Button>
-          <Button onClick={submit} disabled={saving}>
-            {saving ? 'جاري...' : id ? 'حفظ' : 'إضافة العارض'}
-          </Button>
-        </>
-      }
-    >
-      <div className="form-grid">
-        <Field label="اسم العلامة التجارية" required>
-          <input className="input" placeholder="مثال: Bloom Beauty" value={form.brand || ''} onChange={set('brand')} />
-        </Field>
-        <Field label="اسم المسؤول" required>
-          <input className="input" placeholder="الاسم الكامل" value={form.manager || ''} onChange={set('manager')} />
-        </Field>
-        <Field label="رقم الجوال">
-          <input className="input" type="tel" dir="ltr" placeholder="+968 XXXXXXXX" value={form.phone || ''} onChange={set('phone')} />
-        </Field>
-        <Field label="البريد الإلكتروني">
-          <input className="input" type="email" dir="ltr" placeholder="example@email.com" value={form.email || ''} onChange={set('email')} />
-        </Field>
-        <Field label="تصنيف النشاط">
-          <SelectOptions options={CATEGORIES} value={form.category || ''} onChange={set('category')} />
-        </Field>
-        <Field label="المعرض المخصص" required>
-          <select className="input" value={form.exhibition_id || ''} onChange={set('exhibition_id')}>
-            <option value="">اختر...</option>
-            {exhibitions.map((ex) => (
-              <option key={ex.id} value={ex.id}>
-                {exhibitionLabel(ex)}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="رقم البوث">
-          <input className="input" placeholder="مثال: A-01" value={form.booth === '—' ? '' : form.booth || ''} onChange={set('booth')} />
-        </Field>
-        <Field label="حجم البوث">
-          <SelectOptions options={BOOTH_SIZES} value={form.booth_size || ''} onChange={set('booth_size')} />
-        </Field>
-        <Field label="قيمة العقد (ر.ع)">
-          <input className="input" type="number" min="0" step="0.001" placeholder="450.000" value={form.contract ?? ''} onChange={set('contract')} />
-        </Field>
-        <Field label="حالة العقد">
-          <SelectOptions options={EXHIBITOR_STATUSES} placeholder={null} value={form.status || 'مبدئي'} onChange={set('status')} />
-        </Field>
-      </div>
-      <Field label="ملاحظات">
-        <textarea className="input" rows={2} value={form.notes || ''} onChange={set('notes')} />
-      </Field>
-    </Modal>
-  )
+  const [exhibitors, exhibitions, clients] = await Promise.all([listExhibitors(), listExhibitions(), listClients()])
+  return { exhibitors, exhibitions, clients }
 }
 
 export default function Exhibitors() {
@@ -106,16 +27,19 @@ export default function Exhibitors() {
   const [editing, setEditing] = useState(null)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
+  const [scope, setScope] = useState('all')
 
   if (loading || !data) return <Loading />
-  const { exhibitors, exhibitions } = data
+  const { exhibitors, exhibitions, clients } = data
   const exhibitionOf = (id) => exhibitions.find((ex) => ex.id === id)
 
+  const categories = [...new Set([...CATEGORIES, ...exhibitors.map((e) => e.category).filter(Boolean)])]
   const q = search.trim().toLowerCase()
   const visible = exhibitors.filter(
     (e) =>
       (!q || e.brand?.toLowerCase().includes(q) || e.manager?.toLowerCase().includes(q) || e.phone?.includes(q)) &&
-      (!category || e.category === category),
+      (!category || e.category === category) &&
+      (scope === 'all' || e.exhibition_id === scope),
   )
 
   const remove = async (e) => {
@@ -146,7 +70,8 @@ export default function Exhibitors() {
 
       <div className="toolbar">
         <input className="input toolbar-search" placeholder="🔍  ابحث بالاسم أو الجوال..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        <SelectOptions className="input toolbar-select" options={CATEGORIES} placeholder="كل التصنيفات" value={category} onChange={(e) => setCategory(e.target.value)} />
+        <ExhibitionFilter className="toolbar-select" exhibitions={exhibitions} value={scope} onChange={setScope} />
+        <SelectOptions className="input toolbar-select" options={categories} placeholder="كل التصنيفات" value={category} onChange={(e) => setCategory(e.target.value)} />
         <div className="toolbar-count">{visible.length} نتيجة</div>
       </div>
 
@@ -206,6 +131,7 @@ export default function Exhibitors() {
           initial={editing.form}
           id={editing.id}
           exhibitions={exhibitions}
+          clients={clients}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null)
