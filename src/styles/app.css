@@ -2229,3 +2229,37 @@ a.ex-card-head {
   text-align: right;
   cursor: pointer;
 }
+.date-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.date-input .input {
+  padding-left: 44px;
+  text-align: right;
+}
+.date-input-btn {
+  position: absolute;
+  left: 6px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+}
+.date-input-btn:hover {
+  background: rgba(201, 168, 76, 0.15);
+}
+.date-input-native {
+  position: absolute;
+  left: 6px;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.input-invalid {
+  border-color: var(--dng) !important;
+}

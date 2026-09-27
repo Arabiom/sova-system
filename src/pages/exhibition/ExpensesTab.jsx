@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import DateInput from '../../components/DateInput.jsx'
 import { deleteExpense, saveExpense, setExpensePaid } from '../../api/exhibitionFile.js'
 import Button from '../../components/Button.jsx'
 import { EmptyState } from '../../components/Feedback.jsx'
@@ -57,7 +58,7 @@ function ExpenseForm({ exhibitionId, initial, id, onClose, onSaved }) {
           <input className="input" type="number" min="0" step="0.001" value={form.amount ?? ''} onChange={set('amount')} />
         </Field>
         <Field label="تاريخ الاستحقاق / الصرف">
-          <input className="input" type="date" value={form.due_date || ''} onChange={set('due_date')} />
+          <DateInput value={form.due_date || ''} onChange={set('due_date')} />
         </Field>
         <Field label="الحالة">
           <label className="check-row">

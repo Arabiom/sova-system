@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import DateInput from '../components/DateInput.jsx'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { confirmPayment, deletePayment, listPayments, recordPayment, updatePayment } from '../api/payments.js'
@@ -105,7 +106,7 @@ function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
           <SelectOptions options={PAYMENT_TYPES} placeholder={null} value={form.type} onChange={set('type')} />
         </Field>
         <Field label="التاريخ">
-          <input className="input" type="date" value={form.date || ''} onChange={set('date')} />
+          <DateInput value={form.date || ''} onChange={set('date')} />
         </Field>
       </div>
       <Field label="ملاحظة">

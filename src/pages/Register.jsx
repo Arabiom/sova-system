@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import DateInput from '../components/DateInput.jsx'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listSites } from '../api/exhibitionFile.js'
@@ -312,7 +313,7 @@ export default function Register() {
                 </div>
               </Field>
               <Field label="التاريخ">
-                <input className="input" type="date" value={f.date} onChange={set('date')} />
+                <DateInput value={f.date} onChange={set('date')} />
               </Field>
             </div>
             <Field label="طريقة السداد" required={amount > 0}>

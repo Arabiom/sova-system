@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import DateInput from './DateInput.jsx'
 import { saveExhibition } from '../api/exhibitions.js'
 import { useToast } from '../context/ToastContext.jsx'
 import { CITIES, EXHIBITION_STATUSES } from '../lib/constants.js'
@@ -58,10 +59,10 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
           <input className="input" placeholder="مثال: سيتي سنتر مسقط" value={form.mall || ''} onChange={set('mall')} />
         </Field>
         <Field label="تاريخ البداية" required>
-          <input className="input" type="date" value={form.date_from || ''} onChange={set('date_from')} />
+          <DateInput value={form.date_from || ''} onChange={set('date_from')} />
         </Field>
         <Field label="تاريخ النهاية" required>
-          <input className="input" type="date" value={form.date_to || ''} onChange={set('date_to')} />
+          <DateInput value={form.date_to || ''} onChange={set('date_to')} />
         </Field>
         <Field label="الحالة">
           <SelectOptions options={EXHIBITION_STATUSES} placeholder={null} value={form.status || 'تخطيط'} onChange={set('status')} />
