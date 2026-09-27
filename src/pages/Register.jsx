@@ -13,11 +13,11 @@ import Panel from '../components/Panel.jsx'
 import { useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { BOOTH_EXTRAS, BOOTH_NOTE, BOOTH_PACKAGES, FORM_PAYMENT_METHODS, FORM_SECTORS } from '../lib/constants.js'
-import { registrationTotals, withVat } from '../lib/finance.js'
+import { registrationTotals, vatOf, withoutVat, withVat } from '../lib/finance.js'
 import { exhibitionLabel, formatOMR, num, phoneKey, todayISO } from '../lib/format.js'
 import { downloadRegistrationInvoice } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
-import { chosenExtras } from '../api/registration.js'
+import { chosenExtras, MAX_SECTORS } from '../api/registration.js'
 
 const load = async () => {
   const [exhibitions, sites, exhibitors] = await Promise.all([
@@ -36,7 +36,7 @@ const blankForm = (exhibitionId = '') => ({
   civil_id: '',
   brand: '',
   phone: '',
-  category: '',
+  categories: [],
   products: '',
   package: '',
   site_id: '',
@@ -55,12 +55,13 @@ const blankForm = (exhibitionId = '') => ({
 
 /** Choice buttons that behave like the form's "tick one box" rows. */
 function Choices({ options, value, onChange, render = (o) => o, keyOf = (o) => o }) {
+  const picked = (key) => (Array.isArray(value) ? value.includes(key) : value === key)
   return (
     <div className="choice-grid">
       {options.map((o) => {
         const key = keyOf(o)
         return (
-          <button type="button" key={key} className={`choice ${value === key ? 'selected' : ''}`} onClick={() => onChange(key)}>
+          <button type="button" key={key} className={`choice ${picked(key) ? 'selected' : ''}`} aria-pressed={picked(key)} onClick={() => onChange(key)}>
             {render(o)}
           </button>
         )
@@ -91,7 +92,13 @@ export default function Register() {
   const freeSites = pkg ? ownSites.filter((s) => !s.exhibitor_id && num(s.price) === pkg.price) : []
   const extras = chosenExtras(f)
   const totals = registrationTotals({ boothPrice: pkg?.price || 0, extras })
-  const amount = num(f.amount)
+  const amount = num(f.amount) // paid, VAT included
+  const amountNet = withoutVat(amount)
+  const toggleSector = (name) => {
+    const list = f.categories.includes(name) ? f.categories.filter((c) => c !== name) : [...f.categories, name]
+    if (list.length > MAX_SECTORS) return toast(`يمكن اختيار ${MAX_SECTORS} قطاعات كحد أقصى`, 'error')
+    setForm({ ...f, categories: list })
+  }
   const duplicate =
     phoneKey(f.phone) &&
     data.exhibitors.find((e) => e.exhibition_id === f.exhibition_id && phoneKey(e.phone) === phoneKey(f.phone))
@@ -104,7 +111,7 @@ export default function Register() {
     if (ownSites.length && pkg && !f.site_id) errors.push('رقم الموقع')
     if (errors.length) return toast(`أكمل: ${errors.join('، ')}`, 'error')
     if (duplicate && !confirm(`${duplicate.brand} مسجّل بنفس رقم الهاتف في هذا المعرض. تسجيل مشاركة جديدة؟`)) return
-    if (amount > totals.subtotal && !confirm(`المبلغ المدفوع أكبر من قيمة الاشتراك (${formatOMR(totals.subtotal)}). متابعة؟`)) return
+    if (amount > totals.total + 0.0005 && !confirm(`المبلغ المدفوع أكبر من الإجمالي شامل الضريبة (${formatOMR(totals.total)}). متابعة؟`)) return
 
     savingRef.current = true
     setSaving(true)
@@ -209,8 +216,8 @@ export default function Register() {
               </Field>
             </div>
             {duplicate && <div className="alert alert-warning">⚠️ {duplicate.brand} مسجّل بنفس رقم الهاتف في هذا المعرض.</div>}
-            <Field label="القطاع — اختر واحداً" required>
-              <Choices options={FORM_SECTORS} value={f.category} onChange={set('category')} />
+            <Field label={`القطاع — اختر قطاعاً أو أكثر (حتى ${MAX_SECTORS})`} required>
+              <Choices options={FORM_SECTORS} value={f.categories} onChange={toggleSector} />
             </Field>
             <Field label="نوع المنتجات">
               <input className="input" value={f.products} onChange={set('products')} />
@@ -309,11 +316,18 @@ export default function Register() {
               </div>
             </div>
             <div className="form-grid">
-              <Field label="قيمة الاشتراك المدفوعة (قبل الضريبة)" hint={amount > 0 ? `المستلم فعلياً شامل الضريبة: ${formatOMR(withVat(amount))}` : 'اتركه صفراً إذا لم يدفع بعد'}>
+              <Field
+                label="المبلغ المدفوع (شامل الضريبة)"
+                hint={
+                  amount > 0
+                    ? `منها ${formatOMR(amountNet)} قيمة الاشتراك + ${formatOMR(vatOf(amountNet))} ضريبة 5%`
+                    : 'المبلغ الذي استلمته فعلاً من المشارك. اتركه فارغاً إذا لم يدفع بعد'
+                }
+              >
                 <div className="input-with-action">
                   <input className="input" type="number" min="0" step="0.001" placeholder="0.000" value={f.amount} onChange={set('amount')} />
-                  {totals.subtotal > 0 && (
-                    <Button size="sm" variant="outline" onClick={() => setForm({ ...f, amount: String(totals.subtotal) })}>
+                  {totals.total > 0 && (
+                    <Button size="sm" variant="outline" onClick={() => setForm({ ...f, amount: String(totals.total) })}>
                       دفع كامل
                     </Button>
                   )}

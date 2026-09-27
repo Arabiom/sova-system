@@ -103,3 +103,24 @@ describe('tax invoice', () => {
     expect(html).not.toContain('خصم 50%')
   })
 })
+
+describe('paid amount includes VAT; several sectors', () => {
+  it('splits what the participant paid into subscription + VAT', async () => {
+    const { withoutVat, vatOf } = await import('../finance.js')
+    expect(withoutVat(210)).toBe(200)
+    expect(withoutVat(225.75)).toBe(215)
+    expect(withoutVat(105)).toBe(100)
+    expect(withoutVat(100)).toBe(95.238)
+    expect(Number((withoutVat(100) + vatOf(withoutVat(100))).toFixed(3))).toBe(100)
+  })
+
+  it('accepts up to three sectors', async () => {
+    const { sectorsText, MAX_SECTORS } = await import('../../api/registration.js')
+    expect(MAX_SECTORS).toBe(3)
+    expect(sectorsText({ categories: ['أزياء', 'أقمشة'] })).toBe('أزياء، أقمشة')
+    const ok = { exhibition_id: 'e', manager: 'م', brand: 'ب', phone: '9', package: 'صف داخلي', terms_accepted: true }
+    expect(validateRegistration({ ...ok, categories: [] })).toEqual(['القطاع'])
+    expect(validateRegistration({ ...ok, categories: ['أزياء', 'أقمشة', 'تجميل'] })).toEqual([])
+    expect(validateRegistration({ ...ok, categories: ['أزياء', 'أقمشة', 'تجميل', 'حلويات'] })).toEqual(['القطاع (3 كحد أقصى)'])
+  })
+})

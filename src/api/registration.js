@@ -2,7 +2,7 @@
 // client record, an exhibitor with their site, the payment received and the tax invoice.
 
 import { BOOTH_AREA, EXHIBITOR_STATUSES } from '../lib/constants.js'
-import { registrationTotals } from '../lib/finance.js'
+import { registrationTotals, withoutVat } from '../lib/finance.js'
 import { num, todayISO } from '../lib/format.js'
 import { supabase, unwrap } from './client.js'
 import { findOrCreateClient } from './clients.js'
@@ -20,14 +20,21 @@ export function chosenExtras(form) {
   return list
 }
 
-/** Problems that stop the form being saved (empty list = OK). */
+/** Most sectors one participant may tick on the form. */
+export const MAX_SECTORS = 3
+
+/** Sectors ticked on the form, as stored on the exhibitor ("أزياء، أقمشة"). */
+export const sectorsText = (form) => (Array.isArray(form.categories) ? form.categories.join('، ') : form.category || '')
+
+/** Problems that stop the form being saved (empty list = OK). `amount` is what was paid including VAT. */
 export function validateRegistration(form) {
   const errors = []
   if (!form.exhibition_id) errors.push('اختر المعرض')
   if (!form.manager?.trim()) errors.push('الاسم الكامل')
   if (!form.brand?.trim()) errors.push('اسم المشروع')
   if (!form.phone?.trim()) errors.push('رقم التواصل')
-  if (!form.category) errors.push('القطاع')
+  if (!sectorsText(form)) errors.push('القطاع')
+  if (Array.isArray(form.categories) && form.categories.length > MAX_SECTORS) errors.push(`القطاع (${MAX_SECTORS} كحد أقصى)`)
   if (!form.package) errors.push('نظام البوث')
   if (num(form.amount) < 0) errors.push('المبلغ المدفوع لا يكون سالباً')
   if (num(form.amount) > 0 && !form.method) errors.push('طريقة السداد')
@@ -43,8 +50,10 @@ export function validateRegistration(form) {
 export async function registerParticipant(form, { pending, boothPrice }) {
   const extras = chosenExtras(form)
   const totals = registrationTotals({ boothPrice, extras })
-  const amount = num(form.amount)
-  const fullyPaid = amount >= totals.subtotal && totals.subtotal > 0
+  // The form takes what the participant actually paid, VAT included; payments are kept before VAT.
+  const amount = withoutVat(form.amount)
+  const fullyPaid = totals.subtotal > 0 && amount >= totals.subtotal - 0.0005
+  const category = sectorsText(form)
 
   // Check the site is still free before saving anything (someone else may have just booked it).
   let site = null
@@ -53,7 +62,7 @@ export async function registerParticipant(form, { pending, boothPrice }) {
     if (!site || site.exhibitor_id) throw new Error('هذا الموقع حُجز لمشارك آخر للتو. اختر موقعاً غيره.')
   }
 
-  const client_id = await findOrCreateClient({ brand: form.brand, manager: form.manager, phone: form.phone, category: form.category })
+  const client_id = await findOrCreateClient({ brand: form.brand, manager: form.manager, phone: form.phone, category })
   const exhibitor = await createExhibitor({
     exhibition_id: form.exhibition_id,
     client_id,
@@ -61,7 +70,7 @@ export async function registerParticipant(form, { pending, boothPrice }) {
     manager: form.manager.trim(),
     phone: form.phone.trim(),
     email: '',
-    category: form.category,
+    category,
     civil_id: form.civil_id?.trim() || '',
     products: form.products?.trim() || '',
     booth_type: form.package,

@@ -22,6 +22,8 @@ export function registrationTotals({ boothPrice = 0, extras = [], otherAmount = 
 
 export const vatOf = (amount) => num(amount) * VAT_RATE
 export const withVat = (amount) => num(amount) * (1 + VAT_RATE)
+/** The part of an amount paid *including* VAT that is before VAT (210 → 200), to the baisa. */
+export const withoutVat = (gross) => Math.round((num(gross) / (1 + VAT_RATE)) * 1000) / 1000
 
 /** What an exhibitor still owes on their contract. */
 export const balanceOf = (exhibitor) => num(exhibitor.contract) - num(exhibitor.paid)
