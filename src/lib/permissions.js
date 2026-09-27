@@ -9,6 +9,7 @@ export const ROLES = {
 
 const MATRIX = {
   'staff.manage': ['admin'],
+  'records.edit.any': ['admin', 'finance'], // edit participants/clients entered by anyone
   'reports.view': ['admin', 'finance'],
   'payments.write': ['admin', 'finance'], // record / edit / delete / confirm payments and refunds (marketing's wait for confirmation)
   'exhibitions.manage': ['admin', 'finance'], // create/edit/delete exhibitions, build site maps, import Excel
@@ -19,3 +20,12 @@ const MATRIX = {
 }
 
 export const can = (role, permission) => Boolean(role && MATRIX[permission]?.includes(role))
+
+/**
+ * Who may edit a participant (or client): admin/finance any; a marketer only the ones they
+ * entered themselves, so marketers never overwrite each other's work (migration 009).
+ */
+export function canEditRecord(role, userId, record) {
+  if (can(role, 'records.edit.any')) return true
+  return Boolean(role && userId && record?.created_by && record.created_by === userId)
+}

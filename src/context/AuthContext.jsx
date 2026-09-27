@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { fetchMyStaff } from '../api/staff.js'
 import { supabase } from '../lib/supabase.js'
-import { can } from '../lib/permissions.js'
+import { can, canEditRecord } from '../lib/permissions.js'
 
 const AuthContext = createContext({ session: null, loading: true, role: null, staff: null })
 
@@ -49,3 +49,10 @@ export function useCan(permission) {
 
 export const signIn = (email, password) => supabase.auth.signInWithPassword({ email: email.trim(), password })
 export const signOut = () => supabase.auth.signOut()
+
+/** `const canEdit = useCanEdit(); canEdit(exhibitor)` — false for another marketer's records. */
+export function useCanEdit() {
+  const { role, session } = useContext(AuthContext)
+  const userId = session?.user?.id
+  return (record) => canEditRecord(role, userId, record)
+}

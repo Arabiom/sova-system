@@ -15,17 +15,25 @@ import { balanceOf, newReference } from '../lib/finance.js'
 import { exhibitionLabel, formatOMR } from '../lib/format.js'
 import { downloadContract } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
-import { useCan } from '../context/AuthContext.jsx'
+import { useAuth, useCan, useCanEdit } from '../context/AuthContext.jsx'
+import { listStaff } from '../api/staff.js'
 
 const load = async () => {
-  const [exhibitors, exhibitions, clients] = await Promise.all([listExhibitors(), listExhibitions(), listClients()])
-  return { exhibitors, exhibitions, clients }
+  const [exhibitors, exhibitions, clients, staff] = await Promise.all([
+    listExhibitors(),
+    listExhibitions(),
+    listClients(),
+    listStaff().catch(() => []), // admin/finance see every name; others only their own
+  ])
+  return { exhibitors, exhibitions, clients, staff }
 }
 
 export default function Exhibitors() {
   const toast = useToast()
   const canDelete = useCan('records.delete')
   const money = useCan('money.view') // marketing: names and details, no amounts
+  const canEdit = useCanEdit() // a marketer edits only the participants they entered
+  const { session } = useAuth()
   const { data, loading, reload } = useData(load, null)
   const [editing, setEditing] = useState(null)
   const [search, setSearch] = useState('')
@@ -33,7 +41,13 @@ export default function Exhibitors() {
   const [scope, setScope] = useState('all')
 
   if (loading || !data) return <Loading />
-  const { exhibitors, exhibitions, clients } = data
+  const { exhibitors, exhibitions, clients, staff } = data
+  const enteredBy = (e) => {
+    if (!e.created_by) return '—'
+    if (e.created_by === session?.user?.id) return 'أنت'
+    const s = staff.find((x) => x.user_id === e.created_by)
+    return s?.name || s?.email || 'مسوق آخر'
+  }
   const exhibitionOf = (id) => exhibitions.find((ex) => ex.id === id)
 
   const categories = [...new Set([...CATEGORIES, ...exhibitors.map((e) => e.category).filter(Boolean)])]
@@ -83,7 +97,7 @@ export default function Exhibitors() {
           <table className="table" style={{ minWidth: 950 }}>
             <thead>
               <tr>
-                {['العلامة', 'المسؤول', 'الجوال', 'التصنيف', 'المعرض', 'البوث', ...(money ? ['العقد', 'المدفوع'] : []), 'الحالة', ''].map((h) => (
+                {['العلامة', 'المسؤول', 'الجوال', 'التصنيف', 'المعرض', 'البوث', ...(money ? ['العقد', 'المدفوع'] : []), 'سجّله', 'الحالة', ''].map((h) => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -106,6 +120,7 @@ export default function Exhibitors() {
                         {balance > 0 && <div className="tiny text-dng">متبقي {formatOMR(balance)}</div>}
                       </td>
                     )}
+                    <td className="small">{enteredBy(e)}</td>
                     <td>
                       <StatusBadge status={e.status} />
                     </td>
@@ -116,9 +131,15 @@ export default function Exhibitors() {
                             📄
                           </Button>
                         )}
-                        <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...e }, id: e.id })} title="تعديل">
-                          ✏️
-                        </Button>
+                        {canEdit(e) ? (
+                          <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...e }, id: e.id })} title="تعديل">
+                            ✏️
+                          </Button>
+                        ) : (
+                          <span className="lock-note" title="أدخله مسوق آخر — التعديل للإدارة أو لمن أدخله">
+                            🔒
+                          </span>
+                        )}
 {canDelete && (<Button size="sm" variant="danger" onClick={() => remove(e)} title="حذف">
                           🗑️
                         </Button>)}

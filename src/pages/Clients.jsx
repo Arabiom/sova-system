@@ -17,7 +17,7 @@ import { clientHistory } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatOMR, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { invitationMessage, openWhatsApp } from '../lib/whatsapp.js'
-import { useCan } from '../context/AuthContext.jsx'
+import { useCan, useCanEdit } from '../context/AuthContext.jsx'
 
 const load = async () => {
   const [clients, exhibitors, exhibitions] = await Promise.all([
@@ -155,9 +155,11 @@ function ClientDetails({ client, onClose, onEdit }) {
               📱 واتساب
             </Button>
           )}
-          <Button variant="outline" onClick={onEdit}>
-            ✏️ تعديل
-          </Button>
+          {onEdit && (
+            <Button variant="outline" onClick={onEdit}>
+              ✏️ تعديل
+            </Button>
+          )}
           <Button variant="outline" onClick={onClose}>
             إغلاق
           </Button>
@@ -282,6 +284,7 @@ export default function Clients() {
   const toast = useToast()
   const canDelete = useCan('records.delete')
   const money = useCan('money.view') // marketing: names and details, no amounts
+  const canEdit = useCanEdit() // a marketer edits only the clients they entered
   const { data, loading, reload } = useData(load, null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({ sector: '', city: '', status: '', source: '', participation: '' })
@@ -444,9 +447,15 @@ export default function Clients() {
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <div className="row-actions">
-                      <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...c }, id: c.id })} title="تعديل">
-                        ✏️
-                      </Button>
+                      {canEdit(c) ? (
+                        <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...c }, id: c.id })} title="تعديل">
+                          ✏️
+                        </Button>
+                      ) : (
+                        <span className="lock-note" title="أدخله مسوق آخر — التعديل للإدارة أو لمن أدخله">
+                          🔒
+                        </span>
+                      )}
 {canDelete && (<Button size="sm" variant="danger" onClick={() => remove(c)} title="حذف">
                         🗑️
                       </Button>)}
@@ -474,7 +483,7 @@ export default function Clients() {
         />
       )}
       {viewing && !editing && (
-        <ClientDetails client={viewing} onClose={() => setViewing(null)} onEdit={() => setEditing({ form: { ...viewing }, id: viewing.id })} />
+        <ClientDetails client={viewing} onClose={() => setViewing(null)} onEdit={canEdit(viewing) ? () => setEditing({ form: { ...viewing }, id: viewing.id }) : null} />
       )}
       {inviting && <InviteModal clients={visible} exhibitions={exhibitions} onClose={() => setInviting(false)} />}
     </>

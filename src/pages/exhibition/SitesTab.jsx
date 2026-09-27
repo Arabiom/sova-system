@@ -5,6 +5,7 @@ import Field from '../../components/Field.jsx'
 import Modal from '../../components/Modal.jsx'
 import Panel from '../../components/Panel.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { useCanEdit } from '../../context/AuthContext.jsx'
 import { DEFAULT_TIERS } from '../../lib/constants.js'
 import { tiersOf } from '../../lib/finance.js'
 import { formatOMR } from '../../lib/format.js'
@@ -330,6 +331,7 @@ function ImportModal({ exhibitionId, existingSites, exhibitors, onClose, onDone 
 }
 
 export default function SitesTab({ exhibition, sites, exhibitors, canManage = true, onChanged }) {
+  const canEdit = useCanEdit() // a marketer books sites only for their own participants
   const toast = useToast()
   const [tierForm, setTierForm] = useState(null) // { tier } | { tier: null }
   const [assigning, setAssigning] = useState(null)
@@ -499,7 +501,11 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
                 key={site.id}
                 className={`site-tile status-${status.replace(/\s/g, '-')}`}
                 style={{ '--tier': colorOf.get(`${site.tier}|${Number(site.price)}`) }}
-                onClick={() => setAssigning(site)}
+                onClick={() =>
+                  holder && !canEdit(holder)
+                    ? toast(`الموقع ${site.number} محجوز لـ ${holder.brand} — أدخله مسوق آخر، والتعديل للإدارة أو لمن أدخله`, 'error')
+                    : setAssigning(site)
+                }
                 title={`${site.number} • ${site.tier} • ${formatOMR(site.price)}${holder ? ` • ${holder.brand}` : ''}`}
               >
                 <span className="site-num">{site.number}</span>
@@ -537,7 +543,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
       {assigning && (
         <AssignModal
           site={assigning}
-          exhibitors={exhibitors}
+          exhibitors={exhibitors.filter(canEdit)}
           holder={byId.get(assigning.exhibitor_id) || null}
           onClose={() => setAssigning(null)}
           onSaved={() => {

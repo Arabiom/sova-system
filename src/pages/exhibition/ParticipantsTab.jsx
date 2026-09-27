@@ -9,13 +9,14 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { balanceOf, newReference } from '../../lib/finance.js'
 import { formatOMR } from '../../lib/format.js'
 import { downloadContract } from '../../lib/pdf.js'
-import { useCan } from '../../context/AuthContext.jsx'
+import { useCan, useCanEdit } from '../../context/AuthContext.jsx'
 
 export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, clients, onChanged }) {
   const toast = useToast()
   const [editing, setEditing] = useState(null)
   const canPay = useCan('payments.write')
   const money = useCan('money.view') // marketing: names and details, no amounts
+  const canEdit = useCanEdit() // a marketer edits only the participants they entered
 
   const printContract = async (e) => {
     toast('📄 جاري طباعة العقد...')
@@ -78,9 +79,15 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
                           📄
                         </Button>
                       )}
-                      <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...e }, id: e.id })} title="تعديل">
-                        ✏️
-                      </Button>
+                      {canEdit(e) ? (
+                        <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...e }, id: e.id })} title="تعديل">
+                          ✏️
+                        </Button>
+                      ) : (
+                        <span className="lock-note" title="أدخله مسوق آخر — التعديل للإدارة أو لمن أدخله">
+                          🔒
+                        </span>
+                      )}
                     </div>
                   </td>
                 </tr>

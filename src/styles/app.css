@@ -2358,3 +2358,11 @@ a.ex-card-head {
   color: var(--gold-d);
   cursor: pointer;
 }
+.lock-note {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  font-size: 13px;
+  opacity: 0.6;
+  cursor: help;
+}

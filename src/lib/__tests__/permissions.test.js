@@ -34,3 +34,18 @@ describe('amounts are for admin and finance only', () => {
     expect(can('marketing', 'money.view')).toBe(false)
   })
 })
+
+describe('marketers edit only what they entered', () => {
+  it('lets admin/finance edit any record and a marketer only their own', async () => {
+    const { canEditRecord } = await import('../permissions.js')
+    const mine = { created_by: 'm1' }
+    const theirs = { created_by: 'm2' }
+    const old = { created_by: null }
+    expect(canEditRecord('marketing', 'm1', mine)).toBe(true)
+    expect(canEditRecord('marketing', 'm1', theirs)).toBe(false)
+    expect(canEditRecord('marketing', 'm1', old)).toBe(false)
+    expect(canEditRecord('admin', 'a', theirs)).toBe(true)
+    expect(canEditRecord('finance', 'f', old)).toBe(true)
+    expect(canEditRecord(null, 'm1', mine)).toBe(false)
+  })
+})
