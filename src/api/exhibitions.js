@@ -68,25 +68,31 @@ function missingColumn(err) {
   return e?.code === 'PGRST204' && m ? m[1] : ''
 }
 
+// Columns this database turned out not to have (remembered so later saves skip them).
+const absentColumns = new Set()
+
 /**
- * Save the exhibition. Before migration 005 there is no `tiers` column: the first three
- * tiers are still saved in the old columns. Before 006 there is no `map_path` column.
+ * Save the exhibition. Columns the database does not have yet (an update not run) are left
+ * out and the save retried: before 005 more than three tiers cannot be kept, and before 006
+ * a map cannot be attached — those two say so instead.
  */
 export async function saveExhibition(form, id) {
   let row = toExhibitionRow(form)
+  for (const column of absentColumns) delete row[column]
   const write = (r) => unwrap(id ? table().update(r).eq('id', id) : table().insert(r))
   for (let attempt = 0; ; attempt++) {
     try {
       return await write(row)
     } catch (err) {
       const column = missingColumn(err)
-      if (!column || attempt > 2 || !(column in row)) throw err
+      if (!column || attempt > 20 || !(column in row)) throw err
       if (column === 'tiers' && row.tiers.length > 3) {
         throw new Error('لحفظ أكثر من 3 فئات شغّل تحديث قاعدة البيانات 005 في Supabase أولاً.', { cause: err })
       }
       if (column === 'map_path' && row.map_path) {
         throw new Error('لحفظ الخارطة شغّل تحديث قاعدة البيانات 006 في Supabase أولاً.', { cause: err })
       }
+      absentColumns.add(column)
       const { [column]: _unused, ...rest } = row
       row = rest
     }
