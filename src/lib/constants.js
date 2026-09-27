@@ -13,7 +13,9 @@ export const COMPANY = {
   instagram: '@exhibitions.om',
   bank: 'بنك مسقط — INTEGRATED BUSINESS AXIS',
   signatory: 'عربي بن هلال',
-  version: 'v3.1',
+  logo: '/brand/axis-logo.svg', // for light backgrounds
+  logoLight: '/brand/axis-logo-light.svg', // for dark backgrounds
+  version: 'v3.2',
 }
 
 export const VAT_RATE = 0.05

@@ -36,9 +36,11 @@ function page(body, { footer = `${COMPANY.name} | ${COMPANY.cr} | ${COMPANY.bran
         <div style="color:${GOLD};font-size:30px;font-weight:900;letter-spacing:6px;line-height:1">SOVA</div>
         <div style="color:#B4A078;font-size:12px;margin-top:6px">${COMPANY.legalName}</div>
       </div>
-      <div style="color:#B4A078;font-size:11px;text-align:left;direction:ltr;line-height:1.7">${COMPANY.nameEn} • ${COMPANY.cr}<br>☎ ${COMPANY.phone} • WhatsApp ${COMPANY.whatsapp.replace(/^968/, '')}<br>${COMPANY.email} • ${COMPANY.instagram}</div>
+      <div style="color:#B4A078;font-size:11px;text-align:left;direction:ltr;line-height:1.7">
+        <img src="${COMPANY.logoLight}" alt="${COMPANY.nameEn}" style="height:34px;display:block;margin:0 0 8px auto">
+        ${COMPANY.cr}<br>☎ ${COMPANY.phone} • WhatsApp ${COMPANY.whatsapp.replace(/^968/, '')}<br>${COMPANY.email} • ${COMPANY.instagram}</div>
     </div>
-    <div style="flex:1;padding:32px 48px">${body}</div>
+    <div style="flex:1;padding:24px 48px">${body}</div>
     <div style="background:${INK};color:${GOLD};font-size:11px;text-align:center;padding:14px">${escapeHtml(footer)}</div>
   </div>`
 }
@@ -48,7 +50,7 @@ function title(ar, en) {
 }
 
 function title_(ar, en) {
-  return `<div style="text-align:center;margin-bottom:24px">
+  return `<div style="text-align:center;margin-bottom:16px">
     <div style="font-size:22px;font-weight:900">${ar}</div>
     <div style="font-size:13px;color:#8A7A60;direction:ltr">${en}</div>
   </div>`
@@ -60,9 +62,9 @@ function rowsTable(rows) {
     ${rows
       .map(
         ([ar, value, en]) => `<tr style="background:#FDFAF5">
-          <td style="padding:8px 12px;font-weight:700;width:30%">${ar}</td>
-          ${value?.html !== undefined ? `<td style="padding:8px 12px">${value.html}</td>` : `<td dir="auto" style="padding:8px 12px;text-align:right">${escapeHtml(value)}</td>`}
-          <td style="padding:8px 12px;color:#8A7A60;text-align:left;direction:ltr;width:26%">${en}</td>
+          <td style="padding:6px 12px;font-weight:700;width:30%">${ar}</td>
+          ${value?.html !== undefined ? `<td style="padding:6px 12px">${value.html}</td>` : `<td dir="auto" style="padding:6px 12px;text-align:right">${escapeHtml(value)}</td>`}
+          <td style="padding:6px 12px;color:#8A7A60;text-align:left;direction:ltr;width:26%">${en}</td>
         </tr>`,
       )
       .join('')}
@@ -79,6 +81,8 @@ async function renderPdf(html, filename) {
 
   try {
     if (document.fonts?.ready) await document.fonts.ready
+    // Wait for the company logo (and any other image) so it is in the capture.
+    await Promise.all([...host.querySelectorAll('img')].map((img) => img.decode().catch(() => {})))
     const canvas = await html2canvas(host.firstElementChild, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
 
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -138,7 +142,7 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
     'الإلغاء خلال 14 يوماً من المعرض يترتب عليه خصم 50% من قيمة العقد.',
   ]
   const signature = (label) => `<div style="width:40%;text-align:center">
-      <div style="font-weight:700;font-size:13px;margin-bottom:48px">${label}</div>
+      <div style="font-weight:700;font-size:13px;margin-bottom:40px">${label}</div>
       <div style="border-top:1.5px solid ${INK}"></div>
     </div>`
 

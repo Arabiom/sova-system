@@ -30,6 +30,7 @@ export default function Login() {
           <div className="logo-mark logo-xl">S</div>
           <div className="login-name">SOVA</div>
           <div className="login-sub">نظام الإدارة الداخلي</div>
+          <img className="login-company-logo" src={COMPANY.logoLight} alt={COMPANY.nameEn} />
           <div className="login-cr">
             {COMPANY.name} • {COMPANY.cr}
           </div>

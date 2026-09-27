@@ -50,6 +50,7 @@ function Sidebar({ open, onNavigate, pendingCount }) {
           </div>
         </div>
         <div className="sidebar-company">
+          <img className="sidebar-company-logo" src={COMPANY.logoLight} alt={COMPANY.nameEn} />
           <div className="sidebar-company-name">{COMPANY.name}</div>
           <div className="sidebar-company-cr">
             {COMPANY.cr} • مسقط، عُمان

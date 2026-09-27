@@ -2081,3 +2081,15 @@ a.ex-card-head {
   line-height: 2.1;
   font-size: 13px;
 }
+
+.login-company-logo {
+  display: block;
+  height: 30px;
+  margin: 14px auto 6px;
+  opacity: 0.9;
+}
+.sidebar-company-logo {
+  display: block;
+  height: 22px;
+  margin: 0 0 8px auto;
+}
