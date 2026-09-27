@@ -7,6 +7,7 @@ import { listPayments } from '../api/payments.js'
 import Button from '../components/Button.jsx'
 import { Loading } from '../components/Feedback.jsx'
 import ExhibitionForm from '../components/ExhibitionForm.jsx'
+import AnnualCalendar from '../components/AnnualCalendar.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import StatusBadge from '../components/StatusBadge.jsx'
 import { useToast } from '../context/ToastContext.jsx'
@@ -31,6 +32,7 @@ export default function Exhibitions() {
   const toast = useToast()
   const { data, loading, reload } = useData(load, null)
   const [editing, setEditing] = useState(null) // { form, id } while the modal is open
+  const [view, setView] = useState('cards') // cards | calendar
   const canManage = useCan('exhibitions.manage')
   const money = useCan('money.view') // marketing: occupancy only, no amounts
 
@@ -53,9 +55,20 @@ export default function Exhibitions() {
   return (
     <>
       <PageHeader title="المعارض والمواعيد" subtitle={`${exhibitions.length} معرض مسجل`}>
+        <div className="tabs">
+          <button className={`tab ${view === 'cards' ? 'active' : ''}`} onClick={() => setView('cards')}>
+            🏛️ المعارض
+          </button>
+          <button className={`tab ${view === 'calendar' ? 'active' : ''}`} onClick={() => setView('calendar')}>
+            📅 التقويم السنوي
+          </button>
+        </div>
         {canManage && <Button onClick={openNew}>🏛️ + إضافة معرض</Button>}
       </PageHeader>
 
+      {view === 'calendar' && <AnnualCalendar exhibitions={exhibitions} />}
+
+      {view === 'cards' && (
       <div className="cards-grid">
         {exhibitions.map((ex) => {
           const ownSites = sites.filter((x) => x.exhibition_id === ex.id)
@@ -125,6 +138,7 @@ export default function Exhibitions() {
           <div className="strong">+ إضافة معرض جديد</div>
         </button>}
       </div>
+      )}
 
       {editing && (
         <ExhibitionForm

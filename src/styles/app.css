@@ -2416,3 +2416,18 @@ a.ex-card-head {
 .plan-name {
   min-width: 190px;
 }
+.calendar-year {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 2px solid var(--ink);
+  font-size: 20px;
+}
+.calendar-table td {
+  vertical-align: top;
+}
+.calendar-rest td {
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.015);
+}
