@@ -2118,3 +2118,114 @@ a.ex-card-head {
 .pill-mark {
   height: 16px;
 }
+
+/* ─── Participant registration ───────────────────────────────── */
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 860px;
+}
+.register-form .panel {
+  margin-bottom: 0;
+}
+.mt-16 {
+  margin-top: 16px;
+}
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: right;
+  cursor: pointer;
+}
+.choice:hover {
+  border-color: var(--gold);
+}
+.choice.selected {
+  border-color: var(--gold);
+  background: rgba(201, 168, 76, 0.12);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+.choice-title {
+  font-weight: 800;
+}
+.choice-price {
+  font-size: 18px;
+  font-weight: 900;
+}
+.choice-sub {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.choice-sub.text-suc {
+  color: var(--suc);
+}
+.choice-sub.text-dng {
+  color: var(--dng);
+}
+.extras-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 20px;
+}
+.extra-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+}
+.input-qty {
+  width: 70px;
+  padding: 6px 8px;
+}
+.input-with-action {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.terms-row {
+  padding: 12px;
+  border: 1.5px solid var(--ink);
+  border-radius: 8px;
+  font-weight: 700;
+}
+.register-submit {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+}
+@media (max-width: 640px) {
+  .choice-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .extras-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.alert-link {
+  width: 100%;
+  border: 1px solid rgba(160, 110, 0, 0.25);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+  cursor: pointer;
+}

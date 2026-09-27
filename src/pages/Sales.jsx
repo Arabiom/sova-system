@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
-import { deletePayment, listPayments, recordPayment, updatePayment } from '../api/payments.js'
+import { confirmPayment, deletePayment, listPayments, recordPayment, updatePayment } from '../api/payments.js'
+import { confirmIfPaid } from '../api/registration.js'
 import Button from '../components/Button.jsx'
 import ExhibitionFilter from '../components/ExhibitionFilter.jsx'
 import { EmptyState, Loading } from '../components/Feedback.jsx'
@@ -14,14 +15,14 @@ import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { PAYMENT_METHOD_META, PAYMENT_METHODS, PAYMENT_TYPES, REFUND_TYPE } from '../lib/constants.js'
-import { balanceOf, exhibitionStats, sumBy, vatOf, withVat } from '../lib/finance.js'
+import { balanceOf, exhibitionStats, isConfirmed, sumBy, vatOf, withVat } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatOMR, monthOf, num, percent, todayISO } from '../lib/format.js'
-import { downloadReceipt } from '../lib/pdf.js'
+import { downloadReceipt, downloadRegistrationInvoice } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
-import { useCan } from '../context/AuthContext.jsx'
+import { useAuth, useCan } from '../context/AuthContext.jsx'
 
 const load = async () => {
-  const [payments, exhibitors, exhibitions] = await Promise.all([listPayments(), listExhibitors(), listExhibitions()])
+  const [payments, exhibitors, exhibitions] = await Promise.all([listPayments('*', { includePending: true }), listExhibitors(), listExhibitions()])
   return { payments, exhibitors, exhibitions }
 }
 
@@ -49,7 +50,7 @@ function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
         await updatePayment(payment, form)
         toast('✅ تم تعديل الدفعة')
       } else {
-        const invoice = await recordPayment(form)
+        const { invoice_no: invoice } = await recordPayment(form)
         toast(refund ? `✅ تم تسجيل الإرجاع — ${invoice}` : `✅ تم تسجيل الدفعة — ${invoice}`)
       }
       onSaved()
@@ -138,9 +139,13 @@ export default function Sales() {
   const [adding, setAdding] = useState(false)
   const [editingPayment, setEditingPayment] = useState(null)
   const canWrite = useCan('payments.write')
+  const { session } = useAuth()
+  const [confirming, setConfirming] = useState(null)
 
   if (loading || !data) return <Loading />
-  const { payments, exhibitors, exhibitions } = data
+  const { payments: allPayments, exhibitors, exhibitions } = data
+  const payments = allPayments.filter(isConfirmed)
+  const pendingPayments = allPayments.filter((p) => !isConfirmed(p))
 
   const exhibitorOf = (id) => exhibitors.find((e) => e.id === id)
   const exhibitionOfExhibitor = (id) => exhibitions.find((ex) => ex.id === exhibitorOf(id)?.exhibition_id)
@@ -168,9 +173,28 @@ export default function Sales() {
   const printReceipt = async (payment) => {
     toast('🖨️ جاري طباعة الفاتورة...')
     try {
-      await downloadReceipt(payment, exhibitorOf(payment.exhibitor_id), exhibitionOfExhibitor(payment.exhibitor_id))
+      const exhibitor = exhibitorOf(payment.exhibitor_id)
+      const exhibition = exhibitionOfExhibitor(payment.exhibitor_id)
+      // Participants registered through the form get the full tax invoice; others the short receipt.
+      if (exhibitor?.booth_type && num(payment.amount) > 0) await downloadRegistrationInvoice({ exhibitor, exhibition, payment })
+      else await downloadReceipt(payment, exhibitor, exhibition)
     } catch (err) {
       toast(`تعذّر إنشاء الفاتورة: ${err.message}`, 'error')
+    }
+  }
+
+  const confirm_ = async (payment) => {
+    if (!confirm(`تأكيد وصول ${formatOMR(withVat(payment.amount))} من ${exhibitorOf(payment.exhibitor_id)?.brand || 'العارض'}؟`)) return
+    setConfirming(payment.id)
+    try {
+      await confirmPayment(payment, session?.user?.id)
+      await confirmIfPaid(payment.exhibitor_id)
+      toast('✅ تم تأكيد الدفعة')
+      reload()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setConfirming(null)
     }
   }
 
@@ -180,6 +204,55 @@ export default function Sales() {
         <ExhibitionFilter exhibitions={exhibitions} value={scope} onChange={setScope} />
         {canWrite && <Button onClick={() => setAdding(true)}>+ تسجيل دفعة / إرجاع</Button>}
       </PageHeader>
+
+      {pendingPayments.length > 0 && (
+        <Panel icon="⏳" title={`دفعات بانتظار التأكيد (${pendingPayments.length})`} subtitle="سجّلها فريق التسويق — لا تُحسب ضمن المحصّل حتى تتأكد المالية من وصول المبلغ" className="mb-20 panel-pending">
+          <div className="table-wrap">
+            <table className="table" style={{ minWidth: 760 }}>
+              <thead>
+                <tr>
+                  {['رقم الفاتورة', 'العارض', 'المعرض', 'المبلغ شامل الضريبة', 'الطريقة', 'رقم الحساب / المحوَّل إليه', 'التاريخ', ''].map((h) => (
+                    <th key={h}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pendingPayments.map((p) => (
+                  <tr key={p.id}>
+                    <td className="mono muted tiny">{p.invoice_no || '—'}</td>
+                    <td className="strong">{exhibitorOf(p.exhibitor_id)?.brand || '—'}</td>
+                    <td className="muted small">{exhibitionLabel(exhibitionOfExhibitor(p.exhibitor_id))}</td>
+                    <td className="amount">{formatOMR(withVat(p.amount))}</td>
+                    <td>
+                      <Chip>{p.method === 'نقد' ? 'كاش' : p.method}</Chip>
+                    </td>
+                    <td className="muted small" dir="auto">{p.transfer_ref || '—'}</td>
+                    <td className="muted small nowrap">{p.date}</td>
+                    <td>
+                      <div className="row-actions">
+                        {canWrite && (
+                          <Button size="sm" onClick={() => confirm_(p)} disabled={confirming === p.id}>
+                            {confirming === p.id ? '...' : '✓ تأكيد الوصول'}
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" onClick={() => printReceipt(p)} title="فاتورة PDF">
+                          🖨️
+                        </Button>
+                        {canWrite && (
+                          <Button size="sm" variant="danger" onClick={() => remove(p)} title="حذف — المبلغ لم يصل">
+                            🗑️
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
+
 
       <div className="grid-4 mb-16">
         <StatCard flat label="إجمالي العقود" value={formatOMR(contracts)} sub={`${scopeExhibitors.length} عارض`} accent="var(--ink)" icon="📋" />

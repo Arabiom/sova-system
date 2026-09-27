@@ -9,6 +9,7 @@ import { Loading } from './Feedback.jsx'
 const NAV = [
   { section: 'الرئيسية' },
   { path: '/dashboard', icon: '⬡', label: 'لوحة التحكم', desc: 'نظرة عامة شاملة', sub: 'نظرة شاملة على أداء الشركة' },
+  { path: '/register', icon: '✚', label: 'تسجيل مشارك', desc: 'استمارة وفاتورة', sub: 'استمارة تسجيل المشاركين والفاتورة الضريبية' },
   { section: 'المعارض' },
   { path: '/exhibitions', icon: '◈', label: 'المعارض والمواعيد', desc: 'إدارة كل المعارض', sub: 'إدارة وتتبع كل المعارض' },
   { path: '/bookings', icon: '◎', label: 'طلبات الحجز', desc: 'مراجعة وقبول الطلبات', sub: 'مراجعة وإدارة طلبات العارضين', badge: true },

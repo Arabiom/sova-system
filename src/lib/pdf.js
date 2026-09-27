@@ -4,8 +4,8 @@
 // (which the browser shapes correctly, right-to-left), rasterised with html2canvas and
 // placed onto A4 pages. Both libraries are loaded on demand to keep the app bundle small.
 
-import { COMPANY } from './constants.js'
-import { occupancyOf, summarize, vatOf, withVat } from './finance.js'
+import { BOOTH_NOTE, BOOTH_PACKAGES, COMPANY, PARTICIPATION_TERMS } from './constants.js'
+import { isConfirmed, occupancyOf, registrationTotals, summarize, vatOf, withVat } from './finance.js'
 import { fixed3, monthOf, num } from './format.js'
 import { tiersFromSites } from './sites.js'
 
@@ -27,9 +27,10 @@ const bdi = (value) => `<bdi dir="ltr">${escapeHtml(value)}</bdi>`
 const rawHtml = (html) => ({ html })
 const today = () => new Date().toLocaleDateString('ar-OM')
 
-function page(body, { footer = `${COMPANY.legalName} | ${COMPANY.nameEn} | ${COMPANY.cr}`, fixedHeight = true } = {}) {
+function page(body, { footer = `${COMPANY.legalName} | ${COMPANY.nameEn} | ${COMPANY.cr}`, fixedHeight = true, exactHeight = false } = {}) {
+  const height = exactHeight ? `height:${A4_HEIGHT_PX}px;overflow:hidden;` : fixedHeight ? `min-height:${A4_HEIGHT_PX}px;` : ''
   return `
-  <div style="width:${A4_WIDTH_PX}px;${fixedHeight ? `min-height:${A4_HEIGHT_PX}px;` : ''}display:flex;flex-direction:column;
+  <div style="width:${A4_WIDTH_PX}px;${height}display:flex;flex-direction:column;
               font-family:Cairo,Tahoma,sans-serif;color:${INK};background:#fff;direction:rtl">
     <div style="background:${INK};padding:26px 48px;display:flex;justify-content:space-between;align-items:center">
       <div>
@@ -134,12 +135,7 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
     ['المتبقي', omr(contract - num(exhibitor.paid)), 'Remaining'],
     ['الحالة', exhibitor.status || '—', 'Status'],
   ]
-  const terms = [
-    'يجب استكمال الدفع قبل تاريخ بداية المعرض.',
-    'يُعتبر تخصيص البوث نهائياً عند توقيع العقد.',
-    'تحتفظ الشركة بحق تغيير موقع البوث عند الضرورة.',
-    'الإلغاء خلال 14 يوماً من المعرض يترتب عليه خصم 50% من قيمة العقد.',
-  ]
+  const terms = PARTICIPATION_TERMS.map((t) => `<strong>${t.title}:</strong> ${t.text}`)
   const signature = (label) => `<div style="width:40%;text-align:center">
       <div style="font-weight:700;font-size:13px;margin-bottom:40px">${label}</div>
       <div style="border-top:1.5px solid ${INK}"></div>
@@ -148,12 +144,12 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
   return page(`
     ${title('عقد حجز بوث معرض', 'Exhibition Booth Contract')}
     ${rowsTable(rows)}
-    <div style="margin-top:22px;font-size:14px;font-weight:800">الشروط والأحكام</div>
-    <div style="margin-top:8px;font-size:12px;line-height:2">
+    <div style="margin-top:14px;font-size:14px;font-weight:800">الشروط والأحكام</div>
+    <div style="margin-top:4px;font-size:10.5px;line-height:1.75">
       ${terms.map((t, i) => `<div>${i + 1}. ${t}</div>`).join('')}
     </div>
-    <div style="margin-top:12px;font-size:12px;color:#6B5A40">طريقة السداد: تحويل بنكي إلى ${COMPANY.bank}، أو نقداً مقابل إيصال.</div>
-    <div style="display:flex;justify-content:space-between;margin-top:40px">
+    <div style="margin-top:8px;font-size:12px;color:#6B5A40">طريقة السداد: تحويل بنكي إلى ${COMPANY.bank}، أو نقداً مقابل إيصال.</div>
+    <div style="display:flex;justify-content:space-between;margin-top:22px">
       ${signature('توقيع العارض')}
       ${signature(`${COMPANY.legalName}<br><span style="font-weight:400;font-size:12px">${COMPANY.signatory}</span>`)}
     </div>`)
@@ -324,4 +320,138 @@ export function exhibitionFileHtml({ exhibition: ex, sites, exhibitors, expenses
 export function downloadExhibitionFile(data) {
   const name = data.exhibition.name?.trim() || `SOVA-${data.exhibition.city}`
   return renderPdf(exhibitionFileHtml(data), `ملف-معرض-${safeName(name)}.pdf`)
+}
+
+// ── Registration tax invoice (استمارة تسجيل المشاركين) ─────────────────────
+const cell = (label, value) => `<div style="padding:5px 0;border-bottom:1px solid #EFE7D6">
+    <div style="font-size:10px;color:#8A7A60">${label}</div>
+    <div dir="auto" style="font-size:13px;font-weight:700;min-height:18px">${value}</div>
+  </div>`
+
+const heading = (text) => `<div style="font-size:13px;font-weight:900;margin:12px 0 4px;padding-bottom:3px;border-bottom:2px solid ${GOLD}">${text}</div>`
+
+/** Charges of a registered participant, rebuilt from what is stored on the exhibitor. */
+export function participantCharges(exhibitor) {
+  const extras = Array.isArray(exhibitor.extras) ? exhibitor.extras : []
+  const extrasSum = extras.reduce((t, x) => t + num(x.price) * num(x.qty), 0)
+  return { extras, ...registrationTotals({ boothPrice: num(exhibitor.contract) - extrasSum, extras }) }
+}
+
+export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment }, { date = today() } = {}) {
+  const c = participantCharges(e)
+  const pkg = BOOTH_PACKAGES.find((p) => p.name === e.booth_type)
+  const pending = payment && !isConfirmed(payment)
+  // Paid so far (before VAT): the confirmed total, plus this payment while it awaits confirmation.
+  const paidNet = num(e.paid) + (pending ? num(payment.amount) : 0)
+  const paidGross = withVat(paidNet)
+  const remaining = Math.max(0, c.total - paidGross)
+  const exName = ex ? escapeHtml(ex.name?.trim() || `SOVA ${ex.city}`) : '—'
+  const money = (v) => bdi(omr(v))
+
+  const items = [
+    [`نظام البوث: ${escapeHtml(e.booth_type || '—')}`, 1, c.boothPrice],
+    ...c.extras.map((x) => [escapeHtml(x.name), num(x.qty), num(x.price)]),
+  ]
+  const td = 'padding:6px 10px;font-size:12px;border-bottom:1px solid #F0E8D8'
+  const th = `padding:7px 10px;font-size:11px;background:${INK};color:${GOLD};text-align:right`
+  const sumRow = (label, value, strong) =>
+    `<tr><td colspan="3" style="${td};text-align:left;${strong ? 'font-weight:900;font-size:13px' : 'color:#6B5A40'}">${label}</td>
+     <td style="${td};${strong ? 'font-weight:900;font-size:13px' : ''}">${money(value)}</td></tr>`
+
+  const invoicePage = page(
+    `<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px">
+      <div>
+        <div style="font-size:24px;font-weight:900">فاتورة ضريبية</div>
+        <div style="font-size:12px;color:#8A7A60;direction:ltr;text-align:right">Tax Invoice</div>
+      </div>
+      <div style="font-size:12px;line-height:1.8;text-align:left">
+        رقم الفاتورة: ${bdi(payment?.invoice_no || '—')}<br>
+        التاريخ: ${bdi(payment?.date || date)}<br>
+        ${COMPANY.vatNumber ? `الرقم الضريبي: ${bdi(COMPANY.vatNumber)}` : ''}
+      </div>
+    </div>
+    ${pending ? `<div style="background:#FFF4DB;border:1px solid #E8C877;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;text-align:center">الدفعة بانتظار تأكيد استلام المبلغ من الإدارة المالية</div>` : ''}
+
+    ${heading('بيانات المشارك')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:28px">
+      ${cell('الاسم الكامل', escapeHtml(e.manager || '—'))}
+      ${cell('الرقم المدني', bdi(e.civil_id || '—'))}
+      ${cell('اسم المشروع', escapeHtml(e.brand || '—'))}
+      ${cell('رقم التواصل (واتساب)', bdi(e.phone || '—'))}
+      ${cell('القطاع', escapeHtml(e.category || '—'))}
+      ${cell('نوع المنتجات', escapeHtml(e.products || '—'))}
+    </div>
+
+    ${heading('المعرض والموقع')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:28px">
+      ${cell('المعرض', exName)}
+      ${cell('المكان والتاريخ', ex ? `${escapeHtml(ex.mall || '')} · من ${bdi(ex.date_from)} إلى ${bdi(ex.date_to)}` : '—')}
+      ${cell('نظام البوث', `${escapeHtml(e.booth_type || '—')}${pkg ? `<div style="font-size:10px;font-weight:400;color:#6B5A40">${escapeHtml(pkg.includes)}</div>` : ''}`)}
+      ${cell('رقم الموقع', bdi(e.booth || '—'))}
+    </div>
+    <div style="font-size:10px;color:#8A7A60;margin-top:4px">${BOOTH_NOTE}</div>
+
+    ${heading('تفاصيل الفاتورة')}
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="${th}">البند</th><th style="${th}">الكمية</th><th style="${th}">سعر الوحدة</th><th style="${th}">المبلغ</th></tr></thead>
+      <tbody>
+        ${items.map(([name, qty, price]) => `<tr><td style="${td}">${name}</td><td style="${td}">${bdi(qty)}</td><td style="${td}">${money(price)}</td><td style="${td}">${money(qty * price)}</td></tr>`).join('')}
+        ${sumRow('المجموع قبل الضريبة', c.subtotal)}
+        ${sumRow('ضريبة القيمة المضافة 5%', c.vat)}
+        ${sumRow('الإجمالي شامل الضريبة', c.total, true)}
+      </tbody>
+    </table>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px">
+      <div style="background:${GOLD};padding:10px;border-radius:8px;text-align:center">
+        <div style="font-size:11px">المدفوع${pending ? ' (بانتظار التأكيد)' : ''}</div>
+        <div style="font-size:17px;font-weight:900">${money(paidGross)}</div>
+      </div>
+      <div style="background:${remaining > 0.0005 ? '#FDEAEA' : '#E7F6EC'};padding:10px;border-radius:8px;text-align:center">
+        <div style="font-size:11px">المتبقي</div>
+        <div style="font-size:17px;font-weight:900">${money(remaining)}</div>
+      </div>
+      <div style="background:#FDFAF5;padding:10px;border-radius:8px;text-align:center;font-size:11px;line-height:1.6">
+        طريقة السداد: <strong>${escapeHtml(payment ? (payment.method === 'نقد' ? 'كاش' : payment.method) : '—')}</strong>
+        ${payment?.transfer_ref ? `<br>رقم الحساب / المحوَّل إليه: ${bdi(payment.transfer_ref)}` : ''}
+      </div>
+    </div>
+    <div style="font-size:10px;color:#6B5A40;margin-top:6px">المبالغ بالريال العُماني. الحجز لا يُعدّ مؤكداً إلا بعد سداد قيمة الاشتراك كاملة.</div>
+
+    <div style="margin-top:12px;border:1.5px solid ${INK};padding:8px 12px;font-size:12px;font-weight:700">
+      ${e.terms_accepted ? '☑' : '☐'} أوافق على الشروط والأحكام الواردة في الصفحة الثانية
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:26px;font-size:11px">
+      <div style="width:44%;border-top:1.5px solid ${INK};padding-top:4px">اسم المشارك وتوقيعه</div>
+      <div style="width:44%;border-top:1.5px solid ${INK};padding-top:4px">عن الإدارة — ${COMPANY.legalName}</div>
+    </div>`,
+    { exactHeight: true },
+  )
+
+  const termsPage = page(
+    `${title_('الشروط والأحكام', 'Terms &amp; Conditions')}
+    <div style="font-size:11px;color:#6B5A40;text-align:center;margin-top:-8px;margin-bottom:10px">
+      تُعدّ هذه الشروط جزءاً لا يتجزأ من استمارة التسجيل، ويُقرّ المشارك بالاطلاع عليها والموافقة عليها بتوقيعه في الصفحة الأولى.
+    </div>
+    ${PARTICIPATION_TERMS.map(
+      (t, i) => `<div style="display:flex;gap:14px;padding:9px 0;border-bottom:1px solid #EFE7D6">
+        <div style="color:#EC3013;font-weight:900;font-size:14px;width:18px">${bdi(i + 1)}</div>
+        <div><div style="font-weight:800;font-size:13px">${t.title}</div><div style="font-size:12px;line-height:1.7">${t.text}</div></div>
+      </div>`,
+    ).join('')}
+    <div style="margin-top:16px;font-size:12px;font-weight:700">الملاحظات</div>
+    <div style="border:1.5px solid ${INK};min-height:90px;padding:8px;font-size:12px" dir="auto">${escapeHtml(e.notes || '')}</div>
+    <div style="display:flex;justify-content:space-between;margin-top:40px;font-size:11px">
+      <div style="width:44%;border-top:1.5px solid ${INK};padding-top:4px">اسم المشارك وتوقيعه: ${escapeHtml(e.manager || '')}</div>
+      <div style="width:44%;border-top:1.5px solid ${INK};padding-top:4px">عن الإدارة — ${COMPANY.legalName}</div>
+    </div>`,
+    { exactHeight: true },
+  )
+
+  return `<div>${invoicePage}${termsPage}</div>`
+}
+
+export function downloadRegistrationInvoice(data) {
+  const ref = data.payment?.invoice_no || safeName(data.exhibitor.brand)
+  return renderPdf(registrationInvoiceHtml(data), `AIB-Invoice-${safeName(ref)}.pdf`)
 }

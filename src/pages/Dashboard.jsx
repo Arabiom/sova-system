@@ -12,7 +12,7 @@ import { ProgressRow } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { COMPANY } from '../lib/constants.js'
-import { balanceOf, occupancyOf, summarize, sumBy } from '../lib/finance.js'
+import { balanceOf, isConfirmed, occupancyOf, summarize, sumBy, withVat } from '../lib/finance.js'
 import { exhibitionTitle, formatOMR, isolateLtr, monthOf } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 
@@ -20,12 +20,12 @@ const load = async () => {
   const [exhibitions, exhibitors, payments, bookings, sites, expenses] = await Promise.all([
     listExhibitions(),
     listExhibitors(),
-    listPayments(),
+    listPayments('*', { includePending: true }),
     listBookings(),
     listSites(),
     listExpenses(),
   ])
-  return { exhibitions, exhibitors, payments, bookings, sites, expenses }
+  return { exhibitions, exhibitors, payments: payments.filter(isConfirmed), awaiting: payments.filter((p) => !isConfirmed(p)), bookings, sites, expenses }
 }
 
 const barColor = (status) =>
@@ -40,7 +40,7 @@ export default function Dashboard() {
   const { data, loading } = useData(load, null)
   if (loading || !data) return <Loading />
 
-  const { exhibitions, exhibitors, payments, bookings, sites, expenses } = data
+  const { exhibitions, exhibitors, payments, awaiting, bookings, sites, expenses } = data
   const totals = summarize(exhibitors)
   const pending = bookings.filter((b) => b.status === 'معلق').length
   const confirmed = exhibitors.filter((e) => e.status === 'مؤكد').length
@@ -59,10 +59,16 @@ export default function Dashboard() {
           </>
         }
       >
-        <Button size="lg" icon="🏛️" onClick={() => go('/exhibitions')}>
-          + إضافة معرض
+        <Button size="lg" icon="✚" onClick={() => go('/register')}>
+          تسجيل مشارك
         </Button>
       </PageHeader>
+
+      {awaiting.length > 0 && (
+        <button type="button" className="alert alert-warning alert-link" onClick={() => go('/sales')}>
+          ⏳ {awaiting.length} دفعة بانتظار تأكيد وصول المبلغ (بقيمة {formatOMR(withVat(sumBy(awaiting, 'amount')))} شامل الضريبة) — اضغط للمراجعة
+        </button>
+      )}
 
       <div className="section-label">المؤشرات المالية</div>
       <div className="grid-4">

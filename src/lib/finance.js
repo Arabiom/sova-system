@@ -1,7 +1,24 @@
-import { VAT_RATE } from './constants.js'
+import { PAYMENT_PENDING, VAT_RATE } from './constants.js'
 import { num, percent } from './format.js'
 
 export const sumBy = (rows, key) => rows.reduce((total, row) => total + num(row[key]), 0)
+
+/** A payment counts as collected unless it is still waiting for finance to confirm it. */
+export const isConfirmed = (payment) => payment.status !== PAYMENT_PENDING
+
+/** Round to the baisa (3 decimals) so sums of prices never show floating-point noise. */
+const baisa = (value) => Math.round(num(value) * 1000) / 1000
+
+/**
+ * Charges on a registration: booth package + extras (+ any other extras), VAT 5% on top.
+ * `extras` is [{ name, price, qty }].
+ */
+export function registrationTotals({ boothPrice = 0, extras = [], otherAmount = 0 }) {
+  const extrasTotal = baisa(extras.reduce((t, x) => t + num(x.price) * Math.max(0, num(x.qty)), 0) + num(otherAmount))
+  const subtotal = baisa(num(boothPrice) + extrasTotal)
+  const vat = baisa(vatOf(subtotal))
+  return { boothPrice: num(boothPrice), extrasTotal, subtotal, vat, total: baisa(subtotal + vat) }
+}
 
 export const vatOf = (amount) => num(amount) * VAT_RATE
 export const withVat = (amount) => num(amount) * (1 + VAT_RATE)
@@ -43,7 +60,7 @@ export function summarize(exhibitors) {
 export function exhibitionStats(exhibition, exhibitors, payments) {
   const own = exhibitors.filter((e) => e.exhibition_id === exhibition.id)
   const ownIds = new Set(own.map((e) => e.id))
-  const collected = payments.filter((p) => ownIds.has(p.exhibitor_id)).reduce((t, p) => t + num(p.amount), 0)
+  const collected = payments.filter((p) => ownIds.has(p.exhibitor_id) && isConfirmed(p)).reduce((t, p) => t + num(p.amount), 0)
   const contract = sumBy(own, 'contract')
   return {
     booked: own.length,
@@ -100,7 +117,7 @@ export function exhibitionFinancials({ exhibition, sites = [], exhibitors = [], 
   const booked = hasSites ? sites.filter((s) => s.exhibitor_id).length : own.length
 
   const contract = sumBy(own, 'contract')
-  const collected = payments.filter((p) => ownIds.has(p.exhibitor_id)).reduce((t, p) => t + num(p.amount), 0)
+  const collected = payments.filter((p) => ownIds.has(p.exhibitor_id) && isConfirmed(p)).reduce((t, p) => t + num(p.amount), 0)
   const sponsorship = sumBy(sponsors, 'amount')
   const sponsorshipPaid = sumBy(sponsors.filter((s) => s.status === 'مدفوع'), 'amount')
   const expensesTotal = sumBy(expenses, 'amount')

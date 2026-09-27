@@ -12,6 +12,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard.jsx'))
 const ExhibitionFile = lazy(() => import('./pages/ExhibitionFile.jsx'))
 const Exhibitions = lazy(() => import('./pages/Exhibitions.jsx'))
 const Exhibitors = lazy(() => import('./pages/Exhibitors.jsx'))
+const Register = lazy(() => import('./pages/Register.jsx'))
 const Reports = lazy(() => import('./pages/Reports.jsx'))
 const Sales = lazy(() => import('./pages/Sales.jsx'))
 const WhatsApp = lazy(() => import('./pages/WhatsApp.jsx'))
@@ -54,6 +55,7 @@ export default function App() {
     <Routes>
       <Route element={<Protected />}>
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/exhibitions" element={<Exhibitions />} />
         <Route path="/exhibitions/:id" element={<ExhibitionFile />} />
         <Route path="/clients" element={<Clients />} />

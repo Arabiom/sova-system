@@ -18,6 +18,7 @@ export const COMPANY = {
   mark: '/brand/axis-mark.svg',
   markLight: '/brand/axis-mark-light.svg',
   systemName: 'نظام إدارة المعارض',
+  vatNumber: '', // الرقم الضريبي — printed on tax invoices once provided
   version: 'v4.0',
 }
 
@@ -32,15 +33,64 @@ export const BOOKING_STATUSES = ['معلق', 'مقبول', 'مرفوض']
 export const CATEGORIES = ['أزياء', 'عطور وبخور', 'إكسسوار', 'جمال', 'خدمات أعمال', 'أخرى']
 export const BOOTH_SIZES = ['2×2 متر', '3×2 متر', '4×2 متر', 'مخصص']
 
-export const PAYMENT_METHODS = ['نقد', 'تحويل بنكي', 'فيزا / ماستركارد', 'شيك']
+export const PAYMENT_METHODS = ['نقد', 'تحويل بنكي', 'تحويل عبر رقم الهاتف', 'فيزا / ماستركارد', 'شيك']
 export const PAYMENT_TYPES = ['كامل', 'مقدمة', 'جزئية', 'أخيرة', 'إرجاع']
 
 /** A payment of this type returns money to the exhibitor; it is stored as a negative amount. */
 export const REFUND_TYPE = 'إرجاع'
 
+/**
+ * Payment status. A payment recorded by marketing waits for finance to confirm the money
+ * arrived; until then it is not counted as collected. Older payments have no status (= confirmed).
+ */
+export const PAYMENT_CONFIRMED = 'مؤكد'
+export const PAYMENT_PENDING = 'بانتظار التأكيد'
+
+// ── Participant registration form (استمارة تسجيل المشاركين) ─────────────────
+/** Sectors as printed on the form — one choice. */
+export const FORM_SECTORS = ['أزياء', 'أقمشة', 'عطور وبخور', 'تجميل', 'قاعات أفراح وضيافة', 'زهور وهدايا', 'تصوير وطباعة', 'حلويات', 'سياحة وسفر']
+
+/** Booth packages; prices before VAT (5% is added on top). */
+export const BOOTH_PACKAGES = [
+  { name: 'ركن مدخل', price: 200, includes: 'طاولتان + مفرشان + كرسيان + علاقان أو رفّان + لوحة خلفية بهوية المعرض' },
+  { name: 'كورنر هاير', price: 150, includes: 'طاولة + مفرش + كرسيان + علاقة واحدة أو ستاند واحد + بوستر ترويجي' },
+  { name: 'وسط المعرض', price: 125, includes: 'طاولة + مفرش + كرسيان + بوستر ترويجي' },
+  { name: 'صف داخلي', price: 100, includes: 'طاولة + مفرش + كرسيان + بوستر ترويجي' },
+]
+export const BOOTH_NOTE = 'جميع المواقع بمساحة ٢ × ٣ أمتار، وتشمل نقطة كهرباء وتنظيفاً يومياً.'
+export const BOOTH_AREA = '3×2 متر'
+
+/** Optional extras, each at an additional fee (before VAT). */
+export const BOOTH_EXTRAS = [
+  { name: 'علاقة', price: 10 },
+  { name: 'طاولة إضافية', price: 5 },
+  { name: 'ستاند للأغراض', price: 10 },
+  { name: 'لوحة خلفية مطبوعة', price: 15 },
+]
+
+/** Payment methods offered on the form. */
+export const FORM_PAYMENT_METHODS = [
+  { value: 'تحويل بنكي', label: 'تحويل بنكي' },
+  { value: 'تحويل عبر رقم الهاتف', label: 'تحويل عبر رقم الهاتف' },
+  { value: 'نقد', label: 'كاش' },
+]
+
+/** Terms and conditions — page 2 of the registration form. */
+export const PARTICIPATION_TERMS = [
+  { title: 'تأكيد الحجز والسداد', text: 'لا يُعدّ الحجز مؤكداً إلا بعد سداد قيمة الاشتراك كاملة وإرفاق إيصال التحويل. تُوزَّع المواقع وفق أسبقية السداد، أو اختيار الموقع عند الحجز.' },
+  { title: 'الإلغاء والاسترداد', text: 'قيمة الاشتراك غير قابلة للاسترداد بعد تأكيد الحجز، ولا تُحوَّل إلى معرض آخر إلا بموافقة من الإدارة.' },
+  { title: 'حدود الموقع', text: 'مساحة الموقع ٢ × ٣ أمتار، ولا يجوز تجاوز حدوده أو العرض في الممرات، ولا تغيير الموقع أو التنازل عنه لطرف آخر.' },
+  { title: 'المنتجات المعروضة', text: 'يُلتزم بعرض المنتجات المذكورة في الاستمارة فقط، وتكون نظامية ومطابقة للأنظمة المعمول بها في سلطنة عُمان.' },
+  { title: 'الالتزام بأوقات العمل', text: 'يتواجد المشارك أو من ينوب عنه في الموقع خلال كامل ساعات العمل المعلنة، ولا يُسمح بإخلاء الموقع قبل انتهاء المعرض.' },
+  { title: 'التركيب والتفكيك', text: 'يتم التجهيز والإخلاء في المواعيد التي تحدّدها الإدارة، ويتحمّل المشارك تكلفة أي تلف يُلحقه بالديكور أو بمرافق الموقع.' },
+  { title: 'المسؤولية والتأمين', text: 'المشارك مسؤول عن بضاعته ومقتنياته الشخصية، والإدارة غير مسؤولة عن الفقدان أو التلف أو السرقة.' },
+  { title: 'الحقوق الترويجية', text: 'توافق على استخدام اسم المشروع وصور الموقع في المواد الترويجية للمعرض، وتحتفظ الإدارة بحق إلغاء المشاركة عند الإخلال بأي شرط دون استرداد.' },
+]
+
 export const PAYMENT_METHOD_META = {
   'نقد': { icon: '💵', color: 'var(--suc)' },
   'تحويل بنكي': { icon: '🏦', color: 'var(--ink)' },
+  'تحويل عبر رقم الهاتف': { icon: '📲', color: '#0E7490' },
   'فيزا / ماستركارد': { icon: '💳', color: 'var(--wrn)' },
   'شيك': { icon: '📝', color: '#7C3AED' },
   'غير محدد': { icon: '❔', color: 'var(--muted)' },
