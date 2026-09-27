@@ -76,3 +76,46 @@ export function tierColor(name, index = 0) {
   const hit = NAMED_COLORS.find(([word]) => String(name || '').includes(word))
   return hit ? hit[1] : PALETTE[index % PALETTE.length]
 }
+
+/**
+ * Site numbers held according to a booth label: "16، 22" → ['16','22'], "1–6" → ['1',…,'6'],
+ * "A-01" → ['A-01']. Same rule as booth_keys() in the database (migration 013).
+ */
+export function boothKeys(label) {
+  const keys = []
+  for (const raw of String(label ?? '').trim().split(/[,،\s]+/)) {
+    const part = raw.trim()
+    if (!part || part === '—' || part === '-') continue
+    const m = part.match(/^(\d+)[-–—](\d+)$/)
+    if (m && +m[2] >= +m[1] && +m[2] - +m[1] <= 500) for (let n = +m[1]; n <= +m[2]; n++) keys.push(String(n))
+    else if (/^\d+$/.test(part)) keys.push(String(Number(part)))
+    else keys.push(part.toUpperCase())
+  }
+  return keys
+}
+
+/** The participant already holding any of these sites in the exhibition, or null. */
+export function boothHolder(exhibitors, exhibitionId, label, selfId) {
+  const wanted = new Set(boothKeys(label))
+  if (!wanted.size) return null
+  for (const e of exhibitors) {
+    if (e.id === selfId || e.exhibition_id !== exhibitionId) continue
+    const shared = boothKeys(e.booth).filter((k) => wanted.has(k))
+    if (shared.length) return { exhibitor: e, numbers: shared }
+  }
+  return null
+}
+
+/** Sites registered to more than one participant in the same exhibition (older data). */
+export function duplicateBooths(exhibitors) {
+  const owners = new Map() // "exhibition|site" → exhibitors
+  for (const e of exhibitors) {
+    for (const k of boothKeys(e.booth)) {
+      const key = `${e.exhibition_id}|${k}`
+      owners.set(key, [...(owners.get(key) || []), e])
+    }
+  }
+  return [...owners.entries()]
+    .filter(([, list]) => list.length > 1)
+    .map(([key, list]) => ({ exhibitionId: key.split('|')[0], number: key.split('|')[1], exhibitors: list }))
+}

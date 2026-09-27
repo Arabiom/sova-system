@@ -18,13 +18,14 @@ import { registrationTotals, vatOf, withoutVat, withVat } from '../lib/finance.j
 import { exhibitionLabel, formatDate, formatOMR, num, phoneKey, todayISO } from '../lib/format.js'
 import { downloadRegistrationInvoice } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
+import { boothHolder } from '../lib/sites.js'
 import { chosenExtras, MAX_SECTORS } from '../api/registration.js'
 
 const load = async () => {
   const [exhibitions, sites, exhibitors] = await Promise.all([
     listExhibitions(),
     listSites(),
-    listExhibitors({ columns: 'id,exhibition_id,brand,phone' }),
+    listExhibitors({ columns: 'id,exhibition_id,brand,phone,booth' }),
   ])
   return { exhibitions: exhibitions.filter((ex) => !['منتهي', 'ملغى'].includes(ex.status)), sites, exhibitors }
 }
@@ -105,6 +106,8 @@ export default function Register() {
     phoneKey(f.phone) &&
     data.exhibitors.find((e) => e.exhibition_id === f.exhibition_id && phoneKey(e.phone) === phoneKey(f.phone))
 
+  // One site = one participant: a number typed by hand must not be taken in this exhibition.
+  const takenBooth = !ownSites.length && f.booth_number?.trim() ? boothHolder(data.exhibitors, f.exhibition_id, f.booth_number) : null
   const setExtra = (name, qty) => setForm({ ...f, extras: { ...f.extras, [name]: Math.max(0, num(qty)) } })
 
   const submit = async () => {
@@ -112,6 +115,7 @@ export default function Register() {
     const errors = validateRegistration(f)
     if (ownSites.length && pkg && !f.site_id) errors.push('رقم الموقع')
     if (errors.length) return toast(`أكمل: ${errors.join('، ')}`, 'error')
+    if (takenBooth) return toast(`الموقع ${takenBooth.numbers.join('، ')} محجوز مسبقاً لـ «${takenBooth.exhibitor.brand}» في هذا المعرض`, 'error')
     if (duplicate && !confirm(`${duplicate.brand} مسجّل بنفس رقم الهاتف في هذا المعرض. تسجيل مشاركة جديدة؟`)) return
     if (amount > totals.total + 0.0005 && !confirm(`المبلغ المدفوع أكبر من الإجمالي شامل الضريبة (${formatOMR(totals.total)}). متابعة؟`)) return
 
@@ -284,8 +288,13 @@ export default function Register() {
             )}
             {pkg && !ownSites.length && (
               <Field label="رقم الموقع" hint="هذا المعرض ليس له خارطة مواقع في النظام، فيُكتب الرقم يدوياً.">
-                <input className="input" value={f.booth_number} onChange={set('booth_number')} />
+                <input className={`input ${takenBooth ? 'input-invalid' : ''}`} value={f.booth_number} onChange={set('booth_number')} />
               </Field>
+            )}
+            {takenBooth && (
+              <div className="alert alert-danger">
+                ⛔ الموقع {takenBooth.numbers.join('، ')} محجوز مسبقاً لـ «{takenBooth.exhibitor.brand}» في هذا المعرض — كل موقع لمشارك واحد فقط.
+              </div>
             )}
           </Panel>
 

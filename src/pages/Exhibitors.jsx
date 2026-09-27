@@ -17,6 +17,7 @@ import { downloadContract } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
 import { useAuth, useCan, useCanEdit } from '../context/AuthContext.jsx'
 import { listStaff } from '../api/staff.js'
+import { duplicateBooths } from '../lib/sites.js'
 
 const load = async () => {
   const [exhibitors, exhibitions, clients, staff] = await Promise.all([
@@ -43,6 +44,7 @@ export default function Exhibitors() {
 
   if (loading || !data) return <Loading />
   const { exhibitors, exhibitions, clients, staff } = data
+  const duplicates = duplicateBooths(exhibitors)
   const enteredBy = (e) => {
     if (!e.created_by) return '—'
     if (e.created_by === session?.user?.id) return 'أنت'
@@ -85,6 +87,16 @@ export default function Exhibitors() {
       <PageHeader title={money ? 'العارضون والعقود' : 'المشاركون'} subtitle={`${exhibitors.length} مشارك مسجل`}>
         {canWrite && <Button onClick={() => setEditing({ form: { status: 'مبدئي' }, id: null })}>+ إضافة عارض</Button>}
       </PageHeader>
+
+      {duplicates.length > 0 && (
+        <div className="alert alert-danger">
+          ⚠️ مواقع مسجلة لأكثر من مشارك (من قبل منع التكرار) — عدّل رقم الموقع لأحدهم:{' '}
+          {duplicates
+            .slice(0, 6)
+            .map((d) => `الموقع ${d.number} في ${exhibitionLabel(exhibitionOf(d.exhibitionId))}: ${d.exhibitors.map((e) => e.brand).join(' و ')}`)
+            .join(' • ')}
+        </div>
+      )}
 
       <div className="toolbar">
         <input className="input toolbar-search" placeholder="🔍  ابحث بالاسم أو الجوال..." value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -163,6 +175,7 @@ export default function Exhibitors() {
           id={editing.id}
           exhibitions={exhibitions}
           clients={clients}
+          exhibitors={exhibitors}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null)

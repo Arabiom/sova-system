@@ -10,6 +10,7 @@ import { balanceOf, newReference } from '../../lib/finance.js'
 import { formatOMR } from '../../lib/format.js'
 import { downloadContract } from '../../lib/pdf.js'
 import { useCan, useCanEdit } from '../../context/AuthContext.jsx'
+import { duplicateBooths } from '../../lib/sites.js'
 
 export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, clients, onChanged }) {
   const toast = useToast()
@@ -18,6 +19,7 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
   const money = useCan('money.view') // marketing: names and details, no amounts
   const canEdit = useCanEdit() // a marketer edits only the participants they entered
   const canWrite = useCan('data.write') // the viewer only looks
+  const duplicates = duplicateBooths(exhibitors)
 
   const printContract = async (e) => {
     toast('📄 جاري طباعة العقد...')
@@ -48,6 +50,15 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
         </div>
       }
     >
+      {duplicates.length > 0 && (
+        <div className="alert alert-danger">
+          ⚠️ مواقع مسجلة لأكثر من مشارك (من قبل منع التكرار) — عدّل رقم الموقع لأحدهم:{' '}
+          {duplicates
+            .slice(0, 6)
+            .map((d) => `الموقع ${d.number}: ${d.exhibitors.map((e) => e.brand).join(' و ')}`)
+            .join(' • ')}
+        </div>
+      )}
       <div className="table-wrap">
         <table className="table" style={{ minWidth: 820 }}>
           <thead>
@@ -109,6 +120,7 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
           id={editing.id}
           exhibitions={exhibitions}
           clients={clients}
+          exhibitors={exhibitors}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null)

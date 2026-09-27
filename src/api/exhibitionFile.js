@@ -118,6 +118,10 @@ export async function applyImport(exhibitionId, plan, matched, { replaceSites = 
   await unwrap(sites().insert(plan.sites.map((s) => ({ exhibition_id: exhibitionId, number: s.number, tier: s.tier, price: s.price }))))
 
   const known = await unwrap(supabase.from('clients').select('id,name,phone'))
+  // Site labels are rebuilt from the file: clear the old ones first, so participants can swap
+  // sites without two of them holding the same number for a moment (one site = one participant).
+  const reset = [...matched.participants.filter((p) => p.existing).map((p) => p.existing), ...(existing.length ? matched.untouched : [])]
+  for (const e of reset) if (e.booth && e.booth !== '—') await updateExhibitor(e.id, { booth: '—' })
   let done = 0
   for (const p of matched.participants) {
     const client_id = p.existing?.client_id || (await findOrCreateClient({ brand: p.brand, manager: p.manager, phone: p.phone, category: p.category }, known))
@@ -168,6 +172,4 @@ export async function applyImport(exhibitionId, plan, matched, { replaceSites = 
     }
     onProgress(++done, matched.participants.length)
   }
-  // Registered exhibitors the file does not mention lost their sites with the replaced map.
-  if (existing.length) for (const e of matched.untouched) if (e.booth && e.booth !== '—') await updateExhibitor(e.id, { booth: '—' })
 }

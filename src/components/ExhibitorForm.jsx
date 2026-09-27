@@ -6,6 +6,7 @@ import { exhibitionLabel } from '../lib/format.js'
 import Button from './Button.jsx'
 import Field, { SelectOptions } from './Field.jsx'
 import Modal from './Modal.jsx'
+import { boothHolder } from '../lib/sites.js'
 import { useCan } from '../context/AuthContext.jsx'
 
 /**
@@ -13,7 +14,7 @@ import { useCan } from '../context/AuthContext.jsx'
  * Typing a brand that exists in `clients` links the exhibitor to that client and fills in
  * their details; otherwise a client record is created on save.
  */
-export default function ExhibitorForm({ initial, id, exhibitions, clients = [], onClose, onSaved }) {
+export default function ExhibitorForm({ initial, id, exhibitions, clients = [], exhibitors = [], onClose, onSaved }) {
   const toast = useToast()
   const [form, setForm] = useState(initial)
   const [saving, setSaving] = useState(false)
@@ -38,8 +39,12 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
     )
   }
 
+  // One site = one participant in each exhibition (the database refuses it too).
+  const takenBooth = boothHolder(exhibitors, form.exhibition_id, form.booth, id)
+
   const submit = async () => {
     if (!form.brand || !form.manager || !form.exhibition_id) return toast('أكمل البيانات المطلوبة', 'error')
+    if (takenBooth) return toast(`الموقع ${takenBooth.numbers.join('، ')} محجوز مسبقاً لـ «${takenBooth.exhibitor.brand}» في هذا المعرض`, 'error')
     setSaving(true)
     try {
       await saveExhibitor(form, id)
@@ -105,7 +110,12 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
           </select>
         </Field>
         <Field label="رقم البوث" hint="إذا كان للمعرض خارطة مواقع، احجز الموقع من ملف المعرض ويُحدَّث هذا الحقل تلقائياً">
-          <input className="input" placeholder="مثال: A-01" value={form.booth === '—' ? '' : form.booth || ''} onChange={set('booth')} />
+          <input className={`input ${takenBooth ? 'input-invalid' : ''}`} placeholder="مثال: A-01" value={form.booth === '—' ? '' : form.booth || ''} onChange={set('booth')} />
+          {takenBooth && (
+            <span className="field-hint text-dng">
+              ⛔ محجوز لـ «{takenBooth.exhibitor.brand}»
+            </span>
+          )}
         </Field>
         <Field label="حجم البوث">
           <SelectOptions options={BOOTH_SIZES} value={form.booth_size || ''} onChange={set('booth_size')} />
