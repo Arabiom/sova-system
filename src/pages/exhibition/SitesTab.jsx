@@ -5,7 +5,7 @@ import Field from '../../components/Field.jsx'
 import Modal from '../../components/Modal.jsx'
 import Panel from '../../components/Panel.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
-import { useCanEdit } from '../../context/AuthContext.jsx'
+import { useCan, useCanEdit } from '../../context/AuthContext.jsx'
 import { DEFAULT_TIERS } from '../../lib/constants.js'
 import { tiersOf } from '../../lib/finance.js'
 import { formatOMR } from '../../lib/format.js'
@@ -332,6 +332,7 @@ function ImportModal({ exhibitionId, existingSites, exhibitors, onClose, onDone 
 
 export default function SitesTab({ exhibition, sites, exhibitors, canManage = true, onChanged }) {
   const canEdit = useCanEdit() // a marketer books sites only for their own participants
+  const canWrite = useCan('data.write') // the viewer only looks
   const toast = useToast()
   const [tierForm, setTierForm] = useState(null) // { tier } | { tier: null }
   const [assigning, setAssigning] = useState(null)
@@ -502,7 +503,9 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
                 className={`site-tile status-${status.replace(/\s/g, '-')}`}
                 style={{ '--tier': colorOf.get(`${site.tier}|${Number(site.price)}`) }}
                 onClick={() =>
-                  holder && !canEdit(holder)
+                  !canWrite
+                    ? null
+                    : holder && !canEdit(holder)
                     ? toast(`الموقع ${site.number} محجوز لـ ${holder.brand} — أدخله مسوق آخر، والتعديل للإدارة أو لمن أدخله`, 'error')
                     : setAssigning(site)
                 }

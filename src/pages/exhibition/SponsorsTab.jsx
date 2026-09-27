@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useCan } from '../../context/AuthContext.jsx'
 import { deleteSponsor, saveSponsor } from '../../api/exhibitionFile.js'
 import Button from '../../components/Button.jsx'
 import { EmptyState } from '../../components/Feedback.jsx'
@@ -72,6 +73,7 @@ function SponsorForm({ exhibitionId, initial, id, onClose, onSaved }) {
 
 export default function SponsorsTab({ exhibitionId, sponsors, onChanged }) {
   const toast = useToast()
+  const canWrite = useCan('data.write') // the viewer only looks
   const [editing, setEditing] = useState(null)
   const total = sumBy(sponsors, 'amount')
 
@@ -92,9 +94,11 @@ export default function SponsorsTab({ exhibitionId, sponsors, onChanged }) {
       title="الرعاة"
       subtitle={`${sponsors.length} راعٍ • ${formatOMR(total)}`}
       action={
-        <Button size="sm" onClick={() => setEditing({ form: { status: 'متفق عليه' }, id: null })}>
-          + إضافة راعٍ
-        </Button>
+        canWrite && (
+          <Button size="sm" onClick={() => setEditing({ form: { status: 'متفق عليه' }, id: null })}>
+            + إضافة راعٍ
+          </Button>
+        )
       }
     >
       <div className="table-wrap">
@@ -120,6 +124,7 @@ export default function SponsorsTab({ exhibitionId, sponsors, onChanged }) {
                   {s.notes || '—'}
                 </td>
                 <td>
+                  {canWrite && (
                   <div className="row-actions">
                     <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...s }, id: s.id })} title="تعديل">
                       ✏️
@@ -128,6 +133,7 @@ export default function SponsorsTab({ exhibitionId, sponsors, onChanged }) {
                       🗑️
                     </Button>
                   </div>
+                  )}
                 </td>
               </tr>
             ))}

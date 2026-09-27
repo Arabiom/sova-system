@@ -40,6 +40,7 @@ export default function Dashboard() {
   const go = useNavigate()
   const { data, loading } = useData(load, null)
   const money = useCan('money.view') // marketing: operations only, no amounts
+  const canWrite = useCan('data.write') // the viewer only looks
   if (loading || !data) return <Loading />
 
   const { exhibitions, exhibitors, payments, awaiting, bookings, sites, expenses } = data
@@ -61,9 +62,11 @@ export default function Dashboard() {
           </>
         }
       >
-        <Button size="lg" icon="✚" onClick={() => go('/register')}>
-          تسجيل مشارك
-        </Button>
+        {canWrite && (
+          <Button size="lg" icon="✚" onClick={() => go('/register')}>
+            تسجيل مشارك
+          </Button>
+        )}
       </PageHeader>
 
       {money && awaiting.length > 0 && (

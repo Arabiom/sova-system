@@ -9,7 +9,7 @@ import { Loading } from './Feedback.jsx'
 const NAV = [
   { section: 'الرئيسية' },
   { path: '/dashboard', icon: '⬡', label: 'لوحة التحكم', desc: 'نظرة عامة شاملة', sub: 'نظرة شاملة على أداء الشركة' },
-  { path: '/register', icon: '✚', label: 'تسجيل مشارك', desc: 'استمارة وفاتورة', sub: 'استمارة تسجيل المشاركين والفاتورة' },
+  { path: '/register', icon: '✚', label: 'تسجيل مشارك', desc: 'استمارة وفاتورة', sub: 'استمارة تسجيل المشاركين والفاتورة', perm: 'data.write' },
   { section: 'المعارض' },
   { path: '/exhibitions', icon: '◈', label: 'المعارض والمواعيد', desc: 'إدارة كل المعارض', sub: 'إدارة وتتبع كل المعارض' },
   { path: '/bookings', icon: '◎', label: 'طلبات الحجز', desc: 'مراجعة وقبول الطلبات', sub: 'مراجعة وإدارة طلبات العارضين', badge: true },
@@ -20,7 +20,7 @@ const NAV = [
   { path: '/expenses', icon: '🧾', label: 'المصروفات والفواتير', desc: 'فواتير ما يصرفه الموظفون', sub: 'كل ما يصرفه الموظفون من أجل الشركة مع فواتيره' },
   { path: '/reports', icon: '◈', label: 'التقارير المالية', desc: 'تحليل الأداء', sub: 'تحليل الأداء والإيرادات', perm: 'reports.view' },
   { section: 'التواصل' },
-  { path: '/whatsapp', icon: '◎', label: 'واتساب', desc: 'إرسال الإشعارات', sub: 'إرسال الإشعارات للعارضين' },
+  { path: '/whatsapp', icon: '◎', label: 'واتساب', desc: 'إرسال الإشعارات', sub: 'إرسال الإشعارات للعارضين', perm: 'data.write' },
   { section: 'الإدارة', perm: 'staff.manage' },
   { path: '/staff', icon: '◐', label: 'الموظفون', desc: 'الحسابات والصلاحيات', sub: 'إدارة حسابات الموظفين وصلاحياتهم', perm: 'staff.manage' },
 ]

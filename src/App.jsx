@@ -56,7 +56,14 @@ export default function App() {
     <Routes>
       <Route element={<Protected />}>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/register" element={<Register />} />
+        <Route
+          path="/register"
+          element={
+            <Allow permission="data.write">
+              <Register />
+            </Allow>
+          }
+        />
         <Route path="/exhibitions" element={<Exhibitions />} />
         <Route path="/exhibitions/:id" element={<ExhibitionFile />} />
         <Route path="/clients" element={<Clients />} />
@@ -87,7 +94,14 @@ export default function App() {
           }
         />
         <Route path="/expenses" element={<Expenses />} />
-        <Route path="/whatsapp" element={<WhatsApp />} />
+        <Route
+          path="/whatsapp"
+          element={
+            <Allow permission="data.write">
+              <WhatsApp />
+            </Allow>
+          }
+        />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

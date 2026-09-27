@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useCan } from '../context/AuthContext.jsx'
 import { acceptBooking, listBookings, rejectBooking } from '../api/bookings.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import Button from '../components/Button.jsx'
@@ -22,6 +23,7 @@ const ALL = 'الكل'
 
 function BookingDetails({ booking, exhibition, onClose, onAccept, onReject, busy }) {
   const toast = useToast()
+  const canWrite = useCan('data.write') // the viewer only looks
   const rows = [
     ['👤 المسؤول', booking.manager],
     ['📱 الجوال', booking.phone],
@@ -67,7 +69,7 @@ function BookingDetails({ booking, exhibition, onClose, onAccept, onReject, busy
               📱 تواصل واتساب
             </Button>
           )}
-          {booking.status === 'معلق' && (
+          {canWrite && booking.status === 'معلق' && (
             <>
               <Button variant="success" onClick={onAccept} disabled={busy}>
                 ✅ قبول

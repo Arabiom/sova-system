@@ -146,8 +146,10 @@ export default function Expenses() {
   const toast = useToast()
   const { session } = useAuth()
   const userId = session?.user?.id
-  const reviewer = useCan('expenses.review') // admin + finance (the accountant) see everyone's
-  const { data, loading, reload } = useData(() => load(reviewer), null)
+  const reviewer = useCan('expenses.review') // admin + finance (the accountant) approve / reject / reimburse
+  const seeAll = useCan('records.viewAll') // …and, with the viewer, see everyone's expenses
+  const canWrite = useCan('data.write') // the viewer only looks
+  const { data, loading, reload } = useData(() => load(seeAll), null)
   const [editing, setEditing] = useState(null)
   const [filters, setFilters] = useState({ person: '', status: '', month: '', exhibition: 'all' })
   const [busy, setBusy] = useState(null)
@@ -225,26 +227,26 @@ export default function Expenses() {
   return (
     <>
       <PageHeader
-        title={reviewer ? 'مصروفات الموظفين' : 'مصروفاتي'}
-        subtitle={reviewer ? 'كل ما صرفه الموظفون من أجل الشركة مع فواتيره — للمراجعة والاعتماد' : 'سجّل كل مبلغ تصرفه من أجل الشركة وأرفق فاتورته'}
+        title={seeAll ? 'مصروفات الموظفين' : 'مصروفاتي'}
+        subtitle={seeAll ? 'كل ما صرفه الموظفون من أجل الشركة مع فواتيره — للمراجعة والاعتماد' : 'سجّل كل مبلغ تصرفه من أجل الشركة وأرفق فاتورته'}
       >
-        {reviewer && (
+        {seeAll && (
           <Button variant="outline" onClick={exportCsv} disabled={!visible.length}>
             ⬇️ تصدير Excel
           </Button>
         )}
-        <Button onClick={() => setEditing({})}>+ إضافة مصروف</Button>
+        {canWrite && <Button onClick={() => setEditing({})}>+ إضافة مصروف</Button>}
       </PageHeader>
 
       <div className="grid-4 mb-16">
         <StatCard flat label="الإجمالي" value={formatOMR(totals.all)} sub={`${visible.length} مصروف`} accent="var(--ink)" icon="🧾" />
         <StatCard flat label="بانتظار المراجعة" value={formatOMR(totals.pending)} accent="var(--wrn)" icon="⏳" />
-        <StatCard flat label={reviewer ? 'معتمد — مستحق للموظفين' : 'معتمد — مستحق لك'} value={formatOMR(totals.owed)} accent="var(--info)" icon="✅" />
+        <StatCard flat label={seeAll ? 'معتمد — مستحق للموظفين' : 'معتمد — مستحق لك'} value={formatOMR(totals.owed)} accent="var(--info)" icon="✅" />
         <StatCard flat label="تم التعويض" value={formatOMR(totals.reimbursed)} accent="var(--suc)" icon="💵" />
       </div>
 
       <div className="toolbar">
-        {reviewer && (
+        {seeAll && (
           <select className="input toolbar-select" value={filters.person} onChange={setFilter('person')} aria-label="الموظف">
             <option value="">كل الموظفين</option>
             {people.map((id) => (
@@ -272,7 +274,7 @@ export default function Expenses() {
           <table className="table" style={{ minWidth: 900 }}>
             <thead>
               <tr>
-                {['التاريخ', ...(reviewer ? ['الموظف'] : []), 'الوصف', 'التصنيف', 'المعرض', 'المبلغ', 'الحالة', 'الإيصال', ''].map((h) => (
+                {['التاريخ', ...(seeAll ? ['الموظف'] : []), 'الوصف', 'التصنيف', 'المعرض', 'المبلغ', 'الحالة', 'الإيصال', ''].map((h) => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -284,7 +286,7 @@ export default function Expenses() {
                 return (
                   <tr key={x.id}>
                     <td className="small nowrap">{x.date}</td>
-                    {reviewer && <td className="strong">{nameOf(x.user_id)}</td>}
+                    {seeAll && <td className="strong">{nameOf(x.user_id)}</td>}
                     <td>
                       <div className="strong">{x.description}</div>
                       {(x.vendor || x.payment_method) && <div className="muted tiny">{[x.vendor, x.payment_method].filter(Boolean).join(' • ')}</div>}
@@ -340,7 +342,7 @@ export default function Expenses() {
             </tbody>
           </table>
         </div>
-        {!visible.length && <EmptyState icon="🧾" text={expenses.length ? 'لا توجد نتائج لهذا الفلتر' : 'لا توجد مصروفات بعد — اضغط «+ إضافة مصروف»'} />}
+        {!visible.length && <EmptyState icon="🧾" text={expenses.length ? 'لا توجد نتائج لهذا الفلتر' : canWrite ? 'لا توجد مصروفات بعد — اضغط «+ إضافة مصروف»' : 'لا توجد مصروفات بعد'} />}
       </Panel>
 
       {editing && (

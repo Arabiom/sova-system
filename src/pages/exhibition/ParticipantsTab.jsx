@@ -17,6 +17,7 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
   const canPay = useCan('payments.write')
   const money = useCan('money.view') // marketing: names and details, no amounts
   const canEdit = useCanEdit() // a marketer edits only the participants they entered
+  const canWrite = useCan('data.write') // the viewer only looks
 
   const printContract = async (e) => {
     toast('📄 جاري طباعة العقد...')
@@ -39,9 +40,11 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
               💳 تسجيل دفعة
             </Link>
           )}
-          <Button size="sm" onClick={() => setEditing({ form: { status: 'مبدئي', exhibition_id: exhibition.id }, id: null })}>
-            + إضافة مشارك
-          </Button>
+          {canWrite && (
+            <Button size="sm" onClick={() => setEditing({ form: { status: 'مبدئي', exhibition_id: exhibition.id }, id: null })}>
+              + إضافة مشارك
+            </Button>
+          )}
         </div>
       }
     >
@@ -84,9 +87,11 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
                           ✏️
                         </Button>
                       ) : (
-                        <span className="lock-note" title="أدخله مسوق آخر — التعديل للإدارة أو لمن أدخله">
-                          🔒
-                        </span>
+                        canWrite && (
+                          <span className="lock-note" title="أدخله مسوق آخر — التعديل للإدارة أو لمن أدخله">
+                            🔒
+                          </span>
+                        )
                       )}
                     </div>
                   </td>

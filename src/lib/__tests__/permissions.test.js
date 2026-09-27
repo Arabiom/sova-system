@@ -22,7 +22,7 @@ describe('role permissions', () => {
     expect(can('admin', 'staff.manage')).toBe(true)
     expect(can(null, 'reports.view')).toBe(false)
     expect(can('admin', 'unknown.permission')).toBe(false)
-    expect(Object.keys(ROLES)).toEqual(['admin', 'finance', 'marketing'])
+    expect(Object.keys(ROLES)).toEqual(['admin', 'finance', 'viewer', 'marketing'])
   })
 })
 
@@ -47,5 +47,18 @@ describe('marketers edit only what they entered', () => {
     expect(canEditRecord('admin', 'a', theirs)).toBe(true)
     expect(canEditRecord('finance', 'f', old)).toBe(true)
     expect(canEditRecord(null, 'm1', mine)).toBe(false)
+  })
+})
+
+describe('viewer (مطّلع)', () => {
+  it('sees the whole company but changes nothing', async () => {
+    const { can, canEditRecord, ROLES } = await import('../permissions.js')
+    expect(ROLES.viewer.label).toBe('مطّلع')
+    for (const p of ['money.view', 'reports.view', 'finance.internal', 'records.viewAll']) expect(can('viewer', p)).toBe(true)
+    for (const p of ['data.write', 'payments.write', 'exhibitions.manage', 'expenses.review', 'records.delete', 'records.edit.any', 'staff.manage']) {
+      expect(can('viewer', p)).toBe(false)
+    }
+    expect(canEditRecord('viewer', 'v', { created_by: 'v' })).toBe(false)
+    expect(can('marketing', 'data.write')).toBe(true)
   })
 })

@@ -362,7 +362,8 @@ export default function Clients() {
   const canDelete = useCan('records.delete')
   const money = useCan('money.view') // marketing: names and details, no amounts
   const canEdit = useCanEdit() // a marketer edits only the clients they entered
-  const everyone = useCan('records.edit.any') // admin/finance see the whole database; others their own clients
+  const everyone = useCan('records.viewAll') // admin/finance/viewer see the whole database; others their own clients
+  const canWrite = useCan('data.write') // the viewer only looks
   const { session } = useAuth()
   const { data, loading, reload } = useData(load, null)
   const [search, setSearch] = useState('')
@@ -469,10 +470,12 @@ export default function Clients() {
         <Button variant="outline" onClick={exportCsv} disabled={!visible.length}>
           ⬇️ تصدير Excel
         </Button>
-        <Button variant="whatsapp" onClick={() => setInviting(true)} disabled={!visible.length}>
-          📱 واتساب للنتائج
-        </Button>
-        <Button onClick={() => setEditing({ form: { status: 'نشط' }, id: null })}>+ إضافة عميل</Button>
+        {canWrite && (
+          <Button variant="whatsapp" onClick={() => setInviting(true)} disabled={!visible.length}>
+            📱 واتساب للنتائج
+          </Button>
+        )}
+        {canWrite && <Button onClick={() => setEditing({ form: { status: 'نشط' }, id: null })}>+ إضافة عميل</Button>}
       </PageHeader>
 
       <LookupBox />
@@ -565,9 +568,11 @@ export default function Clients() {
                           ✏️
                         </Button>
                       ) : (
-                        <span className="lock-note" title="أدخله مسوق آخر — التعديل للإدارة أو لمن أدخله">
-                          🔒
-                        </span>
+                        canWrite && (
+                          <span className="lock-note" title="أدخله مسوق آخر — التعديل للإدارة أو لمن أدخله">
+                            🔒
+                          </span>
+                        )
                       )}
 {canDelete && (<Button size="sm" variant="danger" onClick={() => remove(c)} title="حذف">
                         🗑️

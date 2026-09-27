@@ -33,6 +33,7 @@ export default function Exhibitors() {
   const canDelete = useCan('records.delete')
   const money = useCan('money.view') // marketing: names and details, no amounts
   const canEdit = useCanEdit() // a marketer edits only the participants they entered
+  const canWrite = useCan('data.write') // the viewer only looks
   const { session } = useAuth()
   const { data, loading, reload } = useData(load, null)
   const [editing, setEditing] = useState(null)
@@ -82,7 +83,7 @@ export default function Exhibitors() {
   return (
     <>
       <PageHeader title={money ? 'العارضون والعقود' : 'المشاركون'} subtitle={`${exhibitors.length} مشارك مسجل`}>
-        <Button onClick={() => setEditing({ form: { status: 'مبدئي' }, id: null })}>+ إضافة عارض</Button>
+        {canWrite && <Button onClick={() => setEditing({ form: { status: 'مبدئي' }, id: null })}>+ إضافة عارض</Button>}
       </PageHeader>
 
       <div className="toolbar">
@@ -136,9 +137,11 @@ export default function Exhibitors() {
                             ✏️
                           </Button>
                         ) : (
-                          <span className="lock-note" title="أدخله مسوق آخر — التعديل للإدارة أو لمن أدخله">
-                            🔒
-                          </span>
+                          canWrite && (
+                            <span className="lock-note" title="أدخله مسوق آخر — التعديل للإدارة أو لمن أدخله">
+                              🔒
+                            </span>
+                          )
                         )}
 {canDelete && (<Button size="sm" variant="danger" onClick={() => remove(e)} title="حذف">
                           🗑️

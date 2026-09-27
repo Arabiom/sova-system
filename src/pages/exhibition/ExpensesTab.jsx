@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useCan } from '../../context/AuthContext.jsx'
 import DateInput from '../../components/DateInput.jsx'
 import { deleteExpense, saveExpense, setExpensePaid } from '../../api/exhibitionFile.js'
 import Button from '../../components/Button.jsx'
@@ -76,6 +77,7 @@ function ExpenseForm({ exhibitionId, initial, id, onClose, onSaved }) {
 
 export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
   const toast = useToast()
+  const canWrite = useCan('data.write') // the viewer only looks
   const [editing, setEditing] = useState(null)
   const total = sumBy(expenses, 'amount')
   const paid = sumBy(expenses.filter((x) => x.paid), 'amount')
@@ -106,9 +108,11 @@ export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
       title="المصروفات"
       subtitle={`الإجمالي ${formatOMR(total)} • المدفوع ${formatOMR(paid)} • المتبقي ${formatOMR(total - paid)}`}
       action={
-        <Button size="sm" onClick={() => setEditing({ form: { paid: false }, id: null })}>
-          + إضافة مصروف
-        </Button>
+        canWrite && (
+          <Button size="sm" onClick={() => setEditing({ form: { paid: false }, id: null })}>
+            + إضافة مصروف
+          </Button>
+        )
       }
     >
       <div className="table-wrap">
@@ -128,7 +132,7 @@ export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
                 <td className="num strong">{formatOMR(x.amount)}</td>
                 <td className="small nowrap">{x.due_date || '—'}</td>
                 <td>
-                  <button className={`paid-toggle ${x.paid ? 'on' : ''}`} onClick={() => togglePaid(x)} title="تبديل حالة الدفع">
+                  <button className={`paid-toggle ${x.paid ? 'on' : ''}`} onClick={() => canWrite && togglePaid(x)} disabled={!canWrite} title="تبديل حالة الدفع">
                     {x.paid ? '✓ مدفوع' : 'غير مدفوع'}
                   </button>
                 </td>
@@ -136,6 +140,7 @@ export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
                   {x.notes || '—'}
                 </td>
                 <td>
+                  {canWrite && (
                   <div className="row-actions">
                     <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...x }, id: x.id })} title="تعديل">
                       ✏️
@@ -144,6 +149,7 @@ export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
                       🗑️
                     </Button>
                   </div>
+                  )}
                 </td>
               </tr>
             ))}
