@@ -1,0 +1,38 @@
+// Who may do what. The database enforces the same rules (supabase/migrations/003);
+// this only decides what each person sees in the interface.
+
+import { tr } from './i18n.js'
+
+export const ROLES = {
+  admin: { label: tr('مدير'), desc: tr('كل الصلاحيات، وإدارة الموظفين') },
+  finance: { label: tr('مالية'), desc: tr('كل شيء عدا إدارة الموظفين') },
+  viewer: { label: tr('مطّلع'), desc: tr('إداري يطّلع على أحوال الشركة كلها (المالية، التقارير، المصروفات، المعارض، العملاء) دون أي إضافة أو تعديل أو حذف') },
+  marketing: { label: tr('تسويق'), desc: tr('تسجيل المشاركين وإصدار الفاتورة، بيانات المشاركين والعملاء، المعارض والمواقع، واتساب — بدون الإجماليات والمبالغ') },
+}
+
+const MATRIX = {
+  'staff.manage': ['admin'],
+  'records.edit.any': ['admin', 'finance'], // edit participants/clients entered by anyone
+  'records.viewAll': ['admin', 'finance', 'viewer'], // see every employee's clients and expense claims
+  'reports.view': ['admin', 'finance', 'viewer'],
+  'payments.write': ['admin', 'finance'], // record / edit / delete / confirm payments and refunds (marketing's wait for confirmation)
+  'exhibitions.manage': ['admin', 'finance'], // create/edit/delete exhibitions, build site maps, import Excel
+  'money.view': ['admin', 'finance', 'viewer'], // income, totals, contract values, payments — marketing sees names and operations only
+  'expenses.review': ['admin', 'finance'], // approve / reject / reimburse expense claims
+  'data.write': ['admin', 'finance', 'marketing'], // add / edit anything — the viewer only looks
+  'tasks.assign': ['admin', 'finance'], // give tasks to any employee (others add tasks for themselves)
+  'team.view': ['admin', 'finance', 'viewer'], // everyone's working time and effectiveness
+  'finance.internal': ['admin', 'finance', 'viewer'], // see expenses, sponsors, net results, backup
+  'records.delete': ['admin', 'finance'], // delete clients, exhibitors, bookings
+}
+
+export const can = (role, permission) => Boolean(role && MATRIX[permission]?.includes(role))
+
+/**
+ * Who may edit a participant (or client): admin/finance any; a marketer only the ones they
+ * entered themselves, so marketers never overwrite each other's work (migration 009).
+ */
+export function canEditRecord(role, userId, record) {
+  if (can(role, 'records.edit.any')) return true
+  return Boolean(can(role, 'data.write') && userId && record?.created_by && record.created_by === userId)
+}
