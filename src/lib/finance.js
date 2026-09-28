@@ -223,7 +223,9 @@ export function companyOverview({ exhibitors = [], payments = [], expenses = [],
   return {
     contracts,
     collected,
-    receivable: contracts - collected,
+    // what participants still owe — the same list the «المتبقي للتحصيل» tab shows (an
+    // overpaid participant does not cancel out someone else's balance)
+    receivable: exhibitors.reduce((t, e) => t + Math.max(0, balanceOf(e)), 0),
     awaiting,
     collectionRate: percent(collected, contracts),
     sponsorship,

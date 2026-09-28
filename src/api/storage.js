@@ -18,7 +18,8 @@ export const isPdfPath = (path) => /\.pdf$/i.test(path || '')
 
 function storageError(error, migration) {
   const msg = error?.message || ''
-  if (/bucket not found|not found/i.test(msg)) return `مكان حفظ الملفات غير موجود بعد. شغّل تحديث قاعدة البيانات ${migration} في Supabase.`
+  if (/object not found/i.test(msg)) return 'الملف غير موجود — ربما حُذف. ارفعه مرة أخرى.'
+  if (/bucket not found/i.test(msg)) return `مكان حفظ الملفات غير موجود بعد. شغّل تحديث قاعدة البيانات ${migration} في Supabase.`
   if (/row-level security|unauthorized|permission/i.test(msg)) return 'لا تملك صلاحية رفع هذا الملف.'
   return msg || 'تعذّر رفع الملف'
 }

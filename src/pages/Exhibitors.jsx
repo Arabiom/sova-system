@@ -63,7 +63,7 @@ export default function Exhibitors() {
   )
 
   const remove = async (e) => {
-    if (!confirm(`حذف العارض "${e.brand}" وكل بياناته؟`)) return
+    if (!confirm(`حذف العارض "${e.brand}" وكل بياناته؟ لا يمكن التراجع.`)) return
     try {
       await deleteExhibitor(e.id)
       toast('🗑️ تم الحذف')

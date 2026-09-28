@@ -46,7 +46,23 @@ export const createExhibitor = (row) => unwrap(table().insert(row).select('*').s
 
 export const updateExhibitor = (id, patch) => unwrap(table().update(patch).eq('id', id))
 
-export const deleteExhibitor = (id) => unwrap(table().delete().eq('id', id))
+/** Number of payments (confirmed or waiting) recorded for these exhibitors. */
+export async function countPayments(exhibitorIds) {
+  if (!exhibitorIds.length) return 0
+  return (await unwrap(supabase.from('payments').select('id', { count: 'exact', head: true }).in('exhibitor_id', exhibitorIds))) || 0
+}
+
+/**
+ * Delete an exhibitor. One with payments on record is refused: deleting would take their
+ * receipts out of the books (the database refuses too from migration 016).
+ */
+export async function deleteExhibitor(id) {
+  const count = await countPayments([id])
+  if (count) {
+    throw new Error(`لا يمكن الحذف: له ${count} دفعة مسجّلة. احذف دفعاته أولاً من «المبيعات والمدفوعات» إن كانت خاطئة، أو غيّر حالته بدل حذفه.`)
+  }
+  return unwrap(table().delete().eq('id', id))
+}
 
 /**
  * Add `delta` to an exhibitor's running `paid` total.

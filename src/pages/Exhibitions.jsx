@@ -40,7 +40,9 @@ export default function Exhibitions() {
   const { exhibitions, exhibitors, payments, sites } = data
 
   const remove = async (ex) => {
-    if (!confirm(`حذف "${exhibitionTitle(ex)}" وكل بياناته (المواقع والمصروفات والرعاة)؟`)) return
+    const people = exhibitors.filter((e) => e.exhibition_id === ex.id).length
+    const what = `المواقع والمصروفات والرعاة${people ? ` و${people} مشارك` : ''}`
+    if (!confirm(`حذف "${exhibitionTitle(ex)}" وكل بياناته (${what})؟ لا يمكن التراجع.`)) return
     try {
       await deleteExhibition(ex.id)
       toast('🗑️ تم الحذف')

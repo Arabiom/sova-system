@@ -90,7 +90,7 @@ export default function Dashboard() {
         <StatCard
           label="المبلغ المتبقي للتحصيل"
           value={formatOMR(totals.remaining)}
-          sub={`${100 - totals.collectionRate}% من إجمالي العقود`}
+          sub={totals.contract ? `${100 - totals.collectionRate}% من إجمالي العقود` : 'لا توجد عقود بعد'}
           accent={totals.remaining > 0 ? 'var(--wrn)' : 'var(--suc)'}
           icon="⏳"
           onClick={() => go('/sales')}

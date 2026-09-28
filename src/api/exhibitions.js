@@ -1,6 +1,7 @@
 import { DEFAULT_TIERS } from '../lib/constants.js'
 import { num } from '../lib/format.js'
 import { supabase, unwrap } from './client.js'
+import { countPayments } from './exhibitors.js'
 
 const table = () => supabase.from('exhibitions')
 
@@ -101,4 +102,15 @@ export async function saveExhibition(form, id) {
 
 export const getExhibition = (id) => unwrap(table().select('*').eq('id', id).maybeSingle())
 
-export const deleteExhibition = (id) => unwrap(table().delete().eq('id', id))
+/**
+ * Delete an exhibition with its sites, expenses, sponsors and participants. Refused while any
+ * participant has payments on record, so no receipt leaves the books.
+ */
+export async function deleteExhibition(id) {
+  const ids = (await unwrap(supabase.from('exhibitors').select('id').eq('exhibition_id', id))).map((e) => e.id)
+  const count = await countPayments(ids)
+  if (count) {
+    throw new Error(`لا يمكن حذف المعرض: فيه ${count} دفعة مسجّلة لمشاركيه. انقل المشاركين لمعرض آخر أو احذف دفعاتهم أولاً، أو اجعل حالة المعرض «ملغى».`)
+  }
+  return unwrap(table().delete().eq('id', id))
+}

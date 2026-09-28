@@ -52,6 +52,7 @@ function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
         toast('✅ تم تعديل الدفعة')
       } else {
         const { invoice_no: invoice } = await recordPayment(form)
+        if (!refund) await confirmIfPaid(form.exhibitor_id)
         toast(refund ? `✅ تم تسجيل الإرجاع — ${invoice}` : `✅ تم تسجيل الدفعة — ${invoice}`)
       }
       onSaved()
