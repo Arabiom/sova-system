@@ -11,6 +11,7 @@ import { tiersOf } from '../../lib/finance.js'
 import { formatOMR } from '../../lib/format.js'
 import { matchPlan, planImport, readFirstSheet } from '../../lib/importSheet.js'
 import { parseRanges, siteStatus, tierColor, tiersFromSites } from '../../lib/sites.js'
+import { tr } from '../../lib/i18n.js'
 
 function TierForm({ exhibitionId, tier, takenNumbers, onClose, onSaved }) {
   const toast = useToast()
@@ -25,20 +26,20 @@ function TierForm({ exhibitionId, tier, takenNumbers, onClose, onSaved }) {
     try {
       preview = parseRanges(form.numbers)
       const clash = preview.filter((n) => takenNumbers.has(n))
-      if (clash.length) error = `هذه الأرقام موجودة مسبقاً: ${clash.join('، ')}`
+      if (clash.length) error = tr('هذه الأرقام موجودة مسبقاً: {0}', [clash.join(tr('، '))])
     } catch (err) {
       error = err.message
     }
   }
 
   const submit = async () => {
-    if (!form.name.trim()) return toast('اكتب اسم الفئة', 'error')
-    if (!editing && (!preview?.length || error)) return toast(error || 'اكتب أرقام المواقع', 'error')
+    if (!form.name.trim()) return toast(tr('اكتب اسم الفئة'), 'error')
+    if (!editing && (!preview?.length || error)) return toast(error || tr('اكتب أرقام المواقع'), 'error')
     setSaving(true)
     try {
       if (editing) await updateTier(exhibitionId, tier.name, tier.price, { tier: form.name.trim(), price: form.price })
       else await addSites(exhibitionId, preview, form.name.trim(), form.price)
-      toast(editing ? '✅ تم تحديث الفئة' : `✅ تمت إضافة ${preview.length} موقع`)
+      toast(editing ? tr('✅ تم تحديث الفئة') : tr('✅ تمت إضافة {0} موقع', [preview.length]))
       onSaved()
     } catch (err) {
       toast(err.message, 'error')
@@ -49,38 +50,38 @@ function TierForm({ exhibitionId, tier, takenNumbers, onClose, onSaved }) {
 
   return (
     <Modal
-      title={editing ? `تعديل فئة "${tier.name}"` : 'إضافة مواقع'}
-      subtitle={editing ? `يطبّق على ${tier.count} موقع (${tier.ranges})` : 'أضف مجموعة مواقع بنفس الفئة والسعر'}
+      title={editing ? tr('تعديل فئة "{0}"', [tier.name]) : tr('إضافة مواقع')}
+      subtitle={editing ? tr('يطبّق على {0} موقع ({1})', [tier.count, tier.ranges]) : tr('أضف مجموعة مواقع بنفس الفئة والسعر')}
       onClose={onClose}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            إلغاء
+            {tr('إلغاء')}
           </Button>
           <Button onClick={submit} disabled={saving}>
-            {saving ? 'جاري...' : 'حفظ'}
+            {saving ? tr('جاري...') : tr('حفظ')}
           </Button>
         </>
       }
     >
       {!editing && (
         <Field
-          label="أرقام المواقع"
+          label={tr('أرقام المواقع')}
           required
-          hint={error ? <span className="text-dng">{error}</span> : preview ? `${preview.length} موقع` : 'مثال: 1-6 أو 7-20, 23-30, 33-40 أو 21, 22, 31, 32'}
+          hint={error ? <span className="text-dng">{error}</span> : preview ? tr('{0} موقع', [preview.length]) : tr('مثال: 1-6 أو 7-20, 23-30, 33-40 أو 21, 22, 31, 32')}
         >
           <input className="input" dir="ltr" placeholder="7-20, 23-30" value={form.numbers} onChange={set('numbers')} />
         </Field>
       )}
       <div className="form-grid">
-        <Field label="اسم الفئة" required hint="مثال: ركن مدخل، صف داخلي، أحمر فاتح">
+        <Field label={tr('اسم الفئة')} required hint={tr('مثال: ركن مدخل، صف داخلي، أحمر فاتح')}>
           <input className="input" value={form.name} onChange={set('name')} />
         </Field>
-        <Field label="السعر (ر.ع)">
+        <Field label={tr('السعر (ر.ع)')}>
           <input className="input" type="number" min="0" step="0.001" value={form.price} onChange={set('price')} />
         </Field>
       </div>
-      {editing && <div className="muted tiny">تغيير السعر هنا يغيّر سعر الخارطة فقط، ولا يغيّر عقود المشاركين الحالية.</div>}
+      {editing && <div className="muted tiny">{tr('تغيير السعر هنا يغيّر سعر الخارطة فقط، ولا يغيّر عقود المشاركين الحالية.')}</div>}
     </Modal>
   )
 }
@@ -98,7 +99,7 @@ function AssignModal({ site, exhibitors, holder, onClose, onSaved }) {
     setSaving(true)
     try {
       await assignSite(site, chosen, { adjustContract: adjust, previous: holder })
-      toast(chosen ? `✅ الموقع ${site.number} لـ ${chosen.brand}` : `✅ الموقع ${site.number} أصبح متاحاً`)
+      toast(chosen ? tr('✅ الموقع {0} لـ {1}', [site.number, chosen.brand]) : tr('✅ الموقع {0} أصبح متاحاً', [site.number]))
       onSaved()
     } catch (err) {
       toast(err.message, 'error')
@@ -109,28 +110,28 @@ function AssignModal({ site, exhibitors, holder, onClose, onSaved }) {
 
   return (
     <Modal
-      title={`الموقع رقم ${site.number}`}
+      title={tr('الموقع رقم {0}', [site.number])}
       subtitle={`${site.tier} • ${formatOMR(site.price)}`}
       size="sm"
       onClose={onClose}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            إلغاء
+            {tr('إلغاء')}
           </Button>
           <Button onClick={submit} disabled={saving || !changed}>
-            {saving ? 'جاري...' : 'حفظ'}
+            {saving ? tr('جاري...') : tr('حفظ')}
           </Button>
         </>
       }
     >
-      <Field label="المشارك" hint={exhibitors.length ? undefined : 'أضف المشاركين أولاً من تبويب "المشاركون"'}>
+      <Field label={tr('المشارك')} hint={exhibitors.length ? undefined : tr('أضف المشاركين أولاً من تبويب "المشاركون"')}>
         <select className="input" value={exhibitorId} onChange={(e) => setExhibitorId(e.target.value)}>
-          <option value="">— متاح (بدون مشارك) —</option>
+          <option value="">{tr('— متاح (بدون مشارك) —')}</option>
           {exhibitors.map((e) => (
             <option key={e.id} value={e.id}>
-              {e.brand}
-              {e.booth && e.booth !== '—' ? ` (يملك: ${e.booth})` : ''}
+              {tr(e.brand)}
+              {e.booth && e.booth !== '—' ? tr(' (يملك: {0})', [e.booth]) : ''}
             </option>
           ))}
         </select>
@@ -140,10 +141,10 @@ function AssignModal({ site, exhibitors, holder, onClose, onSaved }) {
           <input type="checkbox" checked={adjust} onChange={(e) => setAdjust(e.target.checked)} />
           <span>
             {chosen && holder
-              ? `نقل سعر الموقع (${formatOMR(site.price)}) من عقد ${holder.brand} إلى عقد ${chosen.brand}`
+              ? tr('نقل سعر الموقع ({0}) من عقد {1} إلى عقد {2}', [formatOMR(site.price), holder.brand, chosen.brand])
               : chosen
-                ? `إضافة سعر الموقع (${formatOMR(site.price)}) إلى قيمة عقد ${chosen.brand}`
-                : `خصم سعر الموقع (${formatOMR(site.price)}) من عقد ${holder.brand}`}
+                ? tr('إضافة سعر الموقع ({0}) إلى قيمة عقد {1}', [formatOMR(site.price), chosen.brand])
+                : tr('خصم سعر الموقع ({0}) من عقد {1}', [formatOMR(site.price), holder.brand])}
           </span>
         </label>
       )}
@@ -177,15 +178,15 @@ function ImportModal({ exhibitionId, existingSites, exhibitors, onClose, onDone 
 
   const run = async () => {
     if (running.current) return
-    if (needsReplace && !replace) return toast('وافق على استبدال الخارطة الحالية أولاً', 'error')
+    if (needsReplace && !replace) return toast(tr('وافق على استبدال الخارطة الحالية أولاً'), 'error')
     running.current = true
     setProgress({ done: 0, total: matched.participants.length })
     try {
       await applyImport(exhibitionId, plan, matched, { replaceSites: needsReplace && replace }, (done, total) => setProgress({ done, total }))
-      toast(`✅ تم الاستيراد: ${plan.sites.length} موقع، ${matched.created} مشارك جديد، ${matched.updated} تحديث`)
+      toast(tr('✅ تم الاستيراد: {0} موقع، {1} مشارك جديد، {2} تحديث', [plan.sites.length, matched.created, matched.updated]))
       onDone()
     } catch (err) {
-      toast(`${err.message} — يمكنك إعادة المحاولة بأمان، لن تتكرر البيانات.`, 'error')
+      toast(tr('{0} — يمكنك إعادة المحاولة بأمان، لن تتكرر البيانات.', [err.message]), 'error')
       setProgress(null)
       running.current = false
     }
@@ -195,24 +196,24 @@ function ImportModal({ exhibitionId, existingSites, exhibitors, onClose, onDone 
 
   return (
     <Modal
-      title="📥 استيراد من ملف Excel"
-      subtitle="ملف تسجيل المشاركين: رقم الكشك، لون الموقع، السعر، المبلغ المدفوع، اسم المشارك، الشركة، الهاتف، النشاط"
+      title={tr('📥 استيراد من ملف Excel')}
+      subtitle={tr('ملف تسجيل المشاركين: رقم الكشك، لون الموقع، السعر، المبلغ المدفوع، اسم المشارك، الشركة، الهاتف، النشاط')}
       size="lg"
       onClose={progress ? () => {} : onClose}
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={Boolean(progress)}>
-            إلغاء
+            {tr('إلغاء')}
           </Button>
           <Button onClick={run} disabled={!plan || Boolean(progress) || (needsReplace && !replace)}>
-            {progress ? `جاري الاستيراد... ${progress.done}/${progress.total}` : 'تأكيد الاستيراد'}
+            {progress ? tr('جاري الاستيراد... {0}/{1}', [progress.done, progress.total]) : tr('تأكيد الاستيراد')}
           </Button>
         </>
       }
     >
       <label className="file-drop">
         <input type="file" accept=".xlsx" onChange={onFile} disabled={Boolean(progress)} />
-        <span>📄 {fileName || 'اختر ملف .xlsx'}</span>
+        <span>📄 {fileName || tr('اختر ملف .xlsx')}</span>
       </label>
       {error && <div className="alert alert-danger mt-12">⚠️ {error}</div>}
 
@@ -220,21 +221,21 @@ function ImportModal({ exhibitionId, existingSites, exhibitors, onClose, onDone 
         <>
           <div className="grid-4 mt-14 mb-16">
             <div className="mini-stat">
-              <span>المواقع</span>
-              <strong>{plan.totals.sites}</strong>
+              <span>{tr('المواقع')}</span>
+              <strong>{tr(plan.totals.sites)}</strong>
             </div>
             <div className="mini-stat">
-              <span>الإيراد الكامل</span>
+              <span>{tr('الإيراد الكامل')}</span>
               <strong>{formatOMR(plan.totals.fullRevenue)}</strong>
             </div>
             <div className="mini-stat">
-              <span>المشاركون: جديد / تحديث</span>
+              <span>{tr('المشاركون: جديد / تحديث')}</span>
               <strong>
-                {matched.created} / {matched.updated}
+                {tr(matched.created)} / {tr(matched.updated)}
               </strong>
             </div>
             <div className="mini-stat">
-              <span>العقود / المدفوع</span>
+              <span>{tr('العقود / المدفوع')}</span>
               <strong>
                 {formatOMR(plan.totals.contract)} / {formatOMR(plan.totals.paid)}
               </strong>
@@ -244,54 +245,54 @@ function ImportModal({ exhibitionId, existingSites, exhibitors, onClose, onDone 
           {needsReplace && (
             <div className="alert alert-warning">
               <div>
-                <strong>هذا المعرض لديه خارطة حالية ({existingSites} موقع).</strong>
+                <strong>{tr('هذا المعرض لديه خارطة حالية (')}{tr(existingSites)}{' '}{tr('موقع).')}</strong>
                 <div className="mt-8">
-                  الاستيراد يستبدلها بخارطة الملف. المشاركون الحاليون <strong>لا يُحذفون</strong>: من يطابق الملف (بالهاتف أو الاسم) يُحدَّث ولا يتكرر، ودفعاتهم المسجلة تبقى كما هي.
+                  {tr('الاستيراد يستبدلها بخارطة الملف. المشاركون الحاليون')}{' '}<strong>{tr('لا يُحذفون')}</strong>{tr(': من يطابق الملف (بالهاتف أو الاسم) يُحدَّث ولا يتكرر، ودفعاتهم المسجلة تبقى كما هي.')}
                 </div>
                 <label className="check-row mt-8">
                   <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
-                  <span>أوافق على استبدال الخارطة الحالية</span>
+                  <span>{tr('أوافق على استبدال الخارطة الحالية')}</span>
                 </label>
               </div>
             </div>
           )}
 
-          <div className="section-label">الفئات المكتشفة</div>
+          <div className="section-label">{tr('الفئات المكتشفة')}</div>
           <div className="tier-legend mb-16">
             {tiers.map((t, i) => (
               <span key={t.name + t.price} className="tier-pill" style={{ '--tier': tierColor(t.name, i) }}>
-                {t.name}: {t.count} × {t.price} ر.ع ({t.ranges})
+                {tr(t.name)}: {t.count} × {t.price}{' '}{tr('ر.ع (')}{tr(t.ranges)})
               </span>
             ))}
           </div>
 
-          <div className="section-label">المشاركون</div>
+          <div className="section-label">{tr('المشاركون')}</div>
           <div className="table-wrap mb-16">
             <table className="table table-compact">
               <thead>
                 <tr>
-                  <th>المواقع</th>
-                  <th>الشركة</th>
-                  <th>المشارك</th>
-                  <th>الهاتف</th>
-                  <th>العقد</th>
-                  <th>المدفوع</th>
-                  <th>الإجراء</th>
+                  <th>{tr('المواقع')}</th>
+                  <th>{tr('الشركة')}</th>
+                  <th>{tr('المشارك')}</th>
+                  <th>{tr('الهاتف')}</th>
+                  <th>{tr('العقد')}</th>
+                  <th>{tr('المدفوع')}</th>
+                  <th>{tr('الإجراء')}</th>
                 </tr>
               </thead>
               <tbody>
                 {matched.participants.map((p) => (
                   <tr key={p.numbers.join('-')}>
-                    <td>{p.numbers.join('، ')}</td>
-                    <td className="strong">{p.brand}</td>
-                    <td>{p.manager}</td>
-                    <td className="ltr">{p.phone}</td>
+                    <td>{p.numbers.join(tr('، '))}</td>
+                    <td className="strong">{tr(p.brand)}</td>
+                    <td>{tr(p.manager)}</td>
+                    <td className="ltr">{tr(p.phone)}</td>
                     <td className="num">{formatOMR(p.contract)}</td>
                     <td className="num">{formatOMR(p.paid)}</td>
                     <td className="small">
-                      {p.existing ? <span className="badge badge-info">تحديث</span> : <span className="badge badge-success">جديد</span>}
-                      {p.paidToRecord > 0 && <div className="tiny muted mt-8">دفعة +{formatOMR(p.paidToRecord)}</div>}
-                      {p.paidAhead > 0 && <div className="tiny text-wrn mt-8">مسجل في النظام أكثر من الملف بـ {formatOMR(p.paidAhead)}</div>}
+                      {p.existing ? <span className="badge badge-info">{tr('تحديث')}</span> : <span className="badge badge-success">{tr('جديد')}</span>}
+                      {p.paidToRecord > 0 && <div className="tiny muted mt-8">{tr('دفعة +')}{formatOMR(p.paidToRecord)}</div>}
+                      {p.paidAhead > 0 && <div className="tiny text-wrn mt-8">{tr('مسجل في النظام أكثر من الملف بـ')}{' '}{formatOMR(p.paidAhead)}</div>}
                     </td>
                   </tr>
                 ))}
@@ -302,9 +303,9 @@ function ImportModal({ exhibitionId, existingSites, exhibitors, onClose, onDone 
           {matched.untouched.length > 0 && (
             <div className="alert alert-warning">
               <div>
-                <strong>مشاركون مسجلون في هذا المعرض وغير موجودين في الملف ({matched.untouched.length}):</strong>{' '}
-                {matched.untouched.map((e) => e.brand).join('، ')}
-                <div className="mt-8">لن يُحذفوا، {needsReplace ? 'لكنهم سيبقون بدون موقع في الخارطة الجديدة.' : 'ويمكنك حجز مواقع لهم من الخارطة بعد الاستيراد.'}</div>
+                <strong>{tr('مشاركون مسجلون في هذا المعرض وغير موجودين في الملف (')}{matched.untouched.length}):</strong>{' '}
+                {matched.untouched.map((e) => e.brand).join(tr('، '))}
+                <div className="mt-8">{tr('لن يُحذفوا،')}{' '}{needsReplace ? tr('لكنهم سيبقون بدون موقع في الخارطة الجديدة.') : tr('ويمكنك حجز مواقع لهم من الخارطة بعد الاستيراد.')}</div>
               </div>
             </div>
           )}
@@ -312,17 +313,17 @@ function ImportModal({ exhibitionId, existingSites, exhibitors, onClose, onDone 
           {plan.warnings.length > 0 && (
             <div className="alert alert-warning">
               <div>
-                <strong>ملاحظات راجعها ({plan.warnings.length}):</strong>
+                <strong>{tr('ملاحظات راجعها (')}{plan.warnings.length}):</strong>
                 <ul className="warn-list">
                   {plan.warnings.map((w) => (
-                    <li key={w}>{w}</li>
+                    <li key={w}>{tr(w)}</li>
                   ))}
                 </ul>
               </div>
             </div>
           )}
           <div className="muted tiny">
-            المبالغ المدفوعة الجديدة تُسجَّل كدفعات بطريقة "غير محدد" — يمكنك تعديل طريقة الدفع لاحقاً من صفحة المبيعات. يمكن إعادة الاستيراد بأمان لتحديث البيانات من نسخة أحدث من الملف.
+            {tr('المبالغ المدفوعة الجديدة تُسجَّل كدفعات بطريقة "غير محدد" — يمكنك تعديل طريقة الدفع لاحقاً من صفحة المبيعات. يمكن إعادة الاستيراد بأمان لتحديث البيانات من نسخة أحدث من الملف.')}
           </div>
         </>
       )}
@@ -345,7 +346,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
 
   const fromPlan = async () => {
     const plan = tiersOf(exhibition, DEFAULT_TIERS).filter((t) => t.count > 0)
-    if (!plan.length) return toast('لا توجد فئات مبدئية لهذا المعرض', 'error')
+    if (!plan.length) return toast(tr('لا توجد فئات مبدئية لهذا المعرض'), 'error')
     try {
       let next = 1
       for (const t of plan) {
@@ -353,7 +354,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
         next += t.count
         await addSites(exhibition.id, numbers, t.name, t.price)
       }
-      toast(`✅ تم إنشاء ${next - 1} موقع`)
+      toast(tr('✅ تم إنشاء {0} موقع', [next - 1]))
       onChanged()
     } catch (err) {
       toast(err.message, 'error')
@@ -362,10 +363,10 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
 
   const removeTier = async (t) => {
     const held = sites.filter((s) => s.tier === t.name && Number(s.price) === t.price && s.exhibitor_id).length
-    if (!confirm(`حذف فئة "${t.name}" (${t.count} موقع)؟${held ? `\n${held} منها محجوزة وسيُفك ربطها بالمشاركين.` : ''}`)) return
+    if (!confirm(tr('حذف فئة "{0}" ({1} موقع)؟', [t.name, t.count]) + (held ? '\n' + tr('{0} منها محجوزة وسيُفك ربطها بالمشاركين.', [held]) : ''))) return
     try {
       await deleteTier(exhibition.id, t.name, t.price)
-      toast('🗑️ تم حذف الفئة')
+      toast(tr('🗑️ تم حذف الفئة'))
       onChanged()
     } catch (err) {
       toast(err.message, 'error')
@@ -373,10 +374,10 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
   }
 
   const clearAll = async () => {
-    if (!confirm(`حذف خارطة المواقع كاملة (${sites.length} موقع)؟ المشاركون ودفعاتهم لا يُحذفون.`)) return
+    if (!confirm(tr('حذف خارطة المواقع كاملة ({0} موقع)؟ المشاركون ودفعاتهم لا يُحذفون.', [sites.length]))) return
     try {
       await deleteAllSites(exhibition.id)
-      toast('🗑️ تم حذف الخارطة')
+      toast(tr('🗑️ تم حذف الخارطة'))
       onChanged()
     } catch (err) {
       toast(err.message, 'error')
@@ -389,19 +390,19 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
       <Panel bodyClass="panel-pad">
         <div className="empty">
           <div className="empty-icon">🗺️</div>
-          <div className="strong mb-8">لم تُضف خارطة المواقع بعد</div>
+          <div className="strong mb-8">{tr('لم تُضف خارطة المواقع بعد')}</div>
           <div className="small mb-16">
-            {canManage ? 'أضف أرقام المواقع وفئاتها وأسعارها، أو استوردها مع المشاركين من ملف Excel.' : 'تُضاف الخارطة من قبل الإدارة أو المالية.'}
+            {canManage ? tr('أضف أرقام المواقع وفئاتها وأسعارها، أو استوردها مع المشاركين من ملف Excel.') : tr('تُضاف الخارطة من قبل الإدارة أو المالية.')}
           </div>
           {canManage && (
           <div className="page-actions center-actions">
-            <Button onClick={() => setImporting(true)}>📥 استيراد من Excel</Button>
+            <Button onClick={() => setImporting(true)}>{tr('📥 استيراد من Excel')}</Button>
             <Button variant="outline" onClick={() => setTierForm({ tier: null })}>
-              + إضافة مواقع يدوياً
+              {tr('+ إضافة مواقع يدوياً')}
             </Button>
             {plan.length > 0 && (
               <Button variant="outline" onClick={fromPlan}>
-                ⚡ إنشاء من الفئات المبدئية ({plan.map((t) => `${t.count} ${t.name}`).join('، ')})
+                {tr('⚡ إنشاء من الفئات المبدئية (')}{plan.map((t) => `${t.count} ${t.name}`).join(tr('، '))})
               </Button>
             )}
           </div>
@@ -419,20 +420,20 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
     <>
       <Panel
         icon="🏷️"
-        title="الفئات والأسعار"
-        subtitle={canManage ? `${sites.length} موقع • ${formatOMR(tiers.reduce((t, x) => t + x.total, 0))} عند البيع الكامل` : `${sites.length} موقع`}
+        title={tr('الفئات والأسعار')}
+        subtitle={canManage ? tr('{0} موقع • {1} عند البيع الكامل', [sites.length, formatOMR(tiers.reduce((t, x) => t + x.total, 0))]) : tr('{0} موقع', [sites.length])}
         className="mb-16"
         action={
           canManage && (
           <div className="row-actions">
             <Button size="sm" onClick={() => setTierForm({ tier: null })}>
-              + إضافة مواقع
+              {tr('+ إضافة مواقع')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => setImporting(true)}>
-              📥 استيراد / تحديث من Excel
+              {tr('📥 استيراد / تحديث من Excel')}
             </Button>
             <Button size="sm" variant="danger" onClick={clearAll}>
-              حذف الخارطة
+              {tr('حذف الخارطة')}
             </Button>
           </div>
           )
@@ -442,12 +443,12 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
           <table className="table table-compact">
             <thead>
               <tr>
-                <th>الفئة</th>
-                <th>أرقام المواقع</th>
-                <th>العدد</th>
-                <th>المحجوز</th>
-                <th>السعر</th>
-                {canManage && <th>الإجمالي</th>}
+                <th>{tr('الفئة')}</th>
+                <th>{tr('أرقام المواقع')}</th>
+                <th>{tr('العدد')}</th>
+                <th>{tr('المحجوز')}</th>
+                <th>{tr('السعر')}</th>
+                {canManage && <th>{tr('الإجمالي')}</th>}
                 <th />
               </tr>
             </thead>
@@ -458,9 +459,9 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
                   <tr key={t.name + t.price}>
                     <td>
                       <span className="tier-dot" style={{ '--tier': tierColor(t.name, i) }} />
-                      <strong>{t.name}</strong>
+                      <strong>{tr(t.name)}</strong>
                     </td>
-                    <td className="small">{t.ranges}</td>
+                    <td className="small">{tr(t.ranges)}</td>
                     <td className="center">{t.count}</td>
                     <td className="center">{booked}</td>
                     <td className="num">{formatOMR(t.price)}</td>
@@ -468,10 +469,10 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
                     <td>
                       {canManage && (
                       <div className="row-actions">
-                        <Button size="sm" variant="outline" onClick={() => setTierForm({ tier: t })} title="تعديل">
+                        <Button size="sm" variant="outline" onClick={() => setTierForm({ tier: t })} title={tr('تعديل')}>
                           ✏️
                         </Button>
-                        <Button size="sm" variant="danger" onClick={() => removeTier(t)} title="حذف">
+                        <Button size="sm" variant="danger" onClick={() => removeTier(t)} title={tr('حذف')}>
                           🗑️
                         </Button>
                       </div>
@@ -485,11 +486,11 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
         </div>
       </Panel>
 
-      <Panel icon="🗺️" title="خارطة المواقع" subtitle="اضغط على أي موقع لحجزه لمشارك أو تحريره" bodyClass="panel-pad">
+      <Panel icon="🗺️" title={tr('خارطة المواقع')} subtitle={tr('اضغط على أي موقع لحجزه لمشارك أو تحريره')} bodyClass="panel-pad">
         <div className="site-legend">
-          {['متاح', 'محجوز', 'مدفوع جزئياً', 'مدفوع'].map((s) => (
+          {[tr('متاح'), tr('محجوز'), tr('مدفوع جزئياً'), tr('مدفوع')].map((s) => (
             <span key={s} className={`site-legend-item status-${s.replace(/\s/g, '-')}`}>
-              {s}
+              {tr(s)}
             </span>
           ))}
         </div>
@@ -506,13 +507,13 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
                   !canWrite
                     ? null
                     : holder && !canEdit(holder)
-                    ? toast(`الموقع ${site.number} محجوز لـ ${holder.brand} — أدخله مسوق آخر، والتعديل للإدارة أو لمن أدخله`, 'error')
+                    ? toast(tr('الموقع {0} محجوز لـ {1} — أدخله مسوق آخر، والتعديل للإدارة أو لمن أدخله', [site.number, holder.brand]), 'error')
                     : setAssigning(site)
                 }
                 title={`${site.number} • ${site.tier} • ${formatOMR(site.price)}${holder ? ` • ${holder.brand}` : ''}`}
               >
                 <span className="site-num">{site.number}</span>
-                <span className="site-name">{holder ? holder.brand : `${Number(site.price)} ر.ع`}</span>
+                <span className="site-name">{holder ? holder.brand : tr('{0} ر.ع', [Number(site.price)])}</span>
               </button>
             )
           })}

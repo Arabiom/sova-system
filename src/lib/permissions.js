@@ -1,11 +1,13 @@
 // Who may do what. The database enforces the same rules (supabase/migrations/003);
 // this only decides what each person sees in the interface.
 
+import { tr } from './i18n.js'
+
 export const ROLES = {
-  admin: { label: 'مدير', desc: 'كل الصلاحيات، وإدارة الموظفين' },
-  finance: { label: 'مالية', desc: 'كل شيء عدا إدارة الموظفين' },
-  viewer: { label: 'مطّلع', desc: 'إداري يطّلع على أحوال الشركة كلها (المالية، التقارير، المصروفات، المعارض، العملاء) دون أي إضافة أو تعديل أو حذف' },
-  marketing: { label: 'تسويق', desc: 'تسجيل المشاركين وإصدار الفاتورة، بيانات المشاركين والعملاء، المعارض والمواقع، واتساب — بدون الإجماليات والمبالغ' },
+  admin: { label: tr('مدير'), desc: tr('كل الصلاحيات، وإدارة الموظفين') },
+  finance: { label: tr('مالية'), desc: tr('كل شيء عدا إدارة الموظفين') },
+  viewer: { label: tr('مطّلع'), desc: tr('إداري يطّلع على أحوال الشركة كلها (المالية، التقارير، المصروفات، المعارض، العملاء) دون أي إضافة أو تعديل أو حذف') },
+  marketing: { label: tr('تسويق'), desc: tr('تسجيل المشاركين وإصدار الفاتورة، بيانات المشاركين والعملاء، المعارض والمواقع، واتساب — بدون الإجماليات والمبالغ') },
 }
 
 const MATRIX = {

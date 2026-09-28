@@ -35,6 +35,7 @@ import {
   VARIABLES,
   wrapSelection,
 } from '../lib/whatsapp.js'
+import { tr, uiLocale } from '../lib/i18n.js'
 
 const load = async () => {
   const [exhibitors, exhibitions, clients, templates, contacts, staff] = await Promise.all([
@@ -49,9 +50,9 @@ const load = async () => {
 }
 
 const AUDIENCES = [
-  { id: 'exhibitor', label: '🏛️ المشاركون في المعارض' },
-  { id: 'client', label: '👥 قاعدة العملاء' },
-  { id: 'manual', label: '✍️ أرقام أكتبها بنفسي' },
+  { id: 'exhibitor', label: tr('🏛️ المشاركون في المعارض') },
+  { id: 'client', label: tr('👥 قاعدة العملاء') },
+  { id: 'manual', label: tr('✍️ أرقام أكتبها بنفسي') },
 ]
 
 const EMOJIS = ['🌟', '✅', '📅', '📍', '🏛️', '🔢', '💰', '📞', '🎉', '🙏', '⏰', '📌', '🎁', '🔥', '❤️', '👋', '🌙', '🇴🇲']
@@ -76,7 +77,7 @@ const writePref = (key, value) => {
 const daysAgo = (iso) => Math.floor((Date.now() - new Date(iso)) / 86_400_000)
 const agoText = (iso) => {
   const d = daysAgo(iso)
-  return d <= 0 ? 'اليوم' : d === 1 ? 'أمس' : `قبل ${d} يوم`
+  return d <= 0 ? tr('اليوم') : d === 1 ? tr('أمس') : tr('قبل {0} يوم', [d])
 }
 
 export default function WhatsApp() {
@@ -87,13 +88,13 @@ export default function WhatsApp() {
 
   return (
     <>
-      <PageHeader title="واتساب 📱" subtitle="رسائل جماعية مخصّصة لكل شخص باسمه وبياناته، مع قوالب جاهزة وسجل لكل ما أُرسل" />
+      <PageHeader title={tr('واتساب 📱')} subtitle={tr('رسائل جماعية مخصّصة لكل شخص باسمه وبياناته، مع قوالب جاهزة وسجل لكل ما أُرسل')} />
       <div className="tabs tabs-underline mb-16">
         <button className={`tab ${tab === 'compose' ? 'active' : ''}`} onClick={() => setTab('compose')}>
-          ✉️ رسالة جديدة
+          {tr('✉️ رسالة جديدة')}
         </button>
         <button className={`tab ${tab === 'history' ? 'active' : ''}`} onClick={() => setTab('history')}>
-          🕘 سجل الإرسال
+          {tr('🕘 سجل الإرسال')}
         </button>
       </div>
       {tab === 'compose' ? <Composer data={data} reload={reload} /> : <History staff={data.staff} />}
@@ -208,11 +209,11 @@ function Composer({ data, reload }) {
   const insert = (piece) => edit((text, s, e) => insertAt(text, s, e, piece))
 
   const saveAsTemplate = async () => {
-    if (!savingName?.trim()) return toast('اكتب اسماً للقالب', 'error')
-    if (!body.trim()) return toast('الرسالة فارغة', 'error')
+    if (!savingName?.trim()) return toast(tr('اكتب اسماً للقالب'), 'error')
+    if (!body.trim()) return toast(tr('الرسالة فارغة'), 'error')
     try {
       await saveTemplate({ name: savingName, body })
-      toast('✅ حُفظ القالب — يظهر لكل الفريق')
+      toast(tr('✅ حُفظ القالب — يظهر لكل الفريق'))
       setSavingName(null)
       reload()
     } catch (err) {
@@ -222,18 +223,18 @@ function Composer({ data, reload }) {
   const updateTemplate = async () => {
     try {
       await saveTemplate({ id: savedTemplate.id, name: savedTemplate.name, body })
-      toast('✅ حُدّث القالب')
+      toast(tr('✅ حُدّث القالب'))
       reload()
     } catch (err) {
       toast(err.message, 'error')
     }
   }
   const removeTemplate = async () => {
-    if (!window.confirm(`حذف القالب «${savedTemplate.name}»؟`)) return
+    if (!window.confirm(tr('حذف القالب «{0}»؟', [savedTemplate.name]))) return
     try {
       await deleteTemplate(savedTemplate.id)
       pickTemplate(BUILTIN_TEMPLATES.find((t) => t.id === 'custom'))
-      toast('تم حذف القالب')
+      toast(tr('تم حذف القالب'))
       reload()
     } catch (err) {
       toast(err.message, 'error')
@@ -257,26 +258,26 @@ function Composer({ data, reload }) {
   }
 
   const start = () => {
-    if (!body.trim()) return toast('اكتب نص الرسالة أولاً', 'error')
-    if (!messages.length) return toast('اختر رقماً واحداً على الأقل', 'error')
-    if (blocked.length) return toast(`صحّح الرسالة أولاً: ${blocked[0].problems[0]}`, 'error')
+    if (!body.trim()) return toast(tr('اكتب نص الرسالة أولاً'), 'error')
+    if (!messages.length) return toast(tr('اختر رقماً واحداً على الأقل'), 'error')
+    if (blocked.length) return toast(tr('صحّح الرسالة أولاً: {0}', [blocked[0].problems[0]]), 'error')
     setQueue({ id: crypto.randomUUID(), name: campaignName(), items: messages.map(({ recipient, text }) => ({ recipient, text })) })
   }
 
   const copyNumbers = async () => {
     try {
       await navigator.clipboard.writeText(unique.map((r) => `+${normalizePhone(r.phone)}`).join('\n'))
-      toast(`✅ نُسخ ${unique.length} رقم — الصقها في «قائمة بث» في واتساب للأعمال`)
+      toast(tr('✅ نُسخ {0} رقم — الصقها في «قائمة بث» في واتساب للأعمال', [unique.length]))
     } catch {
-      toast('تعذّر النسخ', 'warn')
+      toast(tr('تعذّر النسخ'), 'warn')
     }
   }
   const copyPreview = async () => {
     try {
       await navigator.clipboard.writeText(preview.text)
-      toast('✅ نُسخت الرسالة')
+      toast(tr('✅ نُسخت الرسالة'))
     } catch {
-      toast('تعذّر النسخ', 'warn')
+      toast(tr('تعذّر النسخ'), 'warn')
     }
   }
 
@@ -295,18 +296,18 @@ function Composer({ data, reload }) {
       <div>
         {/* 1 ─ Who */}
         <section className="panel panel-pad mb-16">
-          <div className="step-title">1️⃣ لمن الرسالة؟</div>
+          <div className="step-title">{tr('1️⃣ لمن الرسالة؟')}</div>
           <div className="wa-seg mb-12">
             {AUDIENCES.map((a) => (
               <button key={a.id} className={audience === a.id ? 'active' : ''} onClick={() => switchAudience(a.id)}>
-                {a.label}
+                {tr(a.label)}
               </button>
             ))}
           </div>
 
           <div className="wa-filters">
             <select className="input input-compact" value={exhibitionId} onChange={(e) => setExhibitionId(e.target.value)}>
-              <option value="">{needsExhibition ? '— المعرض المقصود بالرسالة —' : 'كل المعارض'}</option>
+              <option value="">{needsExhibition ? tr('— المعرض المقصود بالرسالة —') : tr('كل المعارض')}</option>
               {exhibitions.map((ex) => (
                 <option key={ex.id} value={ex.id}>
                   {exhibitionLabel(ex)}
@@ -315,24 +316,24 @@ function Composer({ data, reload }) {
             </select>
             {audience !== 'manual' && (
               <>
-                <input className="input input-compact" placeholder="🔍 بحث بالاسم أو الرقم…" value={filters.q} onChange={setFilter('q')} />
+                <input className="input input-compact" placeholder={tr('🔍 بحث بالاسم أو الرقم…')} value={filters.q} onChange={setFilter('q')} />
                 <select className="input input-compact" value={filters.status} onChange={setFilter('status')}>
-                  <option value="">كل الحالات</option>
+                  <option value="">{tr('كل الحالات')}</option>
                   {statuses.map((s) => (
-                    <option key={s}>{s}</option>
+                    <option key={s} value={s}>{tr(s)}</option>
                   ))}
                 </select>
                 <select className="input input-compact" value={filters.sector} onChange={setFilter('sector')}>
-                  <option value="">كل القطاعات</option>
+                  <option value="">{tr('كل القطاعات')}</option>
                   {sectors.map((s) => (
-                    <option key={s}>{s}</option>
+                    <option key={s} value={s}>{tr(s)}</option>
                   ))}
                 </select>
                 {money && audience === 'exhibitor' && (
                   <select className="input input-compact" value={filters.balance} onChange={setFilter('balance')}>
-                    <option value="">كل المدفوعات</option>
-                    <option value="due">عليهم مبالغ متبقية</option>
-                    <option value="paid">دفعوا كامل المبلغ</option>
+                    <option value="">{tr('كل المدفوعات')}</option>
+                    <option value="due">{tr('عليهم مبالغ متبقية')}</option>
+                    <option value="paid">{tr('دفعوا كامل المبلغ')}</option>
                   </select>
                 )}
               </>
@@ -341,7 +342,7 @@ function Composer({ data, reload }) {
           {audience !== 'manual' && (
             <label className="check-row mb-10">
               <input type="checkbox" checked={filters.fresh} onChange={setFilter('fresh')} />
-              إخفاء من راسلناهم خلال آخر {RECENT_DAYS} أيام
+              {tr('إخفاء من راسلناهم خلال آخر')}{' '}{tr(RECENT_DAYS)}{' '}{tr('أيام')}
             </label>
           )}
 
@@ -351,24 +352,24 @@ function Composer({ data, reload }) {
                 className="input"
                 rows={6}
                 dir="auto"
-                placeholder={'رقم في كل سطر، ويمكن كتابة الاسم معه:\nمتجر الورد 91234567\n+968 9876 5432'}
+                placeholder={tr('رقم في كل سطر، ويمكن كتابة الاسم معه:\nمتجر الورد 91234567\n+968 9876 5432')}
                 value={manualText}
                 onChange={(e) => setManualText(e.target.value)}
               />
               <div className="muted tiny mt-10">
-                {pool.length} رقم • الأرقام العُمانية بدون رمز الدولة يُضاف لها 968 تلقائياً • الرقم المكرر يُحذف
+                {pool.length}{' '}{tr('رقم • الأرقام العُمانية بدون رمز الدولة يُضاف لها 968 تلقائياً • الرقم المكرر يُحذف')}
               </div>
             </>
           ) : (
             <>
               <div className="select-bar">
                 <Button size="sm" onClick={selectAll}>
-                  تحديد الكل ({pool.filter(sendable).length})
+                  {tr('تحديد الكل (')}{pool.filter(sendable).length})
                 </Button>
                 <Button size="sm" variant="outline" onClick={clearAll}>
-                  إلغاء التحديد
+                  {tr('إلغاء التحديد')}
                 </Button>
-                <span className="select-count">{chosen.length} محدد</span>
+                <span className="select-count">{chosen.length}{' '}{tr('محدد')}</span>
               </div>
               <div className="pick-list pick-list-tall">
                 {pool.map((r) => {
@@ -380,20 +381,20 @@ function Composer({ data, reload }) {
                       <input type="checkbox" checked={selected.has(r.key)} disabled={!!problem} onChange={() => toggle(r.key)} />
                       <div className="flex-1 min-w-0">
                         <div className="strong small ellipsis">
-                          {r.brand || r.name || 'بدون اسم'}
-                          {r.name && r.brand && r.name !== r.brand && <span className="muted"> • {r.name}</span>}
+                          {r.brand || r.name || tr('بدون اسم')}
+                          {r.name && r.brand && r.name !== r.brand && <span className="muted"> • {tr(r.name)}</span>}
                         </div>
                         <div className="muted tiny ellipsis">
                           <span dir="ltr">{r.phone || '—'}</span>
-                          {r.sector ? ` • ${r.sector}` : ''}
+                          {r.sector ? ` • ${tr(r.sector)}` : ''}
                           {audience === 'exhibitor' && !exhibitionId && ex ? ` • ${exhibitionLabel(ex)}` : ''}
                         </div>
                       </div>
                       {problem ? (
-                        <span className="tiny text-dng strong">{problem}</span>
+                        <span className="tiny text-dng strong">{tr(problem)}</span>
                       ) : (
                         last && (
-                          <span className={`wa-last ${daysAgo(last.sent_at) < RECENT_DAYS ? 'recent' : ''}`} title={last.by ? `أرسلها ${last.by}` : ''}>
+                          <span className={`wa-last ${daysAgo(last.sent_at) < RECENT_DAYS ? 'recent' : ''}`} title={last.by ? tr('أرسلها {0}', [last.by]) : ''}>
                             💬 {agoText(last.sent_at)}
                           </span>
                         )
@@ -401,7 +402,7 @@ function Composer({ data, reload }) {
                     </label>
                   )
                 })}
-                {!pool.length && <div className="empty-inline">لا يوجد أحد بهذه الشروط</div>}
+                {!pool.length && <div className="empty-inline">{tr('لا يوجد أحد بهذه الشروط')}</div>}
               </div>
             </>
           )}
@@ -409,32 +410,32 @@ function Composer({ data, reload }) {
 
         {/* 2 ─ What */}
         <section className="panel panel-pad mb-16">
-          <div className="step-title">2️⃣ الرسالة</div>
-          <div className="muted tiny mb-10">اختر قالباً جاهزاً ثم عدّل عليه كما تريد، أو ابدأ رسالة فارغة</div>
+          <div className="step-title">{tr('2️⃣ الرسالة')}</div>
+          <div className="muted tiny mb-10">{tr('اختر قالباً جاهزاً ثم عدّل عليه كما تريد، أو ابدأ رسالة فارغة')}</div>
           <div className="wa-templates">
             {builtins.map((t) => (
               <button key={t.id} className={`type-btn ${templateId === t.id ? 'active' : ''}`} style={{ '--accent': t.color }} onClick={() => pickTemplate(t)}>
-                {t.label}
+                {tr(t.label)}
               </button>
             ))}
             {saved.map((t) => (
               <button key={t.id} className={`type-btn ${templateId === t.id ? 'active' : ''}`} style={{ '--accent': 'var(--gold-d)' }} onClick={() => pickTemplate(t)}>
-                💾 {t.name}
+                💾 {tr(t.name)}
               </button>
             ))}
           </div>
-          {templates === null && <div className="muted tiny mt-10">لحفظ قوالبك الخاصة وسجل الإرسال شغّل تحديث 015 في Supabase.</div>}
+          {templates === null && <div className="muted tiny mt-10">{tr('لحفظ قوالبك الخاصة وسجل الإرسال شغّل تحديث 015 في Supabase.')}</div>}
 
           <div className="wa-toolbar mt-12">
             {FORMATS.map((f) => (
               <button key={f.id} type="button" className={`wa-tool wa-tool-${f.id}`} title={f.title} onClick={() => edit((text, s, e) => wrapSelection(text, s, e, f.mark))}>
-                {f.label}
+                {tr(f.label)}
               </button>
             ))}
             <span className="wa-tool-sep" />
             {EMOJIS.map((e) => (
               <button key={e} type="button" className="wa-tool" onClick={() => insert(e)}>
-                {e}
+                {tr(e)}
               </button>
             ))}
           </div>
@@ -443,16 +444,16 @@ function Composer({ data, reload }) {
             className="input wa-editor"
             rows={14}
             dir="auto"
-            placeholder="اكتب رسالتك هنا… استخدم المتغيرات بالأسفل ليظهر لكل شخص اسمه وبياناته"
+            placeholder={tr('اكتب رسالتك هنا… استخدم المتغيرات بالأسفل ليظهر لكل شخص اسمه وبياناته')}
             value={body}
             onChange={(e) => setBody(e.target.value)}
           />
           <div className="wa-editor-meta">
-            <span>{body.length} حرف</span>
-            <span>*عريض*  _مائل_  ~مشطوب~</span>
+            <span>{body.length}{' '}{tr('حرف')}</span>
+            <span>{tr('*عريض* _مائل_ ~مشطوب~')}</span>
           </div>
 
-          <div className="field-label mt-12">المتغيرات — اضغط لإضافتها في مكان المؤشر:</div>
+          <div className="field-label mt-12">{tr('المتغيرات — اضغط لإضافتها في مكان المؤشر:')}</div>
           <div className="wa-vars">
             {VARIABLES.filter((v) => money || !v.money).map((v) => (
               <button key={v.key} type="button" className="wa-var" title={v.hint} onClick={() => insert(`{${v.key}}`)}>
@@ -466,28 +467,28 @@ function Composer({ data, reload }) {
               <>
                 {templates !== null && (
                   <Button size="sm" variant="outline" onClick={() => setSavingName('')} disabled={!body.trim()}>
-                    💾 حفظ كقالب جديد
+                    {tr('💾 حفظ كقالب جديد')}
                   </Button>
                 )}
                 {canManage(savedTemplate) && (
                   <>
                     <Button size="sm" variant="outline" onClick={updateTemplate} disabled={body === savedTemplate.body}>
-                      تحديث «{savedTemplate.name}»
+                      {tr('تحديث «')}{tr(savedTemplate.name)}»
                     </Button>
                     <Button size="sm" variant="ghost" onClick={removeTemplate}>
-                      🗑️ حذف القالب
+                      {tr('🗑️ حذف القالب')}
                     </Button>
                   </>
                 )}
               </>
             ) : (
               <>
-                <input className="input input-compact flex-1" autoFocus placeholder="اسم القالب، مثل: عرض رمضان" value={savingName} onChange={(e) => setSavingName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveAsTemplate()} />
+                <input className="input input-compact flex-1" autoFocus placeholder={tr('اسم القالب، مثل: عرض رمضان')} value={savingName} onChange={(e) => setSavingName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveAsTemplate()} />
                 <Button size="sm" onClick={saveAsTemplate}>
-                  حفظ
+                  {tr('حفظ')}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setSavingName(null)}>
-                  إلغاء
+                  {tr('إلغاء')}
                 </Button>
               </>
             )}
@@ -496,44 +497,44 @@ function Composer({ data, reload }) {
 
         {/* 3 ─ Send */}
         <section className="panel panel-pad">
-          <div className="step-title">3️⃣ الإرسال</div>
+          <div className="step-title">{tr('3️⃣ الإرسال')}</div>
           <div className="wa-summary">
             <div>
-              <strong>{messages.length}</strong> رقم سيستلم الرسالة
+              <strong>{messages.length}</strong>{' '}{tr('رقم سيستلم الرسالة')}
             </div>
-            {duplicates.length > 0 && <div className="muted">🔁 {duplicates.length} رقم مكرر أُرسل له مرة واحدة فقط</div>}
-            {invalid.length > 0 && <div className="text-dng">⚠️ {invalid.length} بدون رقم صحيح — لن يُرسل لهم</div>}
-            {blocked.length > 0 && <div className="text-dng">⛔ {blocked[0].problems.join('، ')}</div>}
+            {duplicates.length > 0 && <div className="muted">🔁 {duplicates.length}{' '}{tr('رقم مكرر أُرسل له مرة واحدة فقط')}</div>}
+            {invalid.length > 0 && <div className="text-dng">⚠️ {invalid.length}{' '}{tr('بدون رقم صحيح — لن يُرسل لهم')}</div>}
+            {blocked.length > 0 && <div className="text-dng">⛔ {blocked[0].problems.map((x) => tr(x)).join(tr('، '))}</div>}
             {gaps.length > 0 && (
               <div className="text-wrn">
-                ⚠️ {gaps.length} رسالة فيها خانة فارغة ({[...new Set(gaps.flatMap((g) => g.empty))].map((k) => `{${k}}`).join('، ')}) — راجع المعاينة
+                ⚠️ {gaps.length}{' '}{tr('رسالة فيها خانة فارغة (')}{[...new Set(gaps.flatMap((g) => g.empty))].map((k) => `{${k}}`).join(tr('، '))}{tr(') — راجع المعاينة')}
               </div>
             )}
           </div>
 
-          <div className="field-label mt-12">طريقة فتح واتساب:</div>
+          <div className="field-label mt-12">{tr('طريقة فتح واتساب:')}</div>
           <div className="wa-modes">
             {OPEN_MODES.map((m) => (
               <label key={m.id} className={`wa-mode ${mode === m.id ? 'active' : ''}`}>
                 <input type="radio" name="wa-mode" checked={mode === m.id} onChange={() => setMode(m.id)} />
                 <div>
-                  <div className="strong small">{m.label}</div>
-                  <div className="muted tiny">{m.hint}</div>
+                  <div className="strong small">{tr(m.label)}</div>
+                  <div className="muted tiny">{tr(m.hint)}</div>
                 </div>
               </label>
             ))}
           </div>
 
           <Button variant="whatsapp" size="lg" full onClick={start} disabled={!messages.length || !!blocked.length || !body.trim()}>
-            📱 ابدأ الإرسال لـ {messages.length} رقم
+            {tr('📱 ابدأ الإرسال لـ')}{' '}{messages.length}{' '}{tr('رقم')}
           </Button>
           <div className="wa-secondary">
             <Button size="sm" variant="outline" onClick={copyNumbers} disabled={!messages.length}>
-              📋 نسخ الأرقام (لقائمة بث)
+              {tr('📋 نسخ الأرقام (لقائمة بث)')}
             </Button>
           </div>
           <div className="muted tiny center mt-10">
-            كل رسالة تخرج باسم صاحبها وبياناته. تُفتح المحادثات واحدة تلو الأخرى والرسالة جاهزة — تضغط «إرسال» في واتساب ثم تنتقل للتالي.
+            {tr('كل رسالة تخرج باسم صاحبها وبياناته. تُفتح المحادثات واحدة تلو الأخرى والرسالة جاهزة — تضغط «إرسال» في واتساب ثم تنتقل للتالي.')}
           </div>
         </section>
       </div>
@@ -541,7 +542,7 @@ function Composer({ data, reload }) {
       <div className="wa-side">
         <div className="wa-preview">
           <div className="wa-preview-head">
-            <div className="wa-preview-title">📱 المعاينة</div>
+            <div className="wa-preview-title">{tr('📱 المعاينة')}</div>
             {messages.length > 1 && (
               <div className="wa-nav">
                 <button onClick={() => setPreviewIndex(Math.max(0, previewAt - 1))} disabled={previewAt === 0}>
@@ -559,31 +560,31 @@ function Composer({ data, reload }) {
           {preview ? (
             <>
               <div className="wa-preview-to">
-                إلى: <strong>{preview.recipient.brand || preview.recipient.name || 'بدون اسم'}</strong> <span dir="ltr">+{normalizePhone(preview.recipient.phone)}</span>
-                {exhibitionFor(preview.recipient) && <div>عن: {exhibitionLabel(exhibitionFor(preview.recipient))}</div>}
+                {tr('إلى:')}{' '}<strong>{preview.recipient.brand || preview.recipient.name || tr('بدون اسم')}</strong> <span dir="ltr">+{normalizePhone(preview.recipient.phone)}</span>
+                {exhibitionFor(preview.recipient) && <div>{tr('عن:')}{' '}{exhibitionLabel(exhibitionFor(preview.recipient))}</div>}
               </div>
               <div className="wa-chat">
                 <div className="wa-bubble">
-                  {preview.text ? <WhatsAppText text={preview.text} /> : <span className="muted">الرسالة فارغة</span>}
+                  {preview.text ? <WhatsAppText text={preview.text} /> : <span className="muted">{tr('الرسالة فارغة')}</span>}
                 </div>
-                <div className="wa-time">✓✓ {new Date().toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}</div>
+                <div className="wa-time">✓✓ {new Date().toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })}</div>
               </div>
               {preview.problems.map((p) => (
                 <div key={p} className="wa-warn">
-                  ⛔ {p}
+                  ⛔ {tr(p)}
                 </div>
               ))}
               {preview.empty.map((k) => (
                 <div key={k} className="wa-warn soft">
-                  ⚠️ {`{${k}}`} فارغ لهذا الشخص
+                  ⚠️ {`{${k}}`}{' '}{tr('فارغ لهذا الشخص')}
                 </div>
               ))}
               <button className="wa-copy" onClick={copyPreview}>
-                📋 نسخ الرسالة
+                {tr('📋 نسخ الرسالة')}
               </button>
             </>
           ) : (
-            <div className="wa-empty">{audience === 'manual' ? 'اكتب رقماً لمعاينة الرسالة' : 'اختر شخصاً أو أكثر لمعاينة رسالته'}</div>
+            <div className="wa-empty">{audience === 'manual' ? tr('اكتب رقماً لمعاينة الرسالة') : tr('اختر شخصاً أو أكثر لمعاينة رسالته')}</div>
           )}
         </div>
       </div>
@@ -615,12 +616,12 @@ function History({ staff }) {
   if (rows === null) {
     return (
       <div className="panel panel-pad">
-        <div className="empty-inline">سجل الإرسال يحتاج تحديث قاعدة البيانات 015 — شغّله في Supabase ← SQL Editor ثم حدّث الصفحة.</div>
+        <div className="empty-inline">{tr('سجل الإرسال يحتاج تحديث قاعدة البيانات 015 — شغّله في Supabase ← SQL Editor ثم حدّث الصفحة.')}</div>
       </div>
     )
   }
 
-  const who = (id) => (id === session?.user?.id ? 'أنت' : staff.find((s) => s.user_id === id)?.name || staff.find((s) => s.user_id === id)?.email || '—')
+  const who = (id) => (id === session?.user?.id ? tr('أنت') : staff.find((s) => s.user_id === id)?.name || staff.find((s) => s.user_id === id)?.email || '—')
   const needle = q.trim().toLowerCase()
   const campaigns = groupCampaigns(needle ? rows.filter((r) => [r.name, r.phone, r.body, r.campaign_name].some((v) => String(v || '').toLowerCase().includes(needle))) : rows)
 
@@ -628,21 +629,21 @@ function History({ staff }) {
     <section className="panel">
       <div className="panel-pad wa-history-head">
         <div>
-          <div className="strong">{campaigns.length} عملية إرسال</div>
-          <div className="muted tiny">{rows.length} رسالة في السجل (آخر 500)</div>
+          <div className="strong">{campaigns.length}{' '}{tr('عملية إرسال')}</div>
+          <div className="muted tiny">{rows.length}{' '}{tr('رسالة في السجل (آخر 500)')}</div>
         </div>
-        <input className="input input-compact" placeholder="🔍 بحث باسم أو رقم أو نص…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input input-compact" placeholder={tr('🔍 بحث باسم أو رقم أو نص…')} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       {campaigns.map((c) => (
         <div key={c.id} className="wa-campaign">
           <button className="wa-campaign-row" onClick={() => setOpen(open === c.id ? null : c.id)}>
             <div className="flex-1 min-w-0">
-              <div className="strong small ellipsis">{c.name || 'رسالة'}</div>
+              <div className="strong small ellipsis">{c.name || tr('رسالة')}</div>
               <div className="muted tiny">
-                {formatDate(c.ended)} • {new Date(c.ended).toLocaleTimeString('ar-OM', { hour: '2-digit', minute: '2-digit' })} • {who(c.sent_by)}
+                {formatDate(c.ended)} • {new Date(c.ended).toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })} • {who(c.sent_by)}
               </div>
             </div>
-            <span className="badge badge-success">{c.rows.length} رسالة</span>
+            <span className="badge badge-success">{c.rows.length}{' '}{tr('رسالة')}</span>
             <span className="muted">{open === c.id ? '▲' : '▼'}</span>
           </button>
           {open === c.id && (
@@ -656,17 +657,17 @@ function History({ staff }) {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>الاسم</th>
-                      <th>الرقم</th>
-                      <th>الوقت</th>
+                      <th>{tr('الاسم')}</th>
+                      <th>{tr('الرقم')}</th>
+                      <th>{tr('الوقت')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {c.rows.map((r) => (
                       <tr key={r.id}>
                         <td>{r.name || '—'}</td>
-                        <td dir="ltr">+{r.phone}</td>
-                        <td>{new Date(r.sent_at).toLocaleTimeString('ar-OM', { hour: '2-digit', minute: '2-digit' })}</td>
+                        <td dir="ltr">+{tr(r.phone)}</td>
+                        <td>{new Date(r.sent_at).toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -676,7 +677,7 @@ function History({ staff }) {
           )}
         </div>
       ))}
-      {!campaigns.length && <div className="empty-inline">لا توجد رسائل في السجل بعد</div>}
+      {!campaigns.length && <div className="empty-inline">{tr('لا توجد رسائل في السجل بعد')}</div>}
     </section>
   )
 }

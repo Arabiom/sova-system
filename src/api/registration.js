@@ -8,6 +8,7 @@ import { supabase, unwrap } from './client.js'
 import { findOrCreateClient } from './clients.js'
 import { createExhibitor, updateExhibitor } from './exhibitors.js'
 import { recordPayment } from './payments.js'
+import { tr } from '../lib/i18n.js'
 
 /** Extras actually chosen, as stored on the exhibitor: [{ name, price, qty }]. */
 export function chosenExtras(form) {
@@ -34,7 +35,7 @@ export function validateRegistration(form) {
   if (!form.brand?.trim()) errors.push('اسم المشروع')
   if (!form.phone?.trim()) errors.push('رقم التواصل')
   if (!sectorsText(form)) errors.push('القطاع')
-  if (Array.isArray(form.categories) && form.categories.length > MAX_SECTORS) errors.push(`القطاع (${MAX_SECTORS} كحد أقصى)`)
+  if (Array.isArray(form.categories) && form.categories.length > MAX_SECTORS) errors.push(tr('القطاع ({0} كحد أقصى)', [MAX_SECTORS]))
   if (!form.package) errors.push('نظام البوث')
   if (num(form.amount) < 0) errors.push('المبلغ المدفوع لا يكون سالباً')
   if (num(form.amount) > 0 && !form.method) errors.push('طريقة السداد')
@@ -59,7 +60,7 @@ export async function registerParticipant(form, { pending, boothPrice }) {
   let site = null
   if (form.site_id) {
     site = await unwrap(supabase.from('exhibition_sites').select('id,number,exhibitor_id').eq('id', form.site_id).maybeSingle())
-    if (!site || site.exhibitor_id) throw new Error('هذا الموقع حُجز لمشارك آخر للتو. اختر موقعاً غيره.')
+    if (!site || site.exhibitor_id) throw new Error(tr('هذا الموقع حُجز لمشارك آخر للتو. اختر موقعاً غيره.'))
   }
 
   const client_id = await findOrCreateClient({ brand: form.brand, manager: form.manager, phone: form.phone, category })

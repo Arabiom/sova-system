@@ -32,6 +32,7 @@ import { useToast } from '../context/ToastContext.jsx'
 import { downloadCsv } from '../lib/csv.js'
 import { exhibitionLabel, formatOMR, num, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
+import { tr } from '../lib/i18n.js'
 
 const PAY_METHODS = ['نقد', 'بطاقة بنكية', 'تحويل بنكي', 'أخرى']
 
@@ -63,11 +64,11 @@ function ExpenseForm({ expense, exhibitions, userId, onClose, onSaved }) {
 
   const submit = async () => {
     const errors = validateStaffExpense(form, { hasReceipt: Boolean(file || expense?.receipt_path) })
-    if (errors.length) return toast(`أكمل: ${errors.join('، ')}`, 'error')
+    if (errors.length) return toast(tr('أكمل: {0}', [errors.map((x) => tr(x)).join(tr('، '))]), 'error')
     setSaving(true)
     try {
       await saveStaffExpense(form, { userId, receiptFile: file, id: expense?.id, oldReceipt: expense?.receipt_path })
-      toast(editing ? '✅ تم تعديل المصروف' : '✅ تم رفع المصروف — بانتظار المراجعة')
+      toast(editing ? tr('✅ تم تعديل المصروف') : tr('✅ تم رفع المصروف — بانتظار المراجعة'))
       onSaved()
     } catch (err) {
       toast(err.message, 'error')
@@ -78,33 +79,33 @@ function ExpenseForm({ expense, exhibitions, userId, onClose, onSaved }) {
 
   return (
     <Modal
-      title={editing ? 'تعديل مصروف' : 'إضافة مصروف'}
-      subtitle="كل مبلغ دفعته من أجل الشركة، مع صورة الفاتورة أو الإيصال"
+      title={editing ? tr('تعديل مصروف') : tr('إضافة مصروف')}
+      subtitle={tr('كل مبلغ دفعته من أجل الشركة، مع صورة الفاتورة أو الإيصال')}
       onClose={onClose}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            إلغاء
+            {tr('إلغاء')}
           </Button>
           <Button onClick={submit} disabled={saving}>
-            {saving ? 'جاري الرفع...' : editing ? 'حفظ التعديل' : 'رفع المصروف'}
+            {saving ? tr('جاري الرفع...') : editing ? tr('حفظ التعديل') : tr('رفع المصروف')}
           </Button>
         </>
       }
     >
       <div className="form-grid">
-        <Field label="المبلغ (ر.ع)" required>
+        <Field label={tr('المبلغ (ر.ع)')} required>
           <input className="input" type="number" min="0" step="0.001" placeholder="0.000" value={form.amount ?? ''} onChange={set('amount')} />
         </Field>
-        <Field label="التاريخ" required>
+        <Field label={tr('التاريخ')} required>
           <DateInput value={form.date || ''} onChange={set('date')} />
         </Field>
       </div>
-      <Field label="وصف المصروف" required>
-        <input className="input" placeholder="مثال: طباعة بنرات معرض نزوى" value={form.description || ''} onChange={set('description')} />
+      <Field label={tr('وصف المصروف')} required>
+        <input className="input" placeholder={tr('مثال: طباعة بنرات معرض نزوى')} value={form.description || ''} onChange={set('description')} />
       </Field>
       <div className="form-grid">
-        <Field label="التصنيف">
+        <Field label={tr('التصنيف')}>
           <input className="input" list="staff-expense-categories" value={form.category || ''} onChange={set('category')} />
           <datalist id="staff-expense-categories">
             {STAFF_EXPENSE_CATEGORIES.map((c) => (
@@ -112,15 +113,15 @@ function ExpenseForm({ expense, exhibitions, userId, onClose, onSaved }) {
             ))}
           </datalist>
         </Field>
-        <Field label="الجهة / المحل">
-          <input className="input" placeholder="مثال: مطبعة النهضة" value={form.vendor || ''} onChange={set('vendor')} />
+        <Field label={tr('الجهة / المحل')}>
+          <input className="input" placeholder={tr('مثال: مطبعة النهضة')} value={form.vendor || ''} onChange={set('vendor')} />
         </Field>
-        <Field label="طريقة الدفع">
+        <Field label={tr('طريقة الدفع')}>
           <SelectOptions options={PAY_METHODS} placeholder={null} value={form.payment_method || 'نقد'} onChange={set('payment_method')} />
         </Field>
-        <Field label="المعرض (إن وجد)">
+        <Field label={tr('المعرض (إن وجد)')}>
           <select className="input" value={form.exhibition_id || ''} onChange={set('exhibition_id')}>
-            <option value="">— مصروف عام للشركة —</option>
+            <option value="">{tr('— مصروف عام للشركة —')}</option>
             {exhibitions.map((ex) => (
               <option key={ex.id} value={ex.id}>
                 {exhibitionLabel(ex)}
@@ -129,13 +130,13 @@ function ExpenseForm({ expense, exhibitions, userId, onClose, onSaved }) {
           </select>
         </Field>
       </div>
-      <Field label="صورة الفاتورة أو الإيصال" required hint={`صورة (PNG أو JPG) أو PDF، حتى ${FILE_MAX_MB} ميجابايت. يمكنك تصويرها بالجوال مباشرة.`}>
+      <Field label={tr('صورة الفاتورة أو الإيصال')} required hint={tr('صورة (PNG أو JPG) أو PDF، حتى {0} ميجابايت. يمكنك تصويرها بالجوال مباشرة.', [FILE_MAX_MB])}>
         <div className="row-actions">
           <label className="btn btn-outline btn-sm file-pick">
-            {file || expense?.receipt_path ? '🔄 تغيير الإيصال' : '📎 إرفاق الإيصال'}
+            {file || expense?.receipt_path ? tr('🔄 تغيير الإيصال') : tr('📎 إرفاق الإيصال')}
             <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" onChange={choose} hidden />
           </label>
-          <span className="muted small">{file ? `✓ ${file.name}` : expense?.receipt_path ? '✓ مرفق' : 'لم يُرفق بعد'}</span>
+          <span className="muted small">{file ? `✓ ${file.name}` : expense?.receipt_path ? tr('✓ مرفق') : tr('لم يُرفق بعد')}</span>
         </div>
       </Field>
     </Modal>
@@ -156,11 +157,11 @@ export default function Expenses() {
 
   const expenses = useMemo(() => data?.expenses || [], [data])
   if (loading) return <Loading />
-  if (!data) return <EmptyState icon="🧾" text="تعذّر تحميل المصروفات. إذا ظهرت رسالة «جدول غير موجود» فشغّل ملف التحديث 008 في Supabase ثم حدّث الصفحة." />
+  if (!data) return <EmptyState icon="🧾" text={tr('تعذّر تحميل المصروفات. إذا ظهرت رسالة «جدول غير موجود» فشغّل ملف التحديث 008 في Supabase ثم حدّث الصفحة.')} />
   const { exhibitions, staff } = data
 
   const nameOf = (id) => {
-    if (id === userId) return 'أنا'
+    if (id === userId) return tr('أنا')
     const s = staff.find((x) => x.user_id === id)
     return s?.name || s?.email || '—'
   }
@@ -181,7 +182,7 @@ export default function Expenses() {
   const act = async (x, status) => {
     let note = ''
     if (status === EXPENSE_REJECTED) {
-      note = prompt('سبب الرفض (يظهر للموظف):', '') ?? null
+      note = prompt(tr('سبب الرفض (يظهر للموظف):'), '') ?? null
       if (note === null) return
     }
     setBusy(x.id)
@@ -197,10 +198,10 @@ export default function Expenses() {
   }
 
   const remove = async (x) => {
-    if (!confirm(`حذف المصروف "${x.description}" وإيصاله؟`)) return
+    if (!confirm(tr('حذف المصروف "{0}" وإيصاله؟', [x.description]))) return
     try {
       await deleteStaffExpense(x)
-      toast('🗑️ تم الحذف')
+      toast(tr('🗑️ تم الحذف'))
       reload()
     } catch (err) {
       toast(err.message, 'error')
@@ -211,44 +212,44 @@ export default function Expenses() {
 
   const exportCsv = () =>
     downloadCsv(`مصروفات-الموظفين-${todayISO()}.csv`, visible, [
-      { label: 'التاريخ', value: (x) => x.date },
-      { label: 'الموظف', value: (x) => nameOf(x.user_id) },
-      { label: 'الوصف', value: (x) => x.description },
-      { label: 'التصنيف', value: (x) => x.category },
-      { label: 'الجهة', value: (x) => x.vendor },
-      { label: 'طريقة الدفع', value: (x) => x.payment_method },
-      { label: 'المعرض', value: (x) => (x.exhibition_id ? exhibitionLabel(exhibitionOf(x.exhibition_id)) : 'عام') },
-      { label: 'المبلغ', value: (x) => num(x.amount).toFixed(3) },
-      { label: 'الحالة', value: (x) => x.status },
-      { label: 'ملاحظة المراجعة', value: (x) => x.review_note },
-      { label: 'إيصال مرفق', value: (x) => (x.receipt_path ? 'نعم' : 'لا') },
+      { label: tr('التاريخ'), value: (x) => x.date },
+      { label: tr('الموظف'), value: (x) => nameOf(x.user_id) },
+      { label: tr('الوصف'), value: (x) => x.description },
+      { label: tr('التصنيف'), value: (x) => x.category },
+      { label: tr('الجهة'), value: (x) => x.vendor },
+      { label: tr('طريقة الدفع'), value: (x) => x.payment_method },
+      { label: tr('المعرض'), value: (x) => (x.exhibition_id ? exhibitionLabel(exhibitionOf(x.exhibition_id)) : 'عام') },
+      { label: tr('المبلغ'), value: (x) => num(x.amount).toFixed(3) },
+      { label: tr('الحالة'), value: (x) => x.status },
+      { label: tr('ملاحظة المراجعة'), value: (x) => x.review_note },
+      { label: tr('إيصال مرفق'), value: (x) => (x.receipt_path ? 'نعم' : 'لا') },
     ])
 
   return (
     <>
       <PageHeader
-        title={seeAll ? 'مصروفات الموظفين' : 'مصروفاتي'}
-        subtitle={seeAll ? 'كل ما صرفه الموظفون من أجل الشركة مع فواتيره — للمراجعة والاعتماد' : 'سجّل كل مبلغ تصرفه من أجل الشركة وأرفق فاتورته'}
+        title={seeAll ? tr('مصروفات الموظفين') : tr('مصروفاتي')}
+        subtitle={seeAll ? tr('كل ما صرفه الموظفون من أجل الشركة مع فواتيره — للمراجعة والاعتماد') : tr('سجّل كل مبلغ تصرفه من أجل الشركة وأرفق فاتورته')}
       >
         {seeAll && (
           <Button variant="outline" onClick={exportCsv} disabled={!visible.length}>
-            ⬇️ تصدير Excel
+            {tr('⬇️ تصدير Excel')}
           </Button>
         )}
-        {canWrite && <Button onClick={() => setEditing({})}>+ إضافة مصروف</Button>}
+        {canWrite && <Button onClick={() => setEditing({})}>{tr('+ إضافة مصروف')}</Button>}
       </PageHeader>
 
       <div className="grid-4 mb-16">
-        <StatCard flat label="الإجمالي" value={formatOMR(totals.all)} sub={`${visible.length} مصروف`} accent="var(--ink)" icon="🧾" />
-        <StatCard flat label="بانتظار المراجعة" value={formatOMR(totals.pending)} accent="var(--wrn)" icon="⏳" />
-        <StatCard flat label={seeAll ? 'معتمد — مستحق للموظفين' : 'معتمد — مستحق لك'} value={formatOMR(totals.owed)} accent="var(--info)" icon="✅" />
-        <StatCard flat label="تم التعويض" value={formatOMR(totals.reimbursed)} accent="var(--suc)" icon="💵" />
+        <StatCard flat label={tr('الإجمالي')} value={formatOMR(totals.all)} sub={tr('{0} مصروف', [visible.length])} accent="var(--ink)" icon="🧾" />
+        <StatCard flat label={tr('بانتظار المراجعة')} value={formatOMR(totals.pending)} accent="var(--wrn)" icon="⏳" />
+        <StatCard flat label={seeAll ? tr('معتمد — مستحق للموظفين') : tr('معتمد — مستحق لك')} value={formatOMR(totals.owed)} accent="var(--info)" icon="✅" />
+        <StatCard flat label={tr('تم التعويض')} value={formatOMR(totals.reimbursed)} accent="var(--suc)" icon="💵" />
       </div>
 
       <div className="toolbar">
         {seeAll && (
-          <select className="input toolbar-select" value={filters.person} onChange={setFilter('person')} aria-label="الموظف">
-            <option value="">كل الموظفين</option>
+          <select className="input toolbar-select" value={filters.person} onChange={setFilter('person')} aria-label={tr('الموظف')}>
+            <option value="">{tr('كل الموظفين')}</option>
             {people.map((id) => (
               <option key={id} value={id}>
                 {nameOf(id)}
@@ -256,26 +257,26 @@ export default function Expenses() {
             ))}
           </select>
         )}
-        <SelectOptions className="input toolbar-select" options={EXPENSE_STATUSES} placeholder="كل الحالات" value={filters.status} onChange={setFilter('status')} />
-        <select className="input toolbar-select" value={filters.month} onChange={setFilter('month')} aria-label="الشهر">
-          <option value="">كل الأشهر</option>
+        <SelectOptions className="input toolbar-select" options={EXPENSE_STATUSES} placeholder={tr('كل الحالات')} value={filters.status} onChange={setFilter('status')} />
+        <select className="input toolbar-select" value={filters.month} onChange={setFilter('month')} aria-label={tr('الشهر')}>
+          <option value="">{tr('كل الأشهر')}</option>
           {months.map((m) => (
             <option key={m} value={m}>
-              {m}
+              {tr(m)}
             </option>
           ))}
         </select>
         <ExhibitionFilter className="toolbar-select" exhibitions={exhibitions} value={filters.exhibition} onChange={setFilter('exhibition')} />
-        <div className="toolbar-count">{visible.length} نتيجة</div>
+        <div className="toolbar-count">{visible.length}{' '}{tr('نتيجة')}</div>
       </div>
 
-      <Panel title="🧾 المصروفات والفواتير">
+      <Panel title={tr('🧾 المصروفات والفواتير')}>
         <div className="table-wrap">
           <table className="table" style={{ minWidth: 900 }}>
             <thead>
               <tr>
-                {['التاريخ', ...(seeAll ? ['الموظف'] : []), 'الوصف', 'التصنيف', 'المعرض', 'المبلغ', 'الحالة', 'الإيصال', ''].map((h) => (
-                  <th key={h}>{h}</th>
+                {[tr('التاريخ'), ...(seeAll ? [tr('الموظف')] : []), tr('الوصف'), tr('التصنيف'), tr('المعرض'), tr('المبلغ'), tr('الحالة'), tr('الإيصال'), ''].map((h) => (
+                  <th key={h}>{tr(h)}</th>
                 ))}
               </tr>
             </thead>
@@ -285,23 +286,23 @@ export default function Expenses() {
                 const pending = x.status === EXPENSE_PENDING
                 return (
                   <tr key={x.id}>
-                    <td className="small nowrap">{x.date}</td>
+                    <td className="small nowrap">{tr(x.date)}</td>
                     {seeAll && <td className="strong">{nameOf(x.user_id)}</td>}
                     <td>
-                      <div className="strong">{x.description}</div>
+                      <div className="strong">{tr(x.description)}</div>
                       {(x.vendor || x.payment_method) && <div className="muted tiny">{[x.vendor, x.payment_method].filter(Boolean).join(' • ')}</div>}
-                      {x.review_note && <div className="tiny text-dng">ملاحظة: {x.review_note}</div>}
+                      {x.review_note && <div className="tiny text-dng">{tr('ملاحظة:')}{' '}{tr(x.review_note)}</div>}
                     </td>
-                    <td>{x.category && <Chip>{x.category}</Chip>}</td>
-                    <td className="small">{x.exhibition_id ? exhibitionLabel(exhibitionOf(x.exhibition_id)) : 'عام'}</td>
+                    <td>{tr(x.category) && <Chip>{tr(x.category)}</Chip>}</td>
+                    <td className="small">{x.exhibition_id ? exhibitionLabel(exhibitionOf(x.exhibition_id)) : tr('عام')}</td>
                     <td className="amount">{formatOMR(x.amount)}</td>
                     <td>
                       <StatusBadge status={x.status} />
                     </td>
                     <td>
                       {x.receipt_path ? (
-                        <Button size="sm" variant="outline" onClick={() => viewReceipt(x)} title="عرض الفاتورة">
-                          📎 عرض
+                        <Button size="sm" variant="outline" onClick={() => viewReceipt(x)} title={tr('عرض الفاتورة')}>
+                          {tr('📎 عرض')}
                         </Button>
                       ) : (
                         <span className="muted tiny">—</span>
@@ -311,26 +312,26 @@ export default function Expenses() {
                       <div className="row-actions">
                         {reviewer && pending && (
                           <>
-                            <Button size="sm" onClick={() => act(x, EXPENSE_APPROVED)} disabled={busy === x.id} title="اعتماد">
-                              ✓ اعتماد
+                            <Button size="sm" onClick={() => act(x, EXPENSE_APPROVED)} disabled={busy === x.id} title={tr('اعتماد')}>
+                              {tr('✓ اعتماد')}
                             </Button>
-                            <Button size="sm" variant="danger" onClick={() => act(x, EXPENSE_REJECTED)} disabled={busy === x.id} title="رفض">
+                            <Button size="sm" variant="danger" onClick={() => act(x, EXPENSE_REJECTED)} disabled={busy === x.id} title={tr('رفض')}>
                               ✕
                             </Button>
                           </>
                         )}
                         {reviewer && x.status === EXPENSE_APPROVED && (
-                          <Button size="sm" variant="outline" onClick={() => act(x, EXPENSE_REIMBURSED)} disabled={busy === x.id} title="تم دفع المبلغ للموظف">
-                            💵 تم التعويض
+                          <Button size="sm" variant="outline" onClick={() => act(x, EXPENSE_REIMBURSED)} disabled={busy === x.id} title={tr('تم دفع المبلغ للموظف')}>
+                            {tr('💵 تم التعويض')}
                           </Button>
                         )}
                         {((mine && pending) || reviewer) && (
-                          <Button size="sm" variant="outline" onClick={() => setEditing(x)} title="تعديل">
+                          <Button size="sm" variant="outline" onClick={() => setEditing(x)} title={tr('تعديل')}>
                             ✏️
                           </Button>
                         )}
                         {((mine && pending) || reviewer) && (
-                          <Button size="sm" variant="danger" onClick={() => remove(x)} title="حذف">
+                          <Button size="sm" variant="danger" onClick={() => remove(x)} title={tr('حذف')}>
                             🗑️
                           </Button>
                         )}
@@ -342,7 +343,7 @@ export default function Expenses() {
             </tbody>
           </table>
         </div>
-        {!visible.length && <EmptyState icon="🧾" text={expenses.length ? 'لا توجد نتائج لهذا الفلتر' : canWrite ? 'لا توجد مصروفات بعد — اضغط «+ إضافة مصروف»' : 'لا توجد مصروفات بعد'} />}
+        {!visible.length && <EmptyState icon="🧾" text={expenses.length ? tr('لا توجد نتائج لهذا الفلتر') : canWrite ? tr('لا توجد مصروفات بعد — اضغط «+ إضافة مصروف»') : tr('لا توجد مصروفات بعد')} />}
       </Panel>
 
       {editing && (

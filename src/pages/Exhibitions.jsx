@@ -17,6 +17,7 @@ import { exhibitionTitle, formatOMR } from '../lib/format.js'
 import { tierColor, tiersFromSites } from '../lib/sites.js'
 import { useData } from '../lib/useData.js'
 import { useCan } from '../context/AuthContext.jsx'
+import { tr } from '../lib/i18n.js'
 
 const load = async () => {
   const [exhibitions, exhibitors, payments, sites] = await Promise.all([
@@ -41,11 +42,11 @@ export default function Exhibitions() {
 
   const remove = async (ex) => {
     const people = exhibitors.filter((e) => e.exhibition_id === ex.id).length
-    const what = `المواقع والمصروفات والرعاة${people ? ` و${people} مشارك` : ''}`
-    if (!confirm(`حذف "${exhibitionTitle(ex)}" وكل بياناته (${what})؟ لا يمكن التراجع.`)) return
+    const what = people ? tr('المواقع والمصروفات والرعاة و{0} مشارك', [people]) : tr('المواقع والمصروفات والرعاة')
+    if (!confirm(tr('حذف "{0}" وكل بياناته ({1})؟ لا يمكن التراجع.', [exhibitionTitle(ex), what]))) return
     try {
       await deleteExhibition(ex.id)
-      toast('🗑️ تم الحذف')
+      toast(tr('🗑️ تم الحذف'))
       reload()
     } catch (err) {
       toast(err.message, 'error')
@@ -56,16 +57,16 @@ export default function Exhibitions() {
 
   return (
     <>
-      <PageHeader title="المعارض والمواعيد" subtitle={`${exhibitions.length} معرض مسجل`}>
+      <PageHeader title={tr('المعارض والمواعيد')} subtitle={tr('{0} معرض مسجل', [exhibitions.length])}>
         <div className="tabs">
           <button className={`tab ${view === 'cards' ? 'active' : ''}`} onClick={() => setView('cards')}>
-            🏛️ المعارض
+            {tr('🏛️ المعارض')}
           </button>
           <button className={`tab ${view === 'calendar' ? 'active' : ''}`} onClick={() => setView('calendar')}>
-            📅 التقويم السنوي
+            {tr('📅 التقويم السنوي')}
           </button>
         </div>
-        {canManage && <Button onClick={openNew}>🏛️ + إضافة معرض</Button>}
+        {canManage && <Button onClick={openNew}>{tr('🏛️ + إضافة معرض')}</Button>}
       </PageHeader>
 
       {view === 'calendar' && <AnnualCalendar exhibitions={exhibitions} />}
@@ -80,13 +81,13 @@ export default function Exhibitions() {
             <article key={ex.id} className="ex-card">
               <Link to={`/exhibitions/${ex.id}`} className="ex-card-head">
                 <div className="ex-card-city">
-                  {ex.city} • {ex.occasion || 'سلطنة عُمان'}
+                  {tr(ex.city)} • {tr(ex.occasion) || tr('سلطنة عُمان')}
                 </div>
                 <div className={`ex-card-brand ${ex.name ? 'ex-card-brand-long' : ''}`}>{ex.name || 'SOVA'}</div>
                 <div className="ex-card-meta">
-                  📅 {ex.date_from} – {ex.date_to}
+                  📅 {tr(ex.date_from)} – {tr(ex.date_to)}
                 </div>
-                <div className="ex-card-meta dim">📍 {ex.mall}</div>
+                <div className="ex-card-meta dim">📍 {tr(ex.mall)}</div>
                 <div className="ex-card-status">
                   <StatusBadge status={ex.status} />
                 </div>
@@ -94,39 +95,39 @@ export default function Exhibitions() {
               <div className="ex-card-tiers">
                 {tiers.map((tier, idx) => (
                   <div key={idx} className="tier-chip" style={{ '--tier': tierColor(tier.name, idx) }}>
-                    <div className="strong small">{tier.name}</div>
-                    <div className="tier-chip-price">{tier.price} ر.ع</div>
-                    <div className="muted tiny">{tier.count} بوث</div>
+                    <div className="strong small">{tr(tier.name)}</div>
+                    <div className="tier-chip-price">{tier.price}{' '}{tr('ر.ع')}</div>
+                    <div className="muted tiny">{tier.count}{' '}{tr('بوث')}</div>
                   </div>
                 ))}
               </div>
               <div className="ex-card-stats">
                 {[
-                  ['المواقع المحجوزة', `${stats.booked} / ${stats.capacity} (${stats.occupancy}%)`],
+                  [tr('المواقع المحجوزة'), `${stats.booked} / ${stats.capacity} (${stats.occupancy}%)`],
                   ...(money
                     ? [
-                        ['الإيراد عند البيع الكامل', formatOMR(stats.fullRevenue)],
-                        ['إجمالي العقود', formatOMR(stats.contract)],
-                        ['المحصّل', formatOMR(stats.collected)],
-                        ['المتبقي للتحصيل', formatOMR(stats.outstanding)],
+                        [tr('الإيراد عند البيع الكامل'), formatOMR(stats.fullRevenue)],
+                        [tr('إجمالي العقود'), formatOMR(stats.contract)],
+                        [tr('المحصّل'), formatOMR(stats.collected)],
+                        [tr('المتبقي للتحصيل'), formatOMR(stats.outstanding)],
                       ]
-                    : [['المواقع المتاحة', `${stats.available}`]]),
+                    : [[tr('المواقع المتاحة'), `${stats.available}`]]),
                 ].map(([label, value]) => (
                   <div key={label} className="kv-row">
-                    <span>{label}</span>
-                    <strong>{value}</strong>
+                    <span>{tr(label)}</span>
+                    <strong>{tr(value)}</strong>
                   </div>
                 ))}
               </div>
               <div className="ex-card-actions">
                 <Link to={`/exhibitions/${ex.id}`} className="btn btn-primary btn-sm">
-                  📂 ملف المعرض
+                  {tr('📂 ملف المعرض')}
                 </Link>
                 {canManage && (<>
                 <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...ex }, id: ex.id })}>
-                  ✏️ تعديل
+                  {tr('✏️ تعديل')}
                 </Button>
-                <Button size="sm" variant="danger" onClick={() => remove(ex)} aria-label="حذف">
+                <Button size="sm" variant="danger" onClick={() => remove(ex)} aria-label={tr('حذف')}>
                   🗑️
                 </Button>
                 </>)}
@@ -137,7 +138,7 @@ export default function Exhibitions() {
 
         {canManage && <button className="add-card" onClick={openNew}>
           <div className="add-card-icon">🏛️</div>
-          <div className="strong">+ إضافة معرض جديد</div>
+          <div className="strong">{tr('+ إضافة معرض جديد')}</div>
         </button>}
       </div>
       )}

@@ -11,6 +11,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { SPONSOR_STATUSES } from '../../lib/constants.js'
 import { sumBy } from '../../lib/finance.js'
 import { formatOMR } from '../../lib/format.js'
+import { tr } from '../../lib/i18n.js'
 
 function SponsorForm({ exhibitionId, initial, id, onClose, onSaved }) {
   const toast = useToast()
@@ -19,11 +20,11 @@ function SponsorForm({ exhibitionId, initial, id, onClose, onSaved }) {
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
 
   const submit = async () => {
-    if (!form.name?.trim()) return toast('اكتب اسم الراعي', 'error')
+    if (!form.name?.trim()) return toast(tr('اكتب اسم الراعي'), 'error')
     setSaving(true)
     try {
       await saveSponsor(form, exhibitionId, id)
-      toast(id ? '✅ تم التحديث' : '✅ تمت إضافة الراعي')
+      toast(id ? tr('✅ تم التحديث') : tr('✅ تمت إضافة الراعي'))
       onSaved()
     } catch (err) {
       toast(err.message, 'error')
@@ -34,37 +35,37 @@ function SponsorForm({ exhibitionId, initial, id, onClose, onSaved }) {
 
   return (
     <Modal
-      title={id ? 'تعديل راعٍ' : 'إضافة راعٍ'}
+      title={id ? tr('تعديل راعٍ') : tr('إضافة راعٍ')}
       onClose={onClose}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            إلغاء
+            {tr('إلغاء')}
           </Button>
           <Button onClick={submit} disabled={saving}>
-            {saving ? 'جاري...' : 'حفظ'}
+            {saving ? tr('جاري...') : tr('حفظ')}
           </Button>
         </>
       }
     >
       <div className="form-grid">
-        <Field label="اسم الراعي" required>
+        <Field label={tr('اسم الراعي')} required>
           <input className="input" value={form.name || ''} onChange={set('name')} />
         </Field>
-        <Field label="قيمة الرعاية (ر.ع)">
+        <Field label={tr('قيمة الرعاية (ر.ع)')}>
           <input className="input" type="number" min="0" step="0.001" value={form.amount ?? ''} onChange={set('amount')} />
         </Field>
-        <Field label="الشخص المسؤول">
+        <Field label={tr('الشخص المسؤول')}>
           <input className="input" value={form.contact_name || ''} onChange={set('contact_name')} />
         </Field>
-        <Field label="الهاتف">
+        <Field label={tr('الهاتف')}>
           <input className="input" type="tel" dir="ltr" value={form.phone || ''} onChange={set('phone')} />
         </Field>
-        <Field label="الحالة">
+        <Field label={tr('الحالة')}>
           <SelectOptions options={SPONSOR_STATUSES} placeholder={null} value={form.status || 'متفق عليه'} onChange={set('status')} />
         </Field>
       </div>
-      <Field label="ملاحظات" hint="مثال: ما يحصل عليه الراعي (شعار على اللوحات، موقع مميز...)">
+      <Field label={tr('ملاحظات')} hint={tr('مثال: ما يحصل عليه الراعي (شعار على اللوحات، موقع مميز...)')}>
         <input className="input" value={form.notes || ''} onChange={set('notes')} />
       </Field>
     </Modal>
@@ -78,10 +79,10 @@ export default function SponsorsTab({ exhibitionId, sponsors, onChanged }) {
   const total = sumBy(sponsors, 'amount')
 
   const remove = async (s) => {
-    if (!confirm(`حذف الراعي "${s.name}"؟`)) return
+    if (!confirm(tr('حذف الراعي "{0}"؟', [s.name]))) return
     try {
       await deleteSponsor(s.id)
-      toast('🗑️ تم الحذف')
+      toast(tr('🗑️ تم الحذف'))
       onChanged()
     } catch (err) {
       toast(err.message, 'error')
@@ -91,12 +92,12 @@ export default function SponsorsTab({ exhibitionId, sponsors, onChanged }) {
   return (
     <Panel
       icon="⭐"
-      title="الرعاة"
-      subtitle={`${sponsors.length} راعٍ • ${formatOMR(total)}`}
+      title={tr('الرعاة')}
+      subtitle={tr('{0} راعٍ • {1}', [sponsors.length, formatOMR(total)])}
       action={
         canWrite && (
           <Button size="sm" onClick={() => setEditing({ form: { status: 'متفق عليه' }, id: null })}>
-            + إضافة راعٍ
+            {tr('+ إضافة راعٍ')}
           </Button>
         )
       }
@@ -105,17 +106,17 @@ export default function SponsorsTab({ exhibitionId, sponsors, onChanged }) {
         <table className="table">
           <thead>
             <tr>
-              {['الراعي', 'المسؤول', 'الهاتف', 'القيمة', 'الحالة', 'ملاحظات', ''].map((h) => (
-                <th key={h}>{h}</th>
+              {[tr('الراعي'), tr('المسؤول'), tr('الهاتف'), tr('القيمة'), tr('الحالة'), tr('ملاحظات'), ''].map((h) => (
+                <th key={h}>{tr(h)}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {sponsors.map((s) => (
               <tr key={s.id}>
-                <td className="strong">{s.name}</td>
+                <td className="strong">{tr(s.name)}</td>
                 <td>{s.contact_name || '—'}</td>
-                <td className="ltr">{s.phone}</td>
+                <td className="ltr">{tr(s.phone)}</td>
                 <td className="num strong">{formatOMR(s.amount)}</td>
                 <td>
                   <StatusBadge status={s.status} />
@@ -126,10 +127,10 @@ export default function SponsorsTab({ exhibitionId, sponsors, onChanged }) {
                 <td>
                   {canWrite && (
                   <div className="row-actions">
-                    <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...s }, id: s.id })} title="تعديل">
+                    <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...s }, id: s.id })} title={tr('تعديل')}>
                       ✏️
                     </Button>
-                    <Button size="sm" variant="danger" onClick={() => remove(s)} title="حذف">
+                    <Button size="sm" variant="danger" onClick={() => remove(s)} title={tr('حذف')}>
                       🗑️
                     </Button>
                   </div>
@@ -140,7 +141,7 @@ export default function SponsorsTab({ exhibitionId, sponsors, onChanged }) {
           </tbody>
         </table>
       </div>
-      {!sponsors.length && <EmptyState icon="⭐" text="لا يوجد رعاة لهذا المعرض بعد" />}
+      {!sponsors.length && <EmptyState icon="⭐" text={tr('لا يوجد رعاة لهذا المعرض بعد')} />}
 
       {editing && (
         <SponsorForm

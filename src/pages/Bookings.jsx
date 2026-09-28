@@ -12,6 +12,7 @@ import { BOOKING_STATUSES } from '../lib/constants.js'
 import { exhibitionLabel, formatDate } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { openWhatsApp, welcomeMessage, whatsappUrl } from '../lib/whatsapp.js'
+import { tr } from '../lib/i18n.js'
 
 const load = async () => {
   const [bookings, exhibitions] = await Promise.all([listBookings(), listExhibitions()])
@@ -38,12 +39,12 @@ function BookingDetails({ booking, exhibition, onClose, onAccept, onReject, busy
       <div className="modal slide-in" style={{ width: 500 }} role="dialog" aria-modal="true" aria-label={booking.brand}>
         <div className="modal-header modal-header-dark">
           <div>
-            <div className="modal-title">{booking.brand}</div>
-            <div className="modal-subtitle">طلب حجز • {formatDate(booking.created_at)}</div>
+            <div className="modal-title">{tr(booking.brand)}</div>
+            <div className="modal-subtitle">{tr('طلب حجز •')}{' '}{formatDate(booking.created_at)}</div>
           </div>
           <div className="row-actions">
             <StatusBadge status={booking.status} />
-            <button className="icon-btn icon-btn-dark" onClick={onClose} aria-label="إغلاق">
+            <button className="icon-btn icon-btn-dark" onClick={onClose} aria-label={tr('إغلاق')}>
               ✕
             </button>
           </div>
@@ -51,8 +52,8 @@ function BookingDetails({ booking, exhibition, onClose, onAccept, onReject, busy
         <div className="modal-body">
           {rows.map(([label, value]) => (
             <div key={label} className="detail-row">
-              <span className="detail-label">{label}</span>
-              <strong className="detail-value">{value}</strong>
+              <span className="detail-label">{tr(label)}</span>
+              <strong className="detail-value">{tr(value)}</strong>
             </div>
           ))}
         </div>
@@ -63,24 +64,24 @@ function BookingDetails({ booking, exhibition, onClose, onAccept, onReject, busy
               className="flex-1"
               onClick={() => {
                 openWhatsApp(booking.phone, welcomeMessage(booking, exhibition))
-                toast('📱 فُتح واتساب')
+                toast(tr('📱 فُتح واتساب'))
               }}
             >
-              📱 تواصل واتساب
+              {tr('📱 تواصل واتساب')}
             </Button>
           )}
           {canWrite && booking.status === 'معلق' && (
             <>
               <Button variant="success" onClick={onAccept} disabled={busy}>
-                ✅ قبول
+                {tr('✅ قبول')}
               </Button>
               <Button variant="danger" onClick={onReject} disabled={busy}>
-                ✗ رفض
+                {tr('✗ رفض')}
               </Button>
             </>
           )}
           <Button variant="outline" onClick={onClose}>
-            إغلاق
+            {tr('إغلاق')}
           </Button>
         </div>
       </div>
@@ -134,11 +135,11 @@ export default function Bookings() {
 
   return (
     <>
-      <PageHeader title="طلبات الحجز" subtitle={`${countOf('معلق')} طلب معلق يحتاج مراجعة`}>
+      <PageHeader title={tr('طلبات الحجز')} subtitle={tr('{0} طلب معلق يحتاج مراجعة', [countOf('معلق')])}>
         <div className="tabs">
           {[...BOOKING_STATUSES, ALL].map((s) => (
             <button key={s} className={`tab ${filter === s ? 'active' : ''}`} onClick={() => setFilter(s)}>
-              {s}
+              {tr(s)}
             </button>
           ))}
         </div>
@@ -147,7 +148,7 @@ export default function Bookings() {
       <div className="grid-3 mb-20">
         {BOOKING_STATUSES.map((s) => (
           <button key={s} className="count-card" style={{ '--accent': TONES[s] }} onClick={() => setFilter(s)}>
-            <div className="muted small">{s}</div>
+            <div className="muted small">{tr(s)}</div>
             <div className="count-card-value">{countOf(s)}</div>
           </button>
         ))}
@@ -158,17 +159,17 @@ export default function Bookings() {
           <div key={b.id} className="booking-row" onClick={() => setSelected(b)}>
             <div className="booking-icon">🏪</div>
             <div className="flex-1">
-              <div className="booking-brand">{b.brand}</div>
+              <div className="booking-brand">{tr(b.brand)}</div>
               <div className="muted small">
                 {[b.manager, b.phone, b.category, exhibitionLabel(exhibitionOf(b.exhibition_id))].filter(Boolean).join(' • ')}
               </div>
             </div>
             <div className="muted tiny hide-mobile">{formatDate(b.created_at)}</div>
             <StatusBadge status={b.status} />
-            <span className="muted small hide-mobile">اضغط للتفاصيل ↗</span>
+            <span className="muted small hide-mobile">{tr('اضغط للتفاصيل ↗')}</span>
           </div>
         ))}
-        {!visible.length && <EmptyState icon="📬" text="لا توجد طلبات في هذا القسم" />}
+        {!visible.length && <EmptyState icon="📬" text={tr('لا توجد طلبات في هذا القسم')} />}
       </div>
 
       {selected && (

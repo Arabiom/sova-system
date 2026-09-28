@@ -6,6 +6,7 @@ import { supabase, unwrap } from './client.js'
 import { findOrCreateClient } from './clients.js'
 import { createExhibitor, updateExhibitor } from './exhibitors.js'
 import { recordPayment } from './payments.js'
+import { tr } from '../lib/i18n.js'
 
 const sites = () => supabase.from('exhibition_sites')
 const expenses = () => supabase.from('exhibition_expenses')
@@ -112,7 +113,7 @@ export const deleteSponsor = (id) => unwrap(sponsors().delete().eq('id', id))
  */
 export async function applyImport(exhibitionId, plan, matched, { replaceSites = false } = {}, onProgress = () => {}) {
   const existing = await unwrap(sites().select('id').eq('exhibition_id', exhibitionId).limit(1))
-  if (existing.length && !replaceSites) throw new Error('هذا المعرض لديه خارطة مواقع بالفعل. وافق على استبدالها لإكمال الاستيراد.')
+  if (existing.length && !replaceSites) throw new Error(tr('هذا المعرض لديه خارطة مواقع بالفعل. وافق على استبدالها لإكمال الاستيراد.'))
   if (existing.length) await deleteAllSites(exhibitionId)
 
   await unwrap(sites().insert(plan.sites.map((s) => ({ exhibition_id: exhibitionId, number: s.number, tier: s.tier, price: s.price }))))

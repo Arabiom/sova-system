@@ -2,6 +2,7 @@
 // the site map plus one exhibitor per participant, grouped across the booths they hold.
 
 import { num, phoneKey } from './format.js'
+import { tr } from './i18n.js'
 
 const HEADERS = {
   number: ['رقم الكشك', 'رقم الموقع', 'رقم البوث', 'الكشك', 'الموقع'],
@@ -31,7 +32,7 @@ function locateColumns(rows) {
     }
     if (cols.number !== undefined && cols.price !== undefined) return { headerRow: r, cols }
   }
-  throw new Error('لم أجد صف العناوين. يجب أن يحتوي الملف على عمودي "رقم الكشك" و"السعر".')
+  throw new Error(tr('لم أجد صف العناوين. يجب أن يحتوي الملف على عمودي "رقم الكشك" و"السعر".'))
 }
 
 /** Most common value (ties → the larger one). */
@@ -72,7 +73,7 @@ export function planImport(rows) {
       notes: clean(get(row, 'notes')),
     })
   }
-  if (!bookings.length) throw new Error('لم أجد أي صف فيه رقم كشك.')
+  if (!bookings.length) throw new Error(tr('لم أجد أي صف فيه رقم كشك.'))
 
   // 2. One entry per booth number; if a number repeats keep the row with a participant.
   const byNumber = new Map()
@@ -81,7 +82,7 @@ export function planImport(rows) {
     const taken = (x) => Boolean(x.manager || x.brand)
     if (!prev) byNumber.set(b.number, b)
     else {
-      warnings.push(`الكشك رقم ${b.number} مكرر (السطر ${prev.line} والسطر ${b.line}) — اعتمدت ${taken(b) && !taken(prev) ? `السطر ${b.line}` : `السطر ${prev.line}`}.`)
+      warnings.push(tr('الكشك رقم {0} مكرر (السطر {1} والسطر {2}) — اعتمدت السطر {3}.', [b.number, prev.line, b.line, taken(b) && !taken(prev) ? b.line : prev.line]))
       if (taken(b) && !taken(prev)) byNumber.set(b.number, b)
     }
   }
@@ -110,9 +111,9 @@ export function planImport(rows) {
       if (note && !g.notes.includes(note)) g.notes.push(note)
     }
     const digits = phoneKey(b.phone)
-    if (b.phone && digits.length !== 8) warnings.push(`رقم هاتف "${b.phone}" (${b.brand || b.manager}) ليس 8 أرقام — تحقق منه.`)
+    if (b.phone && digits.length !== 8) warnings.push(tr('رقم هاتف "{0}" ({1}) ليس 8 أرقام — تحقق منه.', [b.phone, b.brand || b.manager]))
     if (b.price < (listPrice.get(b.tier) || 0)) {
-      warnings.push(`الكشك ${b.number} (${b.brand || b.manager}) بسعر ${b.price} بدل ${listPrice.get(b.tier)} — سُجّل الفرق كخصم في قيمة العقد.`)
+      warnings.push(tr('الكشك {0} ({1}) بسعر {2} بدل {3} — سُجّل الفرق كخصم في قيمة العقد.', [b.number, b.brand || b.manager, b.price, listPrice.get(b.tier)]))
     }
   }
   const exhibitors = [...groups.values()].map((g) => ({ ...g, notes: g.notes.join(' | ') }))
@@ -136,7 +137,7 @@ export function planImport(rows) {
 export async function readFirstSheet(file) {
   const { default: readExcelFile } = await import('read-excel-file/browser')
   const sheets = await readExcelFile(file)
-  if (!sheets.length) throw new Error('الملف لا يحتوي على أوراق.')
+  if (!sheets.length) throw new Error(tr('الملف لا يحتوي على أوراق.'))
   return sheets[0].data
 }
 

@@ -4,6 +4,7 @@ import { normalizePhone, openChat } from '../lib/whatsapp.js'
 import Button from './Button.jsx'
 import Modal from './Modal.jsx'
 import { WhatsAppText } from './WhatsAppText.jsx'
+import { tr } from '../lib/i18n.js'
 
 /**
  * Send a prepared list one chat at a time. Each chat opens straight from a click (or Enter),
@@ -60,17 +61,17 @@ export default function WhatsAppQueue({ items, mode, campaign, onClose }) {
 
   return (
     <Modal
-      title="📱 إرسال الرسائل"
-      subtitle={`${campaign.name} • ${items.length} رقم`}
+      title={tr('📱 إرسال الرسائل')}
+      subtitle={tr('{0} • {1} رقم', [campaign.name, items.length])}
       onClose={onClose}
       size="lg"
       footer={
         done ? (
-          <Button onClick={onClose}>تم ✓</Button>
+          <Button onClick={onClose}>{tr('تم ✓')}</Button>
         ) : (
           <>
             <Button variant="outline" onClick={() => setIndex((i) => Math.max(0, i - 1))} disabled={index === 0}>
-              → السابق
+              {tr('→ السابق')}
             </Button>
             <Button
               variant="outline"
@@ -79,10 +80,10 @@ export default function WhatsAppQueue({ items, mode, campaign, onClose }) {
                 next()
               }}
             >
-              تخطي ←
+              {tr('تخطي ←')}
             </Button>
             <Button variant="whatsapp" size="lg" onClick={send}>
-              📱 افتح المحادثة ({index + 1}/{items.length})
+              {tr('📱 افتح المحادثة (')}{index + 1}/{items.length})
             </Button>
           </>
         )
@@ -92,29 +93,29 @@ export default function WhatsAppQueue({ items, mode, campaign, onClose }) {
         <div className="wa-progress-bar" style={{ width: `${pct}%` }} />
       </div>
       <div className="wa-progress-meta">
-        <span>✅ أُرسل {sent}</span>
-        {skipped > 0 && <span>⏭️ تُخطّي {skipped}</span>}
-        <span>⏳ متبقٍ {items.length - sent - skipped}</span>
+        <span>{tr('✅ أُرسل')}{' '}{sent}</span>
+        {skipped > 0 && <span>{tr('⏭️ تُخطّي')}{' '}{tr(skipped)}</span>}
+        <span>{tr('⏳ متبقٍ')}{' '}{items.length - sent - skipped}</span>
       </div>
 
       {done ? (
         <div className="wa-done">
           <div className="wa-done-icon">🎉</div>
-          <div className="strong">انتهت القائمة</div>
+          <div className="strong">{tr('انتهت القائمة')}</div>
           <div className="muted small">
-            فُتحت {sent} محادثة{skipped ? `، وتُخطّي ${skipped}` : ''}. تأكد أنك ضغطت «إرسال» داخل واتساب في كل محادثة.
+            {tr('فُتحت')}{' '}{sent}{' '}{tr('محادثة')}{skipped ? tr('، وتُخطّي {0}', [skipped]) : ''}{tr('. تأكد أنك ضغطت «إرسال» داخل واتساب في كل محادثة.')}
           </div>
         </div>
       ) : (
         <div className="wa-queue-current">
           <div className="wa-queue-who">
             <div>
-              <div className="strong">{current.recipient.brand || current.recipient.name || 'بدون اسم'}</div>
+              <div className="strong">{current.recipient.brand || current.recipient.name || tr('بدون اسم')}</div>
               <div className="muted tiny" dir="ltr">
                 +{normalizePhone(current.recipient.phone)}
               </div>
             </div>
-            {status[index] === 'sent' && <span className="badge badge-success">فُتحت سابقاً</span>}
+            {status[index] === 'sent' && <span className="badge badge-success">{tr('فُتحت سابقاً')}</span>}
           </div>
           <div className="wa-chat">
             <div className="wa-bubble">
@@ -134,9 +135,9 @@ export default function WhatsAppQueue({ items, mode, campaign, onClose }) {
       </div>
 
       <div className="muted tiny center mt-10">
-        اضغط الزر (أو Enter) لفتح المحادثة والرسالة جاهزة، ثم اضغط «إرسال» في واتساب وارجع هنا — تنتقل القائمة للرقم التالي تلقائياً.
+        {tr('اضغط الزر (أو Enter) لفتح المحادثة والرسالة جاهزة، ثم اضغط «إرسال» في واتساب وارجع هنا — تنتقل القائمة للرقم التالي تلقائياً.')}
       </div>
-      {logFailed && <div className="tiny text-dng center mt-10">لم يُحفظ السجل — شغّل تحديث 015 في Supabase. الرسائل نفسها تُفتح عادي.</div>}
+      {logFailed && <div className="tiny text-dng center mt-10">{tr('لم يُحفظ السجل — شغّل تحديث 015 في Supabase. الرسائل نفسها تُفتح عادي.')}</div>}
     </Modal>
   )
 }

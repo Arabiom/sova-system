@@ -1,4 +1,5 @@
 import { COMPANY } from './constants.js'
+import { tr } from './i18n.js'
 import { formatDayMonthYear } from './dates.js'
 import { exhibitionTitle, fixed3, num, phoneKey } from './format.js'
 
@@ -15,9 +16,9 @@ export function normalizePhone(phone) {
 /** Why a number can't receive a message, or '' when it can. */
 export function phoneProblem(phone) {
   const digits = normalizePhone(phone)
-  if (!digits) return 'بدون رقم'
-  if (digits.startsWith('968') && digits.length !== 11) return 'رقم ناقص أو زائد'
-  if (digits.length < 10 || digits.length > 15) return 'رقم غير صحيح'
+  if (!digits) return tr('بدون رقم')
+  if (digits.startsWith('968') && digits.length !== 11) return tr('رقم ناقص أو زائد')
+  if (digits.length < 10 || digits.length > 15) return tr('رقم غير صحيح')
   return ''
 }
 
@@ -26,9 +27,9 @@ export const whatsappUrl = (phone, text) =>
 
 /** Ways to open a chat: wa.me (phone or desktop), one reused WhatsApp Web tab, or the desktop app. */
 export const OPEN_MODES = [
-  { id: 'wa', label: 'تلقائي (wa.me)', hint: 'يفتح تطبيق واتساب في الجوال، ويسأل في الكمبيوتر' },
-  { id: 'web', label: 'واتساب ويب — نافذة واحدة', hint: 'في الكمبيوتر: كل رسالة تُفتح في نفس النافذة بدل نافذة جديدة لكل رقم' },
-  { id: 'app', label: 'تطبيق واتساب للكمبيوتر', hint: 'يفتح المحادثة مباشرة في التطبيق المثبّت على الكمبيوتر' },
+  { id: 'wa', label: tr('تلقائي (wa.me)'), hint: tr('يفتح تطبيق واتساب في الجوال، ويسأل في الكمبيوتر') },
+  { id: 'web', label: tr('واتساب ويب — نافذة واحدة'), hint: tr('في الكمبيوتر: كل رسالة تُفتح في نفس النافذة بدل نافذة جديدة لكل رقم') },
+  { id: 'app', label: tr('تطبيق واتساب للكمبيوتر'), hint: tr('يفتح المحادثة مباشرة في التطبيق المثبّت على الكمبيوتر') },
 ]
 
 export function chatUrl(phone, text, mode = 'wa') {
@@ -58,22 +59,22 @@ export function daysUntil(date, now = new Date()) {
 
 /** Placeholders written as {name} in a message; each recipient gets their own value. */
 export const VARIABLES = [
-  { key: 'الاسم', hint: 'اسم المسؤول' },
-  { key: 'العلامة', hint: 'اسم المشروع / العلامة التجارية' },
-  { key: 'المعرض', hint: 'اسم المعرض' },
-  { key: 'المناسبة', hint: 'مناسبة المعرض' },
-  { key: 'التاريخ', hint: 'من – إلى' },
-  { key: 'المول', hint: 'مكان المعرض' },
-  { key: 'المدينة', hint: 'مدينة المعرض' },
-  { key: 'أوقات_العمل', hint: 'أوقات المعرض' },
-  { key: 'الأيام_المتبقية', hint: 'كم يوم على الافتتاح' },
-  { key: 'الموقع', hint: 'رقم الموقع / البوث' },
-  { key: 'مساحة_البوث', hint: 'حجم البوث' },
-  { key: 'قيمة_العقد', hint: 'للمدير والمالية فقط', money: true },
-  { key: 'المدفوع', hint: 'للمدير والمالية فقط', money: true },
-  { key: 'المتبقي', hint: 'للمدير والمالية فقط', money: true },
-  { key: 'رقم_التواصل', hint: 'رابط واتساب الشركة' },
-  { key: 'الشركة', hint: 'اسم الشركة' },
+  { key: 'الاسم', hint: tr('اسم المسؤول') },
+  { key: 'العلامة', hint: tr('اسم المشروع / العلامة التجارية') },
+  { key: 'المعرض', hint: tr('اسم المعرض') },
+  { key: 'المناسبة', hint: tr('مناسبة المعرض') },
+  { key: 'التاريخ', hint: tr('من – إلى') },
+  { key: 'المول', hint: tr('مكان المعرض') },
+  { key: 'المدينة', hint: tr('مدينة المعرض') },
+  { key: 'أوقات_العمل', hint: tr('أوقات المعرض') },
+  { key: 'الأيام_المتبقية', hint: tr('كم يوم على الافتتاح') },
+  { key: 'الموقع', hint: tr('رقم الموقع / البوث') },
+  { key: 'مساحة_البوث', hint: tr('حجم البوث') },
+  { key: 'قيمة_العقد', hint: tr('للمدير والمالية فقط'), money: true },
+  { key: 'المدفوع', hint: tr('للمدير والمالية فقط'), money: true },
+  { key: 'المتبقي', hint: tr('للمدير والمالية فقط'), money: true },
+  { key: 'رقم_التواصل', hint: tr('رابط واتساب الشركة') },
+  { key: 'الشركة', hint: tr('اسم الشركة') },
 ]
 
 const MONEY_KEYS = VARIABLES.filter((v) => v.money).map((v) => v.key)
@@ -139,9 +140,9 @@ export const fillTemplate = (body, vars) =>
 export function messageProblems(body, vars, { money = false } = {}) {
   const problems = []
   for (const key of variablesIn(body)) {
-    if (MONEY_KEYS.includes(key) && !money) problems.push(`{${key}} غير متاح لصلاحيتك`)
-    else if (EXHIBITION_KEYS.includes(key) && !(key in vars)) problems.push(`{${key}}: لم يُحدد المعرض`)
-    else if (!(key in vars) && !MONEY_KEYS.includes(key)) problems.push(`{${key}} متغير غير معروف`)
+    if (MONEY_KEYS.includes(key) && !money) problems.push(tr('{0} غير متاح لصلاحيتك', [`{${key}}`]))
+    else if (EXHIBITION_KEYS.includes(key) && !(key in vars)) problems.push(tr('{0}: لم يُحدد المعرض', [`{${key}}`]))
+    else if (!(key in vars) && !MONEY_KEYS.includes(key)) problems.push(tr('{0} متغير غير معروف', [`{${key}}`]))
   }
   return problems
 }
@@ -217,10 +218,10 @@ export function uniqueByPhone(recipients) {
 // ─── Formatting ─────────────────────────────────────────────────────────────────────
 
 export const FORMATS = [
-  { id: 'bold', label: 'B', title: 'عريض', mark: '*' },
-  { id: 'italic', label: 'I', title: 'مائل', mark: '_' },
-  { id: 'strike', label: 'S', title: 'يتوسطه خط', mark: '~' },
-  { id: 'mono', label: '</>', title: 'خط ثابت', mark: '```' },
+  { id: 'bold', label: 'B', title: tr('عريض'), mark: '*' },
+  { id: 'italic', label: 'I', title: tr('مائل'), mark: '_' },
+  { id: 'strike', label: 'S', title: tr('يتوسطه خط'), mark: '~' },
+  { id: 'mono', label: '</>', title: tr('خط ثابت'), mark: '```' },
 ]
 
 /** Wrap the selected part of `text` in a WhatsApp format mark; returns the new text and cursor. */
@@ -257,7 +258,7 @@ const SIGN = `*فريق ${COMPANY.legalName}*`
 export const BUILTIN_TEMPLATES = [
   {
     id: 'reminder',
-    label: '⏰ تذكير بموعد المعرض',
+    label: tr('⏰ تذكير بموعد المعرض'),
     color: 'var(--gold)',
     body: `السلام عليكم ورحمة الله وبركاته 🌟
 
@@ -282,7 +283,7 @@ ${SIGN}`,
   },
   {
     id: 'confirmed',
-    label: '✅ تأكيد الحجز',
+    label: tr('✅ تأكيد الحجز'),
     color: 'var(--suc)',
     body: `السلام عليكم ورحمة الله وبركاته 🌟
 
@@ -312,7 +313,7 @@ ${SIGN}`,
   },
   {
     id: 'payment',
-    label: '💰 تذكير بالدفع',
+    label: tr('💰 تذكير بالدفع'),
     color: 'var(--wrn)',
     body: `السلام عليكم ورحمة الله وبركاته
 
@@ -341,7 +342,7 @@ ${SIGN}`,
   },
   {
     id: 'invitation',
-    label: '📣 دعوة للمشاركة',
+    label: tr('📣 دعوة للمشاركة'),
     color: '#0EA5E9',
     body: `السلام عليكم ورحمة الله وبركاته 🌟
 
@@ -360,7 +361,7 @@ ${SIGN}`,
   },
   {
     id: 'site',
-    label: '📍 إبلاغ برقم الموقع',
+    label: tr('📍 إبلاغ برقم الموقع'),
     color: '#0D9488',
     body: `السلام عليكم ورحمة الله وبركاته
 
@@ -379,7 +380,7 @@ ${SIGN}`,
   },
   {
     id: 'welcome',
-    label: '🌟 رسالة ترحيب',
+    label: tr('🌟 رسالة ترحيب'),
     color: '#7C3AED',
     body: `السلام عليكم ورحمة الله وبركاته
 
@@ -401,7 +402,7 @@ ${COMPANY.cr}`,
   },
   {
     id: 'thanks',
-    label: '🙏 شكر بعد المعرض',
+    label: tr('🙏 شكر بعد المعرض'),
     color: '#DB2777',
     body: `السلام عليكم ورحمة الله وبركاته
 
@@ -414,7 +415,7 @@ ${COMPANY.cr}`,
 
 ${SIGN}`,
   },
-  { id: 'custom', label: '✏️ رسالة جديدة فارغة', color: 'var(--ink)', body: '' },
+  { id: 'custom', label: tr('✏️ رسالة جديدة فارغة'), color: 'var(--ink)', body: '' },
 ]
 
 const builtin = (id) => BUILTIN_TEMPLATES.find((t) => t.id === id).body

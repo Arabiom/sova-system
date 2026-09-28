@@ -11,6 +11,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { EXPENSE_CATEGORIES } from '../../lib/constants.js'
 import { sumBy } from '../../lib/finance.js'
 import { formatOMR } from '../../lib/format.js'
+import { tr } from '../../lib/i18n.js'
 
 function ExpenseForm({ exhibitionId, initial, id, onClose, onSaved }) {
   const toast = useToast()
@@ -20,11 +21,11 @@ function ExpenseForm({ exhibitionId, initial, id, onClose, onSaved }) {
 
   const submit = async () => {
     if (!form.item?.trim() || !(+form.amount >= 0) || form.amount === '' || form.amount === undefined)
-      return toast('اكتب البند والمبلغ', 'error')
+      return toast(tr('اكتب البند والمبلغ'), 'error')
     setSaving(true)
     try {
       await saveExpense(form, exhibitionId, id)
-      toast(id ? '✅ تم التحديث' : '✅ تمت إضافة المصروف')
+      toast(id ? tr('✅ تم التحديث') : tr('✅ تمت إضافة المصروف'))
       onSaved()
     } catch (err) {
       toast(err.message, 'error')
@@ -35,40 +36,40 @@ function ExpenseForm({ exhibitionId, initial, id, onClose, onSaved }) {
 
   return (
     <Modal
-      title={id ? 'تعديل مصروف' : 'إضافة مصروف'}
+      title={id ? tr('تعديل مصروف') : tr('إضافة مصروف')}
       onClose={onClose}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            إلغاء
+            {tr('إلغاء')}
           </Button>
           <Button onClick={submit} disabled={saving}>
-            {saving ? 'جاري...' : 'حفظ'}
+            {saving ? tr('جاري...') : tr('حفظ')}
           </Button>
         </>
       }
     >
       <div className="form-grid">
-        <Field label="البند" required className="span-2">
-          <input className="input" placeholder="مثال: شيك حجز المساحة" value={form.item || ''} onChange={set('item')} />
+        <Field label={tr('البند')} required className="span-2">
+          <input className="input" placeholder={tr('مثال: شيك حجز المساحة')} value={form.item || ''} onChange={set('item')} />
         </Field>
-        <Field label="التصنيف">
+        <Field label={tr('التصنيف')}>
           <SelectOptions options={EXPENSE_CATEGORIES} value={form.category || ''} onChange={set('category')} />
         </Field>
-        <Field label="المبلغ (ر.ع)" required>
+        <Field label={tr('المبلغ (ر.ع)')} required>
           <input className="input" type="number" min="0" step="0.001" value={form.amount ?? ''} onChange={set('amount')} />
         </Field>
-        <Field label="تاريخ الاستحقاق / الصرف">
+        <Field label={tr('تاريخ الاستحقاق / الصرف')}>
           <DateInput value={form.due_date || ''} onChange={set('due_date')} />
         </Field>
-        <Field label="الحالة">
+        <Field label={tr('الحالة')}>
           <label className="check-row">
             <input type="checkbox" checked={Boolean(form.paid)} onChange={set('paid')} />
-            <span>تم الدفع</span>
+            <span>{tr('تم الدفع')}</span>
           </label>
         </Field>
       </div>
-      <Field label="ملاحظات">
+      <Field label={tr('ملاحظات')}>
         <input className="input" value={form.notes || ''} onChange={set('notes')} />
       </Field>
     </Modal>
@@ -92,10 +93,10 @@ export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
   }
 
   const remove = async (x) => {
-    if (!confirm(`حذف المصروف "${x.item}"؟`)) return
+    if (!confirm(tr('حذف المصروف "{0}"؟', [x.item]))) return
     try {
       await deleteExpense(x.id)
-      toast('🗑️ تم الحذف')
+      toast(tr('🗑️ تم الحذف'))
       onChanged()
     } catch (err) {
       toast(err.message, 'error')
@@ -105,12 +106,12 @@ export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
   return (
     <Panel
       icon="🧾"
-      title="المصروفات"
-      subtitle={`الإجمالي ${formatOMR(total)} • المدفوع ${formatOMR(paid)} • المتبقي ${formatOMR(total - paid)}`}
+      title={tr('المصروفات')}
+      subtitle={tr('الإجمالي {0} • المدفوع {1} • المتبقي {2}', [formatOMR(total), formatOMR(paid), formatOMR(total - paid)])}
       action={
         canWrite && (
           <Button size="sm" onClick={() => setEditing({ form: { paid: false }, id: null })}>
-            + إضافة مصروف
+            {tr('+ إضافة مصروف')}
           </Button>
         )
       }
@@ -119,21 +120,21 @@ export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
         <table className="table">
           <thead>
             <tr>
-              {['البند', 'التصنيف', 'المبلغ', 'الاستحقاق', 'مدفوع', 'ملاحظات', ''].map((h) => (
-                <th key={h}>{h}</th>
+              {[tr('البند'), tr('التصنيف'), tr('المبلغ'), tr('الاستحقاق'), tr('مدفوع'), tr('ملاحظات'), ''].map((h) => (
+                <th key={h}>{tr(h)}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {expenses.map((x) => (
               <tr key={x.id}>
-                <td className="strong">{x.item}</td>
-                <td className="small">{x.category || '—'}</td>
+                <td className="strong">{tr(x.item)}</td>
+                <td className="small">{tr(x.category) || '—'}</td>
                 <td className="num strong">{formatOMR(x.amount)}</td>
                 <td className="small nowrap">{x.due_date || '—'}</td>
                 <td>
-                  <button className={`paid-toggle ${x.paid ? 'on' : ''}`} onClick={() => canWrite && togglePaid(x)} disabled={!canWrite} title="تبديل حالة الدفع">
-                    {x.paid ? '✓ مدفوع' : 'غير مدفوع'}
+                  <button className={`paid-toggle ${x.paid ? 'on' : ''}`} onClick={() => canWrite && togglePaid(x)} disabled={!canWrite} title={tr('تبديل حالة الدفع')}>
+                    {x.paid ? tr('✓ مدفوع') : tr('غير مدفوع')}
                   </button>
                 </td>
                 <td className="small muted truncate" title={x.notes}>
@@ -142,10 +143,10 @@ export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
                 <td>
                   {canWrite && (
                   <div className="row-actions">
-                    <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...x }, id: x.id })} title="تعديل">
+                    <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...x }, id: x.id })} title={tr('تعديل')}>
                       ✏️
                     </Button>
-                    <Button size="sm" variant="danger" onClick={() => remove(x)} title="حذف">
+                    <Button size="sm" variant="danger" onClick={() => remove(x)} title={tr('حذف')}>
                       🗑️
                     </Button>
                   </div>
@@ -157,7 +158,7 @@ export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
           {expenses.length > 0 && (
             <tfoot>
               <tr>
-                <td className="strong">الإجمالي</td>
+                <td className="strong">{tr('الإجمالي')}</td>
                 <td />
                 <td className="num strong">{formatOMR(total)}</td>
                 <td colSpan={4} />
@@ -166,7 +167,7 @@ export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
           )}
         </table>
       </div>
-      {!expenses.length && <EmptyState icon="🧾" text="لا توجد مصروفات بعد — أضف شيك حجز المساحة ومصروفات التشغيل" />}
+      {!expenses.length && <EmptyState icon="🧾" text={tr('لا توجد مصروفات بعد — أضف شيك حجز المساحة ومصروفات التشغيل')} />}
 
       {editing && (
         <ExpenseForm

@@ -18,6 +18,7 @@ import { groupTotals, occupancyOf, summarize, sumBy, vatEnabled } from '../lib/f
 import { exhibitionTitle, formatOMR, monthOf, num, percent } from '../lib/format.js'
 import { downloadReport } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
+import { tr } from '../lib/i18n.js'
 
 const load = async () => {
   const [exhibitions, exhibitors, payments, sites, expenses, sponsors] = await Promise.all([
@@ -42,9 +43,9 @@ export default function Reports() {
     setBackingUp(true)
     try {
       const counts = await downloadBackup()
-      toast(`💾 تم تنزيل النسخة الاحتياطية (${Object.values(counts).reduce((a, b) => a + b, 0)} سجل)`)
+      toast(tr('💾 تم تنزيل النسخة الاحتياطية ({0} سجل)', [Object.values(counts).reduce((a, b) => a + b, 0)]))
     } catch (err) {
-      toast(`تعذّر إنشاء النسخة: ${err.message}`, 'error')
+      toast(tr('تعذّر إنشاء النسخة: {0}', [err.message]), 'error')
     } finally {
       setBackingUp(false)
     }
@@ -64,11 +65,11 @@ export default function Reports() {
 
   const exportPdf = async () => {
     setExporting(true)
-    toast('📄 جاري تصدير التقرير...')
+    toast(tr('📄 جاري تصدير التقرير...'))
     try {
       await downloadReport(data, scope)
     } catch (err) {
-      toast(`تعذّر تصدير التقرير: ${err.message}`, 'error')
+      toast(tr('تعذّر تصدير التقرير: {0}', [err.message]), 'error')
     } finally {
       setExporting(false)
     }
@@ -76,45 +77,45 @@ export default function Reports() {
 
   return (
     <>
-      <PageHeader title="التقارير المالية 📊" subtitle={COMPANY.legalName}>
+      <PageHeader title={tr('التقارير المالية 📊')} subtitle={COMPANY.legalName}>
         <ExhibitionFilter exhibitions={exhibitions} value={scope} onChange={setScope} />
-        <Button variant="outline" onClick={backup} disabled={backingUp} title="تنزيل كل البيانات في ملف واحد">
-          💾 نسخة احتياطية
+        <Button variant="outline" onClick={backup} disabled={backingUp} title={tr('تنزيل كل البيانات في ملف واحد')}>
+          {tr('💾 نسخة احتياطية')}
         </Button>
         <Button onClick={exportPdf} disabled={exporting}>
-          🖨️ تصدير PDF
+          {tr('🖨️ تصدير PDF')}
         </Button>
       </PageHeader>
 
       <div className="grid-4 mb-24">
-        <StatCard flat label="إجمالي قيمة العقود" value={formatOMR(totals.contract)} accent="var(--gold)" icon="📋" />
-        <StatCard flat label="إجمالي المحصّل" value={formatOMR(totals.paid)} sub={vatEnabled() ? `ضريبة: ${formatOMR(totals.vat)}` : `نسبة التحصيل ${totals.collectionRate}%`} accent="var(--suc)" icon="✅" />
-        <StatCard flat label="متبقي للتحصيل" value={formatOMR(totals.remaining)} sub={totals.contract ? `${percent(totals.remaining, totals.contract)}% من العقود` : '—'} accent="var(--wrn)" icon="⏳" />
-        <StatCard flat label="نسبة التحصيل" value={`${totals.collectionRate}%`} sub={`${totals.count} عارض`} accent="var(--ink)" icon="📈" />
+        <StatCard flat label={tr('إجمالي قيمة العقود')} value={formatOMR(totals.contract)} accent="var(--gold)" icon="📋" />
+        <StatCard flat label={tr('إجمالي المحصّل')} value={formatOMR(totals.paid)} sub={vatEnabled() ? tr('ضريبة: {0}', [formatOMR(totals.vat)]) : tr('نسبة التحصيل {0}%', [totals.collectionRate])} accent="var(--suc)" icon="✅" />
+        <StatCard flat label={tr('متبقي للتحصيل')} value={formatOMR(totals.remaining)} sub={totals.contract ? tr('{0}% من العقود', [percent(totals.remaining, totals.contract)]) : '—'} accent="var(--wrn)" icon="⏳" />
+        <StatCard flat label={tr('نسبة التحصيل')} value={`${totals.collectionRate}%`} sub={tr('{0} عارض', [totals.count])} accent="var(--ink)" icon="📈" />
       </div>
 
       <div className="grid-2 mb-24">
-        <Panel title="📦 العارضون حسب التصنيف" bodyClass="panel-pad">
+        <Panel title={tr('📦 العارضون حسب التصنيف')} bodyClass="panel-pad">
           {byCategory.map(([category, count]) => (
-            <ShareRow key={category} label={category} valueText={`${count} عارض`} value={count} total={scopeExhibitors.length} color="linear-gradient(90deg,var(--gold),var(--gold-l))" />
+            <ShareRow key={category} label={category} valueText={tr('{0} عارض', [count])} value={count} total={scopeExhibitors.length} color="linear-gradient(90deg,var(--gold),var(--gold-l))" />
           ))}
-          {!byCategory.length && <div className="empty-inline">لا بيانات</div>}
+          {!byCategory.length && <div className="empty-inline">{tr('لا بيانات')}</div>}
         </Panel>
-        <Panel title="💳 المدفوعات حسب الطريقة" bodyClass="panel-pad">
+        <Panel title={tr('💳 المدفوعات حسب الطريقة')} bodyClass="panel-pad">
           {byMethod.map(([method, amount]) => (
             <ShareRow key={method} label={method} valueText={formatOMR(amount)} value={amount} total={methodTotal} color="linear-gradient(90deg,var(--suc),#62C88C)" />
           ))}
-          {!byMethod.length && <div className="empty-inline">لا بيانات</div>}
+          {!byMethod.length && <div className="empty-inline">{tr('لا بيانات')}</div>}
         </Panel>
       </div>
 
-      <Panel title="🏛️ أداء كل معرض">
+      <Panel title={tr('🏛️ أداء كل معرض')}>
         <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
-                {['المعرض', 'المدينة', 'المواقع', 'إجمالي العقود', 'المحصّل', 'المتبقي', 'نسبة التحصيل', 'المصروفات', 'الرعايات', 'الصافي حسب العقود'].map((h) => (
-                  <th key={h}>{h}</th>
+                {[tr('المعرض'), tr('المدينة'), tr('المواقع'), tr('إجمالي العقود'), tr('المحصّل'), tr('المتبقي'), tr('نسبة التحصيل'), tr('المصروفات'), tr('الرعايات'), tr('الصافي حسب العقود')].map((h) => (
+                  <th key={h}>{tr(h)}</th>
                 ))}
               </tr>
             </thead>
@@ -133,7 +134,7 @@ export default function Reports() {
                       </Link>
                       <div className="muted tiny">{monthOf(ex.date_from)}</div>
                     </td>
-                    <td>{ex.city}</td>
+                    <td>{tr(ex.city)}</td>
                     <td>
                       {occupancyOf(ex, sites, exhibitors).booked} / {occupancyOf(ex, sites, exhibitors).capacity}
                     </td>
@@ -145,7 +146,7 @@ export default function Reports() {
                         <div style={{ width: 80 }}>
                           <ProgressBar pct={rate} color={rate > 70 ? 'var(--suc)' : rate > 40 ? 'var(--wrn)' : 'var(--dng)'} />
                         </div>
-                        <strong>{rate}%</strong>
+                        <strong>{tr(rate)}%</strong>
                       </div>
                     </td>
                     <td className="num">{formatOMR(exp)}</td>

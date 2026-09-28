@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { autoSlash, formatDayMonthYear, parseDayMonthYear } from '../lib/dates.js'
+import { tr } from '../lib/i18n.js'
 
 /**
  * Date field typed as day/month/year whatever the browser's language, plus a calendar button.
@@ -40,7 +41,7 @@ export default function DateInput({ value = '', onChange, className = '', ...res
         className={`input ${invalid ? 'input-invalid' : ''} ${className}`}
         inputMode="numeric"
         dir="ltr"
-        placeholder="يوم/شهر/سنة"
+        placeholder={tr('يوم/شهر/سنة')}
         value={text}
         onChange={onType}
         onBlur={() => invalid || setText(formatDayMonthYear(shown))}
@@ -48,7 +49,7 @@ export default function DateInput({ value = '', onChange, className = '', ...res
       <button
         type="button"
         className="date-input-btn"
-        title="اختر من التقويم"
+        title={tr('اختر من التقويم')}
         onClick={() => {
           try {
             picker.current?.showPicker()

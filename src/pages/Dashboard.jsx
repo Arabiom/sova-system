@@ -16,6 +16,7 @@ import { balanceOf, exhibitionFinancials, isConfirmed, occupancyOf, summarize, s
 import { exhibitionTitle, formatOMR, isolateLtr, monthOf } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { useCan } from '../context/AuthContext.jsx'
+import { tr } from '../lib/i18n.js'
 
 const load = async () => {
   const [exhibitions, exhibitors, payments, bookings, sites, expenses] = await Promise.all([
@@ -61,66 +62,66 @@ export default function Dashboard() {
   return (
     <>
       <PageHeader
-        title="لوحة التحكم"
+        title={tr('لوحة التحكم')}
         subtitle={
           <>
-            مرحباً — هذا ملخص شامل لأداء <strong className="gold-d">{COMPANY.name}</strong> اليوم
+            {tr('مرحباً — هذا ملخص شامل لأداء')}{' '}<strong className="gold-d">{tr(COMPANY.name)}</strong>{' '}{tr('اليوم')}
           </>
         }
       >
         {canWrite && (
           <Button size="lg" icon="✚" onClick={() => go('/register')}>
-            تسجيل مشارك
+            {tr('تسجيل مشارك')}
           </Button>
         )}
       </PageHeader>
 
       {money && awaiting.length > 0 && (
         <button type="button" className="alert alert-warning alert-link" onClick={() => go('/sales')}>
-          ⏳ {awaiting.length} دفعة بانتظار تأكيد وصول المبلغ (بقيمة {formatOMR(withVat(sumBy(awaiting, 'amount')))}{vatEnabled() ? ' شامل الضريبة' : ''}) — اضغط للمراجعة
+          ⏳ {awaiting.length}{' '}{tr('دفعة بانتظار تأكيد وصول المبلغ (بقيمة')}{' '}{formatOMR(withVat(sumBy(awaiting, 'amount')))}{vatEnabled() ? tr(' شامل الضريبة') : ''}{tr(') — اضغط للمراجعة')}
         </button>
       )}
 
       {money && (
         <>
-      <div className="section-label">المؤشرات المالية</div>
+      <div className="section-label">{tr('المؤشرات المالية')}</div>
       <div className="grid-4">
-        <StatCard label="إجمالي قيمة العقود" value={formatOMR(totals.contract)} sub={`${totals.count} عارض مسجل`} accent="var(--ink)" icon="📋" onClick={() => go('/reports')} />
-        <StatCard label="إجمالي المحصّل" value={formatOMR(totals.paid)} sub={vatEnabled() ? `ضريبة القيمة المضافة: ${formatOMR(totals.vat)}` : `نسبة التحصيل ${totals.collectionRate}%`} accent="var(--gold)" icon="💵" onClick={() => go('/sales')} />
+        <StatCard label={tr('إجمالي قيمة العقود')} value={formatOMR(totals.contract)} sub={tr('{0} عارض مسجل', [totals.count])} accent="var(--ink)" icon="📋" onClick={() => go('/reports')} />
+        <StatCard label={tr('إجمالي المحصّل')} value={formatOMR(totals.paid)} sub={vatEnabled() ? tr('ضريبة القيمة المضافة: {0}', [formatOMR(totals.vat)]) : tr('نسبة التحصيل {0}%', [totals.collectionRate])} accent="var(--gold)" icon="💵" onClick={() => go('/sales')} />
         <StatCard
-          label="المبلغ المتبقي للتحصيل"
+          label={tr('المبلغ المتبقي للتحصيل')}
           value={formatOMR(totals.remaining)}
-          sub={totals.contract ? `${100 - totals.collectionRate}% من إجمالي العقود` : 'لا توجد عقود بعد'}
+          sub={totals.contract ? tr('{0}% من إجمالي العقود', [100 - totals.collectionRate]) : tr('لا توجد عقود بعد')}
           accent={totals.remaining > 0 ? 'var(--wrn)' : 'var(--suc)'}
           icon="⏳"
           onClick={() => go('/sales')}
         />
         {vatEnabled() ? (
-          <StatCard label="المجموع الكلي شامل الضريبة" value={formatOMR(totals.paidWithVat)} sub={`نسبة التحصيل ${totals.collectionRate}%`} accent="var(--suc)" icon="🏆" onClick={() => go('/reports')} />
+          <StatCard label={tr('المجموع الكلي شامل الضريبة')} value={formatOMR(totals.paidWithVat)} sub={tr('نسبة التحصيل {0}%', [totals.collectionRate])} accent="var(--suc)" icon="🏆" onClick={() => go('/reports')} />
         ) : (
-          <StatCard label="الدخل المتوقع من المعارض" value={formatOMR(expectedIncome)} sub="بيع كل المواقع في المعارض القادمة والجارية" accent="var(--suc)" icon="🏆" onClick={() => go('/finance')} />
+          <StatCard label={tr('الدخل المتوقع من المعارض')} value={formatOMR(expectedIncome)} sub={tr('بيع كل المواقع في المعارض القادمة والجارية')} accent="var(--suc)" icon="🏆" onClick={() => go('/finance')} />
         )}
       </div>
         </>
       )}
 
-      <div className="section-label">مؤشرات التشغيل</div>
+      <div className="section-label">{tr('مؤشرات التشغيل')}</div>
       <div className="grid-4 mb-24">
-        <StatCard label="عارضون مؤكدون" value={confirmed} sub={`${exhibitors.length - confirmed} قيد الإجراءات`} accent="var(--suc)" icon="🤝" onClick={() => go('/exhibitors')} />
-        <StatCard label="طلبات حجز معلقة" value={pending} sub="تحتاج مراجعة ومتابعة" accent="var(--wrn)" icon="📬" onClick={() => go('/bookings')} />
-        <StatCard label="مدفوعات غير مكتملة" value={withBalance} sub="عارض بمبلغ متبقٍّ" accent="var(--dng)" icon="⚠️" onClick={() => go(money ? '/sales' : '/exhibitors')} />
-        <StatCard label="معارض نشطة" value={active} sub={`من إجمالي ${exhibitions.length} معرض`} accent="var(--purple)" icon="🏛️" onClick={() => go('/exhibitions')} />
+        <StatCard label={tr('عارضون مؤكدون')} value={confirmed} sub={tr('{0} قيد الإجراءات', [exhibitors.length - confirmed])} accent="var(--suc)" icon="🤝" onClick={() => go('/exhibitors')} />
+        <StatCard label={tr('طلبات حجز معلقة')} value={pending} sub={tr('تحتاج مراجعة ومتابعة')} accent="var(--wrn)" icon="📬" onClick={() => go('/bookings')} />
+        <StatCard label={tr('مدفوعات غير مكتملة')} value={withBalance} sub={tr('عارض بمبلغ متبقٍّ')} accent="var(--dng)" icon="⚠️" onClick={() => go(money ? '/sales' : '/exhibitors')} />
+        <StatCard label={tr('معارض نشطة')} value={active} sub={tr('من إجمالي {0} معرض', [exhibitions.length])} accent="var(--purple)" icon="🏛️" onClick={() => go('/exhibitions')} />
       </div>
 
       <div className="grid-5-3 mb-16">
         <Panel
           icon="🎯"
-          title="إشغال البوثات"
-          subtitle="نسب حجز كل معرض"
+          title={tr('إشغال البوثات')}
+          subtitle={tr('نسب حجز كل معرض')}
           bodyClass="panel-pad"
           action={
             <Button size="sm" variant="ghost" onClick={() => go('/exhibitions')}>
-              عرض الكل ↗
+              {tr('عرض الكل ↗')}
             </Button>
           }
         >
@@ -135,28 +136,28 @@ export default function Dashboard() {
                   val={occ.booked}
                   max={occ.capacity}
                   color={barColor(ex.status)}
-                  sub={`${isolateLtr(monthOf(ex.date_from))} • ${money ? formatOMR(sumBy(own, 'paid')) : `${own.length} مشارك`}`}
+                  sub={`${isolateLtr(monthOf(ex.date_from))} • ${money ? formatOMR(sumBy(own, 'paid')) : tr('{0} مشارك', [own.length])}`}
                 />
               )
             })
           ) : (
-            <div className="empty-inline">لا توجد معارض بعد</div>
+            <div className="empty-inline">{tr('لا توجد معارض بعد')}</div>
           )}
         </Panel>
 
-        <Panel icon="📅" title="المعارض" subtitle={`${exhibitions.length} معرض مسجل`}>
+        <Panel icon="📅" title={tr('المعارض')} subtitle={tr('{0} معرض مسجل', [exhibitions.length])}>
           {exhibitions.map((ex) => (
             <div key={ex.id} className="list-row clickable" onClick={() => go(`/exhibitions/${ex.id}`)}>
               <div>
                 <div className="strong">{exhibitionTitle(ex)}</div>
                 <div className="muted small">
-                  {occupancyOf(ex, sites, exhibitors).booked}/{occupancyOf(ex, sites, exhibitors).capacity} موقع • {isolateLtr(monthOf(ex.date_from))}
+                  {occupancyOf(ex, sites, exhibitors).booked}/{occupancyOf(ex, sites, exhibitors).capacity}{' '}{tr('موقع •')}{' '}{isolateLtr(monthOf(ex.date_from))}
                 </div>
               </div>
               <StatusBadge status={ex.status} />
             </div>
           ))}
-          {!exhibitions.length && <div className="empty-inline">لا معارض</div>}
+          {!exhibitions.length && <div className="empty-inline">{tr('لا معارض')}</div>}
         </Panel>
       </div>
 
@@ -169,18 +170,18 @@ export default function Dashboard() {
         return (
           <Panel
             icon="🧾"
-            title="مصروفات والتزامات غير مدفوعة"
-            subtitle={`${unpaid.length} بند • ${formatOMR(sumBy(unpaid, 'amount'))}`}
+            title={tr('مصروفات والتزامات غير مدفوعة')}
+            subtitle={tr('{0} بند • {1}', [unpaid.length, formatOMR(sumBy(unpaid, 'amount'))])}
             className="mb-16"
           >
             <div className="table-wrap">
               <table className="table table-compact">
                 <thead>
                   <tr>
-                    <th>البند</th>
-                    <th>المعرض</th>
-                    <th>المبلغ</th>
-                    <th>الاستحقاق</th>
+                    <th>{tr('البند')}</th>
+                    <th>{tr('المعرض')}</th>
+                    <th>{tr('المبلغ')}</th>
+                    <th>{tr('الاستحقاق')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -188,14 +189,14 @@ export default function Dashboard() {
                     const days = x.due_date ? daysTo(x.due_date) : null
                     return (
                       <tr key={x.id} className="clickable" onClick={() => go(`/exhibitions/${x.exhibition_id}`)}>
-                        <td className="strong">{x.item}</td>
+                        <td className="strong">{tr(x.item)}</td>
                         <td className="small">{exhibitionTitle(exhibitionOf(x.exhibition_id))}</td>
                         <td className="num strong">{formatOMR(x.amount)}</td>
                         <td className="small nowrap">
                           {x.due_date || '—'}
                           {days !== null && (
                             <div className={`tiny ${days < 0 ? 'text-dng strong' : days <= 14 ? 'text-wrn strong' : 'muted'}`}>
-                              {days < 0 ? `متأخر ${-days} يوم` : days === 0 ? 'اليوم' : `بعد ${days} يوم`}
+                              {days < 0 ? tr('متأخر {0} يوم', [-days]) : days === 0 ? tr('اليوم') : tr('بعد {0} يوم', [days])}
                             </div>
                           )}
                         </td>
@@ -212,10 +213,10 @@ export default function Dashboard() {
       <div className={money ? 'grid-2' : ''}>
         <Panel
           icon="🤝"
-          title="آخر العارضين"
+          title={tr('آخر العارضين')}
           action={
             <Button size="sm" variant="ghost" onClick={() => go('/exhibitors')}>
-              عرض الكل ↗
+              {tr('عرض الكل ↗')}
             </Button>
           }
         >
@@ -223,10 +224,10 @@ export default function Dashboard() {
             <table className="table table-compact">
               <thead>
                 <tr>
-                  <th>العلامة التجارية</th>
-                  <th>التصنيف</th>
-                  <th>{money ? 'المدفوع' : 'الجوال'}</th>
-                  <th>الحالة</th>
+                  <th>{tr('العلامة التجارية')}</th>
+                  <th>{tr('التصنيف')}</th>
+                  <th>{money ? tr('المدفوع') : tr('الجوال')}</th>
+                  <th>{tr('الحالة')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -235,14 +236,14 @@ export default function Dashboard() {
                   return (
                     <tr key={e.id} className="clickable" onClick={() => go('/exhibitors')}>
                       <td>
-                        <div className="strong">{e.brand}</div>
-                        <div className="muted tiny">{e.manager}</div>
+                        <div className="strong">{tr(e.brand)}</div>
+                        <div className="muted tiny">{tr(e.manager)}</div>
                       </td>
-                      <td className="muted small">{e.category || '—'}</td>
+                      <td className="muted small">{tr(e.category) || '—'}</td>
                       {money ? (
                         <td>
                           <div className={`strong ${balance > 0 ? 'text-wrn' : 'text-suc'}`}>{formatOMR(e.paid)}</div>
-                          {balance > 0 && <div className="tiny text-dng">متبقي {formatOMR(balance)}</div>}
+                          {balance > 0 && <div className="tiny text-dng">{tr('متبقي')}{' '}{formatOMR(balance)}</div>}
                         </td>
                       ) : (
                         <td className="small" dir="ltr">
@@ -258,7 +259,7 @@ export default function Dashboard() {
                 {!exhibitors.length && (
                   <tr>
                     <td colSpan={4} className="empty-inline">
-                      لا عارضون بعد
+                      {tr('لا عارضون بعد')}
                     </td>
                   </tr>
                 )}
@@ -270,10 +271,10 @@ export default function Dashboard() {
         {money && (
         <Panel
           icon="💰"
-          title="آخر المدفوعات"
+          title={tr('آخر المدفوعات')}
           action={
             <Button size="sm" variant="ghost" onClick={() => go('/sales')}>
-              عرض الكل ↗
+              {tr('عرض الكل ↗')}
             </Button>
           }
         >
@@ -281,10 +282,10 @@ export default function Dashboard() {
             <table className="table table-compact">
               <thead>
                 <tr>
-                  <th>العارض</th>
-                  <th>المبلغ</th>
-                  <th>الطريقة</th>
-                  <th>التاريخ</th>
+                  <th>{tr('العارض')}</th>
+                  <th>{tr('المبلغ')}</th>
+                  <th>{tr('الطريقة')}</th>
+                  <th>{tr('التاريخ')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -293,15 +294,15 @@ export default function Dashboard() {
                     <td className="strong">{brandOf(p.exhibitor_id)}</td>
                     <td className="amount">{formatOMR(p.amount)}</td>
                     <td>
-                      <Chip>{p.method}</Chip>
+                      <Chip>{tr(p.method)}</Chip>
                     </td>
-                    <td className="muted small">{p.date}</td>
+                    <td className="muted small">{tr(p.date)}</td>
                   </tr>
                 ))}
                 {!payments.length && (
                   <tr>
                     <td colSpan={4} className="empty-inline">
-                      لا مدفوعات بعد
+                      {tr('لا مدفوعات بعد')}
                     </td>
                   </tr>
                 )}

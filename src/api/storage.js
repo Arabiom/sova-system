@@ -2,15 +2,16 @@
 // through short-lived signed links, so only signed-in staff allowed by the bucket's rules see them.
 
 import { supabase } from '../lib/supabase.js'
+import { tr } from '../lib/i18n.js'
 
 export const FILE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
 export const FILE_MAX_MB = 10
 
 /** Problem with a chosen file, or '' when it can be uploaded. */
 export function checkFile(file, what = 'الملف') {
-  if (!file) return `اختر ${what}`
-  if (!FILE_TYPES.includes(file.type)) return `${what} يكون صورة (PNG أو JPG أو WEBP) أو ملف PDF`
-  if (file.size > FILE_MAX_MB * 1024 * 1024) return `حجم الملف أكبر من ${FILE_MAX_MB} ميجابايت`
+  if (!file) return tr('اختر {0}', [tr(what)])
+  if (!FILE_TYPES.includes(file.type)) return tr('{0} يكون صورة (PNG أو JPG أو WEBP) أو ملف PDF', [tr(what)])
+  if (file.size > FILE_MAX_MB * 1024 * 1024) return tr('حجم الملف أكبر من {0} ميجابايت', [FILE_MAX_MB])
   return ''
 }
 
@@ -18,10 +19,10 @@ export const isPdfPath = (path) => /\.pdf$/i.test(path || '')
 
 function storageError(error, migration) {
   const msg = error?.message || ''
-  if (/object not found/i.test(msg)) return 'الملف غير موجود — ربما حُذف. ارفعه مرة أخرى.'
-  if (/bucket not found/i.test(msg)) return `مكان حفظ الملفات غير موجود بعد. شغّل تحديث قاعدة البيانات ${migration} في Supabase.`
-  if (/row-level security|unauthorized|permission/i.test(msg)) return 'لا تملك صلاحية رفع هذا الملف.'
-  return msg || 'تعذّر رفع الملف'
+  if (/object not found/i.test(msg)) return tr('الملف غير موجود — ربما حُذف. ارفعه مرة أخرى.')
+  if (/bucket not found/i.test(msg)) return tr('مكان حفظ الملفات غير موجود بعد. شغّل تحديث قاعدة البيانات {0} في Supabase.', [migration])
+  if (/row-level security|unauthorized|permission/i.test(msg)) return tr('لا تملك صلاحية رفع هذا الملف.')
+  return msg || tr('تعذّر رفع الملف')
 }
 
 const randomId = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`

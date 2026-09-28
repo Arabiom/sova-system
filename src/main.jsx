@@ -5,6 +5,9 @@ import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { ToastProvider } from './context/ToastContext.jsx'
 import './styles/app.css'
+import { applyDocumentLang } from './lib/i18n.js'
+
+applyDocumentLang()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

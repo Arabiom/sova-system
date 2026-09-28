@@ -18,6 +18,7 @@ import { useData } from '../lib/useData.js'
 import { useAuth, useCan, useCanEdit } from '../context/AuthContext.jsx'
 import { listStaff } from '../api/staff.js'
 import { duplicateBooths } from '../lib/sites.js'
+import { tr } from '../lib/i18n.js'
 
 const load = async () => {
   const [exhibitors, exhibitions, clients, staff] = await Promise.all([
@@ -47,9 +48,9 @@ export default function Exhibitors() {
   const duplicates = duplicateBooths(exhibitors)
   const enteredBy = (e) => {
     if (!e.created_by) return '—'
-    if (e.created_by === session?.user?.id) return 'أنت'
+    if (e.created_by === session?.user?.id) return tr('أنت')
     const s = staff.find((x) => x.user_id === e.created_by)
-    return s?.name || s?.email || 'مسوق آخر'
+    return s?.name || s?.email || tr('مسوق آخر')
   }
   const exhibitionOf = (id) => exhibitions.find((ex) => ex.id === id)
 
@@ -63,10 +64,10 @@ export default function Exhibitors() {
   )
 
   const remove = async (e) => {
-    if (!confirm(`حذف العارض "${e.brand}" وكل بياناته؟ لا يمكن التراجع.`)) return
+    if (!confirm(tr('حذف العارض "{0}" وكل بياناته؟ لا يمكن التراجع.', [e.brand]))) return
     try {
       await deleteExhibitor(e.id)
-      toast('🗑️ تم الحذف')
+      toast(tr('🗑️ تم الحذف'))
       reload()
     } catch (err) {
       toast(err.message, 'error')
@@ -74,35 +75,35 @@ export default function Exhibitors() {
   }
 
   const printContract = async (e) => {
-    toast('📄 جاري طباعة العقد...')
+    toast(tr('📄 جاري طباعة العقد...'))
     try {
       await downloadContract(e, exhibitionOf(e.exhibition_id), newReference('AIB'))
     } catch (err) {
-      toast(`تعذّر إنشاء العقد: ${err.message}`, 'error')
+      toast(tr('تعذّر إنشاء العقد: {0}', [err.message]), 'error')
     }
   }
 
   return (
     <>
-      <PageHeader title={money ? 'العارضون والعقود' : 'المشاركون'} subtitle={`${exhibitors.length} مشارك مسجل`}>
-        {canWrite && <Button onClick={() => setEditing({ form: { status: 'مبدئي' }, id: null })}>+ إضافة عارض</Button>}
+      <PageHeader title={money ? tr('العارضون والعقود') : tr('المشاركون')} subtitle={tr('{0} مشارك مسجل', [exhibitors.length])}>
+        {canWrite && <Button onClick={() => setEditing({ form: { status: 'مبدئي' }, id: null })}>{tr('+ إضافة عارض')}</Button>}
       </PageHeader>
 
       {duplicates.length > 0 && (
         <div className="alert alert-danger">
-          ⚠️ مواقع مسجلة لأكثر من مشارك (من قبل منع التكرار) — عدّل رقم الموقع لأحدهم:{' '}
+          {tr('⚠️ مواقع مسجلة لأكثر من مشارك (من قبل منع التكرار) — عدّل رقم الموقع لأحدهم:')}{' '}
           {duplicates
             .slice(0, 6)
-            .map((d) => `الموقع ${d.number} في ${exhibitionLabel(exhibitionOf(d.exhibitionId))}: ${d.exhibitors.map((e) => e.brand).join(' و ')}`)
+            .map((d) => tr('الموقع {0} في {1}: {2}', [d.number, exhibitionLabel(exhibitionOf(d.exhibitionId)), d.exhibitors.map((e) => e.brand).join(tr(' و '))]))
             .join(' • ')}
         </div>
       )}
 
       <div className="toolbar">
-        <input className="input toolbar-search" placeholder="🔍  ابحث بالاسم أو الجوال..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className="input toolbar-search" placeholder={tr('🔍  ابحث بالاسم أو الجوال...')} value={search} onChange={(e) => setSearch(e.target.value)} />
         <ExhibitionFilter className="toolbar-select" exhibitions={exhibitions} value={scope} onChange={setScope} />
-        <SelectOptions className="input toolbar-select" options={categories} placeholder="كل التصنيفات" value={category} onChange={(e) => setCategory(e.target.value)} />
-        <div className="toolbar-count">{visible.length} نتيجة</div>
+        <SelectOptions className="input toolbar-select" options={categories} placeholder={tr('كل التصنيفات')} value={category} onChange={(e) => setCategory(e.target.value)} />
+        <div className="toolbar-count">{visible.length}{' '}{tr('نتيجة')}</div>
       </div>
 
       <div className="panel">
@@ -110,8 +111,8 @@ export default function Exhibitors() {
           <table className="table" style={{ minWidth: 950 }}>
             <thead>
               <tr>
-                {['العلامة', 'المسؤول', 'الجوال', 'التصنيف', 'المعرض', 'البوث', ...(money ? ['العقد', 'المدفوع'] : []), 'سجّله', 'الحالة', ''].map((h) => (
-                  <th key={h}>{h}</th>
+                {[tr('العلامة'), tr('المسؤول'), tr('الجوال'), tr('التصنيف'), tr('المعرض'), tr('البوث'), ...(money ? [tr('العقد'), tr('المدفوع')] : []), tr('سجّله'), tr('الحالة'), ''].map((h) => (
+                  <th key={h}>{tr(h)}</th>
                 ))}
               </tr>
             </thead>
@@ -120,17 +121,17 @@ export default function Exhibitors() {
                 const balance = balanceOf(e)
                 return (
                   <tr key={e.id}>
-                    <td className="strong">{e.brand}</td>
-                    <td>{e.manager}</td>
-                    <td className="ltr">{e.phone}</td>
-                    <td>{e.category && <Chip>{e.category}</Chip>}</td>
+                    <td className="strong">{tr(e.brand)}</td>
+                    <td>{tr(e.manager)}</td>
+                    <td className="ltr">{tr(e.phone)}</td>
+                    <td>{tr(e.category) && <Chip>{tr(e.category)}</Chip>}</td>
                     <td className="small">{exhibitionLabel(exhibitionOf(e.exhibition_id))}</td>
                     <td>{e.booth || '—'}</td>
                     {money && <td className="num">{formatOMR(e.contract)}</td>}
                     {money && (
                       <td>
                         <span className={`strong num ${balance > 0 ? 'text-dng' : 'text-suc'}`}>{formatOMR(e.paid)}</span>
-                        {balance > 0 && <div className="tiny text-dng">متبقي {formatOMR(balance)}</div>}
+                        {balance > 0 && <div className="tiny text-dng">{tr('متبقي')}{' '}{formatOMR(balance)}</div>}
                       </td>
                     )}
                     <td className="small">{enteredBy(e)}</td>
@@ -140,22 +141,22 @@ export default function Exhibitors() {
                     <td>
                       <div className="row-actions">
                         {money && (
-                          <Button size="sm" variant="outline" onClick={() => printContract(e)} title="طباعة عقد">
+                          <Button size="sm" variant="outline" onClick={() => printContract(e)} title={tr('طباعة عقد')}>
                             📄
                           </Button>
                         )}
                         {canEdit(e) ? (
-                          <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...e }, id: e.id })} title="تعديل">
+                          <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...e }, id: e.id })} title={tr('تعديل')}>
                             ✏️
                           </Button>
                         ) : (
                           canWrite && (
-                            <span className="lock-note" title="أدخله مسوق آخر — التعديل للإدارة أو لمن أدخله">
+                            <span className="lock-note" title={tr('أدخله مسوق آخر — التعديل للإدارة أو لمن أدخله')}>
                               🔒
                             </span>
                           )
                         )}
-{canDelete && (<Button size="sm" variant="danger" onClick={() => remove(e)} title="حذف">
+{canDelete && (<Button size="sm" variant="danger" onClick={() => remove(e)} title={tr('حذف')}>
                           🗑️
                         </Button>)}
                       </div>
@@ -166,7 +167,7 @@ export default function Exhibitors() {
             </tbody>
           </table>
         </div>
-        {!visible.length && <EmptyState icon="🤝" text="لا يوجد عارضون" />}
+        {!visible.length && <EmptyState icon="🤝" text={tr('لا يوجد عارضون')} />}
       </div>
 
       {editing && (

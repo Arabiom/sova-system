@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useToast } from '../context/ToastContext.jsx'
+import { tr } from './i18n.js'
 
 /**
  * Load data for a page. `loader` returns a promise (usually a Promise.all of API calls).
@@ -18,7 +19,7 @@ export function useData(loader, initial) {
       (err) => {
         if (cancelled) return
         setState((s) => ({ ...s, loading: false }))
-        toast(`تعذّر تحميل البيانات: ${err.message}`, 'error')
+        toast(tr('تعذّر تحميل البيانات: {0}', [tr(err.message)]), 'error')
       },
     )
     return () => {

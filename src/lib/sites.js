@@ -1,6 +1,7 @@
 // Exhibition site map helpers: booth number ranges, tiers and per-site status.
 
 import { num } from './format.js'
+import { tr } from './i18n.js'
 
 /** "1-6, 9, 12–14" → [1,2,3,4,5,6,9,12,13,14] (sorted, unique). Throws on anything else. */
 export function parseRanges(text) {
@@ -9,11 +10,11 @@ export function parseRanges(text) {
     const part = raw.trim()
     if (!part) continue
     const m = part.match(/^(\d+)(?:[-–—](\d+))?$/)
-    if (!m) throw new Error(`صيغة غير صحيحة: "${part}"`)
+    if (!m) throw new Error(tr('صيغة غير صحيحة: "{0}"', [part]))
     const from = +m[1]
     const to = m[2] ? +m[2] : from
-    if (to < from) throw new Error(`النطاق مقلوب: "${part}"`)
-    if (to - from > 500) throw new Error(`النطاق كبير جداً: "${part}"`)
+    if (to < from) throw new Error(tr('النطاق مقلوب: "{0}"', [part]))
+    if (to - from > 500) throw new Error(tr('النطاق كبير جداً: "{0}"', [part]))
     for (let n = from; n <= to; n++) numbers.add(n)
   }
   return [...numbers].sort((a, b) => a - b)

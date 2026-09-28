@@ -4,6 +4,7 @@ import { Splash } from './components/Feedback.jsx'
 import Layout from './components/Layout.jsx'
 import { signOut, useAuth, useCan } from './context/AuthContext.jsx'
 import Login from './pages/Login.jsx'
+import { tr } from './lib/i18n.js'
 
 // Pages load on demand so the first screen appears quickly.
 const Bookings = lazy(() => import('./pages/Bookings.jsx'))
@@ -36,10 +37,10 @@ function NoAccess({ error }) {
       <div className="login-box">
         <div className="login-card center">
           <div className="empty-icon">🔒</div>
-          <div className="login-title">لا توجد صلاحية دخول</div>
-          <div className="login-hint">{error || 'حسابك غير مفعّل في النظام. تواصل مع مدير النظام لإضافة صلاحيتك.'}</div>
+          <div className="login-title">{tr('لا توجد صلاحية دخول')}</div>
+          <div className="login-hint">{error || tr('حسابك غير مفعّل في النظام. تواصل مع مدير النظام لإضافة صلاحيتك.')}</div>
           <button className="btn btn-outline btn-full" onClick={signOut}>
-            تسجيل الخروج
+            {tr('تسجيل الخروج')}
           </button>
         </div>
       </div>

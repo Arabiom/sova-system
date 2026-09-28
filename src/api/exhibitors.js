@@ -1,6 +1,7 @@
 import { num } from '../lib/format.js'
 import { supabase, unwrap } from './client.js'
 import { findOrCreateClient } from './clients.js'
+import { tr } from '../lib/i18n.js'
 
 const table = () => supabase.from('exhibitors')
 
@@ -59,7 +60,7 @@ export async function countPayments(exhibitorIds) {
 export async function deleteExhibitor(id) {
   const count = await countPayments([id])
   if (count) {
-    throw new Error(`لا يمكن الحذف: له ${count} دفعة مسجّلة. احذف دفعاته أولاً من «المبيعات والمدفوعات» إن كانت خاطئة، أو غيّر حالته بدل حذفه.`)
+    throw new Error(tr('لا يمكن الحذف: له {0} دفعة مسجّلة. احذف دفعاته أولاً من «المبيعات والمدفوعات» إن كانت خاطئة، أو غيّر حالته بدل حذفه.', [count]))
   }
   return unwrap(table().delete().eq('id', id))
 }

@@ -1,4 +1,5 @@
 import { percent } from '../lib/format.js'
+import { tr } from '../lib/i18n.js'
 
 const toneFor = (pct) => (pct > 70 ? 'var(--suc-l)' : pct > 40 ? 'var(--gold)' : 'var(--wrn-l)')
 
@@ -18,8 +19,8 @@ export function ProgressRow({ label, sub, val, max, color }) {
     <div className="progress-row">
       <div className="progress-row-head">
         <div>
-          <div className="progress-row-label">{label}</div>
-          {sub && <div className="progress-row-sub">{sub}</div>}
+          <div className="progress-row-label">{tr(label)}</div>
+          {sub && <div className="progress-row-sub">{tr(sub)}</div>}
         </div>
         <div className="progress-row-value">
           <span style={{ color: tone }}>{val}</span>
@@ -38,7 +39,7 @@ export function ShareRow({ label, valueText, value, total, color }) {
   return (
     <div className="share-row">
       <div className="share-row-head">
-        <span>{label}</span>
+        <span>{tr(label)}</span>
         <strong>
           {valueText} ({pct}%)
         </strong>

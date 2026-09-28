@@ -2,6 +2,7 @@ import { DEFAULT_TIERS } from '../lib/constants.js'
 import { num } from '../lib/format.js'
 import { supabase, unwrap } from './client.js'
 import { countPayments } from './exhibitors.js'
+import { tr } from '../lib/i18n.js'
 
 const table = () => supabase.from('exhibitions')
 
@@ -88,10 +89,10 @@ export async function saveExhibition(form, id) {
       const column = missingColumn(err)
       if (!column || attempt > 20 || !(column in row)) throw err
       if (column === 'tiers' && row.tiers.length > 3) {
-        throw new Error('لحفظ أكثر من 3 فئات شغّل تحديث قاعدة البيانات 005 في Supabase أولاً.', { cause: err })
+        throw new Error(tr('لحفظ أكثر من 3 فئات شغّل تحديث قاعدة البيانات 005 في Supabase أولاً.'), { cause: err })
       }
       if (column === 'map_path' && row.map_path) {
-        throw new Error('لحفظ الخارطة شغّل تحديث قاعدة البيانات 006 في Supabase أولاً.', { cause: err })
+        throw new Error(tr('لحفظ الخارطة شغّل تحديث قاعدة البيانات 006 في Supabase أولاً.'), { cause: err })
       }
       absentColumns.add(column)
       const { [column]: _unused, ...rest } = row
@@ -110,7 +111,7 @@ export async function deleteExhibition(id) {
   const ids = (await unwrap(supabase.from('exhibitors').select('id').eq('exhibition_id', id))).map((e) => e.id)
   const count = await countPayments(ids)
   if (count) {
-    throw new Error(`لا يمكن حذف المعرض: فيه ${count} دفعة مسجّلة لمشاركيه. انقل المشاركين لمعرض آخر أو احذف دفعاتهم أولاً، أو اجعل حالة المعرض «ملغى».`)
+    throw new Error(tr('لا يمكن حذف المعرض: فيه {0} دفعة مسجّلة لمشاركيه. انقل المشاركين لمعرض آخر أو احذف دفعاتهم أولاً، أو اجعل حالة المعرض «ملغى».', [count]))
   }
   return unwrap(table().delete().eq('id', id))
 }

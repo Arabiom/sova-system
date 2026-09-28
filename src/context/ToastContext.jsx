@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useRef, useState } from 'react'
+import { tr } from '../lib/i18n.js'
 
 const ToastContext = createContext(() => {})
 
@@ -19,7 +20,7 @@ export function ToastProvider({ children }) {
       {children}
       {toast && (
         <div key={toast.key} className={`toast toast-${toast.type} fade-in`} role="status">
-          <span>{ICONS[toast.type] || ICONS.success}</span> {toast.msg}
+          <span>{ICONS[toast.type] || ICONS.success}</span> {tr(toast.msg)}
         </div>
       )}
     </ToastContext.Provider>

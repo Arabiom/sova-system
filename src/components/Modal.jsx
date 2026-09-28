@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { tr } from '../lib/i18n.js'
 
 const WIDTHS = { sm: 420, md: 580, wide: 680, lg: 720 }
 
@@ -38,10 +39,10 @@ export default function Modal({ title, subtitle, onClose, footer, children, size
       <div className="modal slide-in" style={{ width: WIDTHS[size] }} role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-header">
           <div>
-            <div className="modal-title">{title}</div>
-            {subtitle && <div className="modal-subtitle">{subtitle}</div>}
+            <div className="modal-title">{tr(title)}</div>
+            {subtitle && <div className="modal-subtitle">{tr(subtitle)}</div>}
           </div>
-          <button className="icon-btn" onClick={onClose} aria-label="إغلاق">✕</button>
+          <button className="icon-btn" onClick={onClose} aria-label={tr('إغلاق')}>✕</button>
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-footer">{footer}</div>}

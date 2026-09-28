@@ -5,26 +5,28 @@ import { signOut, useAuth } from '../context/AuthContext.jsx'
 import { COMPANY } from '../lib/constants.js'
 import { can, ROLES } from '../lib/permissions.js'
 import { Loading } from './Feedback.jsx'
+import LanguageSwitch from './LanguageSwitch.jsx'
+import { tr, uiLocale } from '../lib/i18n.js'
 
 const NAV = [
-  { section: 'الرئيسية' },
-  { path: '/dashboard', icon: '⬡', label: 'لوحة التحكم', desc: 'نظرة عامة شاملة', sub: 'نظرة شاملة على أداء الشركة' },
-  { path: '/register', icon: '✚', label: 'تسجيل مشارك', desc: 'استمارة وفاتورة', sub: 'استمارة تسجيل المشاركين والفاتورة', perm: 'data.write' },
-  { section: 'المعارض' },
-  { path: '/exhibitions', icon: '◈', label: 'المعارض والمواعيد', desc: 'إدارة كل المعارض', sub: 'إدارة وتتبع كل المعارض' },
-  { path: '/bookings', icon: '◎', label: 'طلبات الحجز', desc: 'مراجعة وقبول الطلبات', sub: 'مراجعة وإدارة طلبات العارضين', badge: true },
-  { section: 'العملاء والمشاركون' },
-  { path: '/clients', icon: '◍', label: 'العملاء', desc: 'قاعدة بيانات العملاء', sub: 'كل عملاء الشركة وسجل مشاركاتهم' },
-  { path: '/exhibitors', icon: '◉', label: 'العارضون والعقود', desc: 'إدارة العارضين', sub: 'قاعدة بيانات العارضين والعقود' },
-  { section: 'المالية' },
-  { path: '/finance', icon: '💼', label: 'المالية', desc: 'التحصيل والمصروفات والخطة', sub: 'الإيرادات والتحصيل، المتبقي، خطة المعارض، ومصروفات المعارض والشركة', perm: 'money.view' },
-  { path: '/sales', icon: '◆', label: 'المبيعات والمدفوعات', desc: 'تسجيل وتأكيد الدفعات', sub: 'التتبع المالي الشامل', perm: 'money.view' },
-  { path: '/expenses', icon: '🧾', label: 'المصروفات والفواتير', desc: 'فواتير ما يصرفه الموظفون', sub: 'كل ما يصرفه الموظفون من أجل الشركة مع فواتيره' },
-  { path: '/reports', icon: '◈', label: 'التقارير المالية', desc: 'تحليل الأداء', sub: 'تحليل الأداء والإيرادات', perm: 'reports.view' },
-  { section: 'التواصل' },
-  { path: '/whatsapp', icon: '◎', label: 'واتساب', desc: 'إرسال الإشعارات', sub: 'إرسال الإشعارات للعارضين', perm: 'data.write' },
-  { section: 'الإدارة', perm: 'staff.manage' },
-  { path: '/staff', icon: '◐', label: 'الموظفون', desc: 'الحسابات والصلاحيات', sub: 'إدارة حسابات الموظفين وصلاحياتهم', perm: 'staff.manage' },
+  { section: tr('الرئيسية') },
+  { path: '/dashboard', icon: '⬡', label: tr('لوحة التحكم'), desc: tr('نظرة عامة شاملة'), sub: tr('نظرة شاملة على أداء الشركة') },
+  { path: '/register', icon: '✚', label: tr('تسجيل مشارك'), desc: tr('استمارة وفاتورة'), sub: tr('استمارة تسجيل المشاركين والفاتورة'), perm: 'data.write' },
+  { section: tr('المعارض') },
+  { path: '/exhibitions', icon: '◈', label: tr('المعارض والمواعيد'), desc: tr('إدارة كل المعارض'), sub: tr('إدارة وتتبع كل المعارض') },
+  { path: '/bookings', icon: '◎', label: tr('طلبات الحجز'), desc: tr('مراجعة وقبول الطلبات'), sub: tr('مراجعة وإدارة طلبات العارضين'), badge: true },
+  { section: tr('العملاء والمشاركون') },
+  { path: '/clients', icon: '◍', label: tr('العملاء'), desc: tr('قاعدة بيانات العملاء'), sub: tr('كل عملاء الشركة وسجل مشاركاتهم') },
+  { path: '/exhibitors', icon: '◉', label: tr('العارضون والعقود'), desc: tr('إدارة العارضين'), sub: tr('قاعدة بيانات العارضين والعقود') },
+  { section: tr('المالية') },
+  { path: '/finance', icon: '💼', label: tr('المالية'), desc: tr('التحصيل والمصروفات والخطة'), sub: tr('الإيرادات والتحصيل، المتبقي، خطة المعارض، ومصروفات المعارض والشركة'), perm: 'money.view' },
+  { path: '/sales', icon: '◆', label: tr('المبيعات والمدفوعات'), desc: tr('تسجيل وتأكيد الدفعات'), sub: tr('التتبع المالي الشامل'), perm: 'money.view' },
+  { path: '/expenses', icon: '🧾', label: tr('المصروفات والفواتير'), desc: tr('فواتير ما يصرفه الموظفون'), sub: tr('كل ما يصرفه الموظفون من أجل الشركة مع فواتيره') },
+  { path: '/reports', icon: '◈', label: tr('التقارير المالية'), desc: tr('تحليل الأداء'), sub: tr('تحليل الأداء والإيرادات'), perm: 'reports.view' },
+  { section: tr('التواصل') },
+  { path: '/whatsapp', icon: '◎', label: tr('واتساب'), desc: tr('إرسال الإشعارات'), sub: tr('إرسال الإشعارات للعارضين'), perm: 'data.write' },
+  { section: tr('الإدارة'), perm: 'staff.manage' },
+  { path: '/staff', icon: '◐', label: tr('الموظفون'), desc: tr('الحسابات والصلاحيات'), sub: tr('إدارة حسابات الموظفين وصلاحياتهم'), perm: 'staff.manage' },
 ]
 
 /** Number of pending booking requests, kept live through Supabase realtime. */
@@ -41,19 +43,19 @@ function usePendingCount() {
 function Sidebar({ open, onNavigate, pendingCount }) {
   const { session, role, staff } = useAuth()
   const email = session?.user?.email || ''
-  const name = staff?.name || email.split('@')[0] || 'المدير'
+  const name = staff?.name || email.split('@')[0] || tr('المدير')
 
   return (
     <nav className={`sidebar ${open ? 'open' : ''}`}>
       <div className="sidebar-brand">
         <div className="sidebar-logo">
           <img className="sidebar-logo-img" src={COMPANY.logoLight} alt={COMPANY.nameEn} />
-          <div className="sidebar-tagline">{COMPANY.systemName}</div>
+          <div className="sidebar-tagline">{tr(COMPANY.systemName)}</div>
         </div>
         <div className="sidebar-company">
-          <div className="sidebar-company-name">{COMPANY.legalName}</div>
+          <div className="sidebar-company-name">{tr(COMPANY.legalName)}</div>
           <div className="sidebar-company-cr">
-            {COMPANY.cr} • مسقط، عُمان
+            {tr(COMPANY.cr)}{' '}{tr('• مسقط، عُمان')}
           </div>
         </div>
       </div>
@@ -62,16 +64,16 @@ function Sidebar({ open, onNavigate, pendingCount }) {
         {NAV.filter((item) => !item.perm || can(role, item.perm)).map((item) =>
           item.section ? (
             <div key={item.section} className="nav-section">
-              {item.section}
+              {tr(item.section)}
             </div>
           ) : (
             <NavLink key={item.path} to={item.path} onClick={onNavigate} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <div className="nav-icon">{item.icon}</div>
               <div className="nav-text">
-                <div className="nav-label">{item.label}</div>
-                <div className="nav-desc">{item.desc}</div>
+                <div className="nav-label">{tr(item.label)}</div>
+                <div className="nav-desc">{tr(item.desc)}</div>
               </div>
-              {item.badge && pendingCount > 0 && <span className="nav-badge">{pendingCount}</span>}
+              {item.badge && pendingCount > 0 && <span className="nav-badge">{tr(pendingCount)}</span>}
               {item.isNew && <span className="nav-new">NEW</span>}
             </NavLink>
           ),
@@ -82,16 +84,16 @@ function Sidebar({ open, onNavigate, pendingCount }) {
         <div className="sidebar-user-row">
           <div className="avatar">{name[0]?.toUpperCase()}</div>
           <div className="sidebar-user-info">
-            <div className="sidebar-user-name">{name}</div>
+            <div className="sidebar-user-name">{tr(name)}</div>
             <div className="sidebar-user-email">
               {ROLES[role]?.label ? `${ROLES[role].label} • ` : ''}
-              {email}
+              {tr(email)}
             </div>
           </div>
-          <div className="online-dot" title="متصل" />
+          <div className="online-dot" title={tr('متصل')} />
         </div>
         <button className="logout-btn" onClick={signOut}>
-          تسجيل الخروج
+          {tr('تسجيل الخروج')}
         </button>
       </div>
     </nav>
@@ -108,26 +110,27 @@ function Topbar({ page, onMenu }) {
   return (
     <header className="topbar">
       <div className="topbar-title-wrap">
-        <button className="menu-btn" onClick={onMenu} aria-label="القائمة">
+        <button className="menu-btn" onClick={onMenu} aria-label={tr('القائمة')}>
           ☰
         </button>
         <div className="topbar-icon">{page.icon}</div>
         <div>
-          <div className="topbar-title">{page.label}</div>
-          <div className="topbar-sub">{page.sub}</div>
+          <div className="topbar-title">{tr(page.label)}</div>
+          <div className="topbar-sub">{tr(page.sub)}</div>
         </div>
       </div>
       <div className="topbar-meta">
+        <LanguageSwitch />
         <div className="topbar-date">
-          <div>{now.toLocaleDateString('ar-OM', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
-          <div className="muted">{now.toLocaleTimeString('ar-OM', { hour: '2-digit', minute: '2-digit' })}</div>
+          <div>{now.toLocaleDateString(uiLocale(), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+          <div className="muted">{now.toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })}</div>
         </div>
         <div className="topbar-divider" />
         <div className="pill pill-success">
-          <span className="dot" /> متصل • Supabase
+          <span className="dot" />{' '}{tr('متصل • Supabase')}
         </div>
         <div className="pill pill-gold">
-          <img className="pill-mark" src={COMPANY.mark} alt="" /> <span>{COMPANY.name}</span>
+          <img className="pill-mark" src={COMPANY.mark} alt="" /> <span>{tr(COMPANY.name)}</span>
         </div>
       </div>
     </header>
@@ -153,10 +156,10 @@ export default function Layout() {
         </main>
         <footer className="footer">
           <div>
-            {COMPANY.legalName} • {COMPANY.cr} • {COMPANY.location}
+            {tr(COMPANY.legalName)} • {tr(COMPANY.cr)} • {tr(COMPANY.location)}
           </div>
           <div>
-            {COMPANY.systemName} — {COMPANY.nameEn} {COMPANY.version}
+            {tr(COMPANY.systemName)} — {tr(COMPANY.nameEn)} {tr(COMPANY.version)}
           </div>
         </footer>
       </div>

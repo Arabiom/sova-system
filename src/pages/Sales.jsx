@@ -21,6 +21,7 @@ import { exhibitionLabel, exhibitionTitle, formatOMR, monthOf, num, percent, tod
 import { downloadReceipt, downloadRegistrationInvoice } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
 import { useAuth, useCan } from '../context/AuthContext.jsx'
+import { tr } from '../lib/i18n.js'
 
 const load = async () => {
   const [payments, exhibitors, exhibitions] = await Promise.all([listPayments('*', { includePending: true }), listExhibitors(), listExhibitions()])
@@ -41,19 +42,19 @@ function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
   const exhibitor = exhibitors.find((e) => e.id === form.exhibitor_id)
 
   const submit = async () => {
-    if (!form.exhibitor_id || !(+form.amount > 0)) return toast('اختر العارض وأدخل المبلغ', 'error')
+    if (!form.exhibitor_id || !(+form.amount > 0)) return toast(tr('اختر العارض وأدخل المبلغ'), 'error')
     if (refund && exhibitor && +form.amount > num(exhibitor.paid) + (editing ? Math.abs(num(payment.amount)) : 0)) {
-      if (!confirm(`المبلغ المُرجَع أكبر مما دفعه ${exhibitor.brand} (${formatOMR(exhibitor.paid)}). متابعة؟`)) return
+      if (!confirm(tr('المبلغ المُرجَع أكبر مما دفعه {0} ({1}). متابعة؟', [exhibitor.brand, formatOMR(exhibitor.paid)]))) return
     }
     setSaving(true)
     try {
       if (editing) {
         await updatePayment(payment, form)
-        toast('✅ تم تعديل الدفعة')
+        toast(tr('✅ تم تعديل الدفعة'))
       } else {
         const { invoice_no: invoice } = await recordPayment(form)
         if (!refund) await confirmIfPaid(form.exhibitor_id)
-        toast(refund ? `✅ تم تسجيل الإرجاع — ${invoice}` : `✅ تم تسجيل الدفعة — ${invoice}`)
+        toast(refund ? tr('✅ تم تسجيل الإرجاع — {0}', [invoice]) : tr('✅ تم تسجيل الدفعة — {0}', [invoice]))
       }
       onSaved()
     } catch (err) {
@@ -67,29 +68,29 @@ function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
 
   return (
     <Modal
-      title={editing ? `تعديل ${refund ? 'إرجاع' : 'دفعة'} ${payment.invoice_no || ''}` : refund ? 'تسجيل مبلغ مُرجَع' : 'تسجيل دفعة جديدة'}
+      title={editing ? tr(refund ? 'تعديل إرجاع {0}' : 'تعديل دفعة {0}', [payment.invoice_no || '']) : refund ? tr('تسجيل مبلغ مُرجَع') : tr('تسجيل دفعة جديدة')}
       subtitle={editing ? exhibitor?.brand : undefined}
       onClose={onClose}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            إلغاء
+            {tr('إلغاء')}
           </Button>
           <Button onClick={submit} disabled={saving} variant={refund ? 'danger' : 'primary'}>
-            {saving ? 'جاري...' : editing ? 'حفظ التعديل' : refund ? 'تسجيل الإرجاع' : 'تسجيل الدفعة'}
+            {saving ? tr('جاري...') : editing ? tr('حفظ التعديل') : refund ? tr('تسجيل الإرجاع') : tr('تسجيل الدفعة')}
           </Button>
         </>
       }
     >
       {!editing && (
-        <Field label="العارض" required>
+        <Field label={tr('العارض')} required>
           <select className="input" value={form.exhibitor_id || ''} onChange={set('exhibitor_id')}>
-            <option value="">اختر عارض...</option>
+            <option value="">{tr('اختر عارض...')}</option>
             {exhibitors.map((e) => {
               const balance = balanceOf(e)
               return (
                 <option key={e.id} value={e.id}>
-                  {e.brand} — مدفوع {formatOMR(e.paid)} / {formatOMR(e.contract)} {balance > 0 ? `(متبقي ${formatOMR(balance)})` : '✅'}
+                  {tr(e.brand)}{' '}{tr('— مدفوع')}{' '}{formatOMR(e.paid)} / {formatOMR(e.contract)} {balance > 0 ? tr('(متبقي {0})', [formatOMR(balance)]) : '✅'}
                 </option>
               )
             })}
@@ -97,37 +98,37 @@ function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
         </Field>
       )}
       <div className="form-grid">
-        <Field label={refund ? 'المبلغ المُرجَع (ر.ع)' : 'المبلغ (ر.ع)'} required>
+        <Field label={refund ? tr('المبلغ المُرجَع (ر.ع)') : tr('المبلغ (ر.ع)')} required>
           <input className="input" type="number" min="0" step="0.001" placeholder="0.000" value={form.amount || ''} onChange={set('amount')} />
         </Field>
-        <Field label="طريقة الدفع">
+        <Field label={tr('طريقة الدفع')}>
           <SelectOptions options={methods} placeholder={null} value={form.method} onChange={set('method')} />
         </Field>
-        <Field label="نوع الدفعة">
+        <Field label={tr('نوع الدفعة')}>
           <SelectOptions options={PAYMENT_TYPES} placeholder={null} value={form.type} onChange={set('type')} />
         </Field>
-        <Field label="التاريخ">
+        <Field label={tr('التاريخ')}>
           <DateInput value={form.date || ''} onChange={set('date')} />
         </Field>
       </div>
-      <Field label="ملاحظة">
-        <input className="input" placeholder={refund ? 'مثال: إرجاع مبلغ المعرض الملغى' : 'مثال: دفعة مقدمة معرض نزوى'} value={form.note || ''} onChange={set('note')} />
+      <Field label={tr('ملاحظة')}>
+        <input className="input" placeholder={refund ? tr('مثال: إرجاع مبلغ المعرض الملغى') : tr('مثال: دفعة مقدمة معرض نزوى')} value={form.note || ''} onChange={set('note')} />
       </Field>
-      {refund && <div className="alert alert-warning">يُسجَّل كمبلغ سالب ويُخصم من إجمالي ما دفعه العارض ومن المحصّل.</div>}
+      {refund && <div className="alert alert-warning">{tr('يُسجَّل كمبلغ سالب ويُخصم من إجمالي ما دفعه العارض ومن المحصّل.')}</div>}
       {+form.amount > 0 && !refund && (
         <div className="summary-box">
           <div className="kv-row">
-            <span>المبلغ</span>
+            <span>{tr('المبلغ')}</span>
             <strong>{formatOMR(form.amount)}</strong>
           </div>
           {vatEnabled() && (
             <div className="kv-row muted small">
-              <span>ضريبة 5%</span>
+              <span>{tr('ضريبة 5%')}</span>
               <span>{formatOMR(vatOf(form.amount))}</span>
             </div>
           )}
           <div className="kv-row kv-total">
-            <span>الإجمالي</span>
+            <span>{tr('الإجمالي')}</span>
             <strong className="text-suc">{formatOMR(withVat(form.amount))}</strong>
           </div>
         </div>
@@ -164,10 +165,10 @@ export default function Sales() {
   const remaining = contracts - collected
 
   const remove = async (payment) => {
-    if (!confirm(`حذف الدفعة ${payment.invoice_no || ''}؟`)) return
+    if (!confirm(tr('حذف الدفعة {0}؟', [payment.invoice_no || '']))) return
     try {
       await deletePayment(payment)
-      toast('🗑️ تم حذف الدفعة')
+      toast(tr('🗑️ تم حذف الدفعة'))
       reload()
     } catch (err) {
       toast(err.message, 'error')
@@ -175,7 +176,7 @@ export default function Sales() {
   }
 
   const printReceipt = async (payment) => {
-    toast('🖨️ جاري طباعة الفاتورة...')
+    toast(tr('🖨️ جاري طباعة الفاتورة...'))
     try {
       const exhibitor = exhibitorOf(payment.exhibitor_id)
       const exhibition = exhibitionOfExhibitor(payment.exhibitor_id)
@@ -183,17 +184,17 @@ export default function Sales() {
       if (exhibitor?.booth_type && num(payment.amount) > 0) await downloadRegistrationInvoice({ exhibitor, exhibition, payment })
       else await downloadReceipt(payment, exhibitor, exhibition)
     } catch (err) {
-      toast(`تعذّر إنشاء الفاتورة: ${err.message}`, 'error')
+      toast(tr('تعذّر إنشاء الفاتورة: {0}', [err.message]), 'error')
     }
   }
 
   const confirm_ = async (payment) => {
-    if (!confirm(`تأكيد وصول ${formatOMR(withVat(payment.amount))} من ${exhibitorOf(payment.exhibitor_id)?.brand || 'العارض'}؟`)) return
+    if (!confirm(tr('تأكيد وصول {0} من {1}؟', [formatOMR(withVat(payment.amount)), exhibitorOf(payment.exhibitor_id)?.brand || tr('العارض')]))) return
     setConfirming(payment.id)
     try {
       await confirmPayment(payment, session?.user?.id)
       await confirmIfPaid(payment.exhibitor_id)
-      toast('✅ تم تأكيد الدفعة')
+      toast(tr('✅ تم تأكيد الدفعة'))
       reload()
     } catch (err) {
       toast(err.message, 'error')
@@ -204,19 +205,19 @@ export default function Sales() {
 
   return (
     <>
-      <PageHeader title="المبيعات والمدفوعات" subtitle={`${payments.length} دفعة مسجلة`}>
+      <PageHeader title={tr('المبيعات والمدفوعات')} subtitle={tr('{0} دفعة مسجلة', [payments.length])}>
         <ExhibitionFilter exhibitions={exhibitions} value={scope} onChange={setScope} />
-        {canWrite && <Button onClick={() => setAdding(true)}>+ تسجيل دفعة / إرجاع</Button>}
+        {canWrite && <Button onClick={() => setAdding(true)}>{tr('+ تسجيل دفعة / إرجاع')}</Button>}
       </PageHeader>
 
       {pendingPayments.length > 0 && (
-        <Panel icon="⏳" title={`دفعات بانتظار التأكيد (${pendingPayments.length})`} subtitle="سجّلها فريق التسويق — لا تُحسب ضمن المحصّل حتى تتأكد المالية من وصول المبلغ" className="mb-20 panel-pending">
+        <Panel icon="⏳" title={tr('دفعات بانتظار التأكيد ({0})', [pendingPayments.length])} subtitle={tr('سجّلها فريق التسويق — لا تُحسب ضمن المحصّل حتى تتأكد المالية من وصول المبلغ')} className="mb-20 panel-pending">
           <div className="table-wrap">
             <table className="table" style={{ minWidth: 760 }}>
               <thead>
                 <tr>
-                  {['رقم الفاتورة', 'العارض', 'المعرض', vatEnabled() ? 'المبلغ شامل الضريبة' : 'المبلغ', 'الطريقة', 'رقم الحساب / المحوَّل إليه', 'التاريخ', ''].map((h) => (
-                    <th key={h}>{h}</th>
+                  {[tr('رقم الفاتورة'), tr('العارض'), tr('المعرض'), vatEnabled() ? tr('المبلغ شامل الضريبة') : tr('المبلغ'), tr('الطريقة'), tr('رقم الحساب / المحوَّل إليه'), tr('التاريخ'), ''].map((h) => (
+                    <th key={h}>{tr(h)}</th>
                   ))}
                 </tr>
               </thead>
@@ -228,22 +229,22 @@ export default function Sales() {
                     <td className="muted small">{exhibitionLabel(exhibitionOfExhibitor(p.exhibitor_id))}</td>
                     <td className="amount">{formatOMR(withVat(p.amount))}</td>
                     <td>
-                      <Chip>{p.method === 'نقد' ? 'كاش' : p.method}</Chip>
+                      <Chip>{p.method === 'نقد' ? tr('كاش') : p.method}</Chip>
                     </td>
                     <td className="muted small" dir="auto">{p.transfer_ref || '—'}</td>
-                    <td className="muted small nowrap">{p.date}</td>
+                    <td className="muted small nowrap">{tr(p.date)}</td>
                     <td>
                       <div className="row-actions">
                         {canWrite && (
                           <Button size="sm" onClick={() => confirm_(p)} disabled={confirming === p.id}>
-                            {confirming === p.id ? '...' : '✓ تأكيد الوصول'}
+                            {confirming === p.id ? '...' : tr('✓ تأكيد الوصول')}
                           </Button>
                         )}
-                        <Button size="sm" variant="outline" onClick={() => printReceipt(p)} title="فاتورة PDF">
+                        <Button size="sm" variant="outline" onClick={() => printReceipt(p)} title={tr('فاتورة PDF')}>
                           🖨️
                         </Button>
                         {canWrite && (
-                          <Button size="sm" variant="danger" onClick={() => remove(p)} title="حذف — المبلغ لم يصل">
+                          <Button size="sm" variant="danger" onClick={() => remove(p)} title={tr('حذف — المبلغ لم يصل')}>
                             🗑️
                           </Button>
                         )}
@@ -259,17 +260,17 @@ export default function Sales() {
 
 
       <div className="grid-4 mb-16">
-        <StatCard flat label="إجمالي العقود" value={formatOMR(contracts)} sub={`${scopeExhibitors.length} عارض`} accent="var(--ink)" icon="📋" />
-        <StatCard flat label="إجمالي المحصّل" value={formatOMR(collected)} sub={vatEnabled() ? `ضريبة: ${formatOMR(vat)}` : `من ${formatOMR(contracts)} عقود`} accent="var(--gold)" icon="💵" />
-        <StatCard flat label="المبلغ المتبقي" value={formatOMR(remaining)} sub={`${percent(remaining, contracts)}% من العقود`} accent={remaining > 0 ? 'var(--wrn)' : 'var(--suc)'} icon="⏳" />
+        <StatCard flat label={tr('إجمالي العقود')} value={formatOMR(contracts)} sub={tr('{0} عارض', [scopeExhibitors.length])} accent="var(--ink)" icon="📋" />
+        <StatCard flat label={tr('إجمالي المحصّل')} value={formatOMR(collected)} sub={vatEnabled() ? tr('ضريبة: {0}', [formatOMR(vat)]) : tr('من {0} عقود', [formatOMR(contracts)])} accent="var(--gold)" icon="💵" />
+        <StatCard flat label={tr('المبلغ المتبقي')} value={formatOMR(remaining)} sub={tr('{0}% من العقود', [percent(remaining, contracts)])} accent={remaining > 0 ? 'var(--wrn)' : 'var(--suc)'} icon="⏳" />
         {vatEnabled() ? (
-          <StatCard flat label="المجموع شامل الضريبة" value={formatOMR(collected + vat)} sub={`نسبة ${percent(collected, contracts)}%`} accent="var(--suc)" icon="🏆" />
+          <StatCard flat label={tr('المجموع شامل الضريبة')} value={formatOMR(collected + vat)} sub={tr('نسبة {0}%', [percent(collected, contracts)])} accent="var(--suc)" icon="🏆" />
         ) : (
-          <StatCard flat label="نسبة التحصيل" value={`${percent(collected, contracts)}%`} sub="المحصّل من قيمة العقود" accent="var(--suc)" icon="🏆" />
+          <StatCard flat label={tr('نسبة التحصيل')} value={`${percent(collected, contracts)}%`} sub={tr('المحصّل من قيمة العقود')} accent="var(--suc)" icon="🏆" />
         )}
       </div>
 
-      <Panel icon="🏛️" title="الدخل حسب المعرض" className="mb-20">
+      <Panel icon="🏛️" title={tr('الدخل حسب المعرض')} className="mb-20">
         <div className="income-grid">
           {exhibitions.map((ex) => {
             const s = exhibitionStats(ex, exhibitors, payments)
@@ -279,8 +280,8 @@ export default function Sales() {
                 <div className="strong small">{exhibitionTitle(ex)}</div>
                 <div className="muted tiny mb-8">{monthOf(ex.date_from)}</div>
                 <div className="income-value">{formatOMR(s.collected)}</div>
-                <div className="muted tiny">من {formatOMR(s.contract)}</div>
-                {s.remaining > 0 && <div className="tiny text-wrn">متبقي {formatOMR(s.remaining)}</div>}
+                <div className="muted tiny">{tr('من')}{' '}{formatOMR(s.contract)}</div>
+                {s.remaining > 0 && <div className="tiny text-wrn">{tr('متبقي')}{' '}{formatOMR(s.remaining)}</div>}
                 <div className="mt-8">
                   <ProgressBar pct={pct} height={4} color={pct > 70 ? 'var(--suc)' : pct > 40 ? 'var(--gold)' : 'var(--wrn)'} />
                 </div>
@@ -292,7 +293,7 @@ export default function Sales() {
       </Panel>
 
       <div className="grid-4 mb-20">
-        {[...PAYMENT_METHODS, ...(scopePayments.some((p) => p.method === 'غير محدد') ? ['غير محدد'] : [])].map((method) => {
+        {[...PAYMENT_METHODS, ...(scopePayments.some((p) => p.method === 'غير محدد') ? [tr('غير محدد')] : [])].map((method) => {
           const total = sumBy(scopePayments.filter((p) => p.method === method), 'amount')
           const meta = PAYMENT_METHOD_META[method] || PAYMENT_METHOD_META['غير محدد']
           return (
@@ -301,13 +302,13 @@ export default function Sales() {
         })}
       </div>
 
-      <Panel title="💳 سجل المدفوعات">
+      <Panel title={tr('💳 سجل المدفوعات')}>
         <div className="table-wrap">
           <table className="table" style={{ minWidth: 800 }}>
             <thead>
               <tr>
-                {['رقم الفاتورة', 'العارض', 'المعرض', 'المبلغ', ...(vatEnabled() ? ['ضريبة 5%'] : []), 'الطريقة', 'النوع', 'التاريخ', 'ملاحظة', ''].map((h) => (
-                  <th key={h}>{h}</th>
+                {[tr('رقم الفاتورة'), tr('العارض'), tr('المعرض'), tr('المبلغ'), ...(vatEnabled() ? [tr('ضريبة 5%')] : []), tr('الطريقة'), tr('النوع'), tr('التاريخ'), tr('ملاحظة'), ''].map((h) => (
+                  <th key={h}>{tr(h)}</th>
                 ))}
               </tr>
             </thead>
@@ -320,27 +321,27 @@ export default function Sales() {
                   <td className={num(p.amount) < 0 ? 'amount text-dng' : 'amount'}>{formatOMR(p.amount)}</td>
                   {vatEnabled() && <td className="muted small">{formatOMR(vatOf(p.amount))}</td>}
                   <td>
-                    <Chip>{p.method}</Chip>
+                    <Chip>{tr(p.method)}</Chip>
                   </td>
                   <td>
                     <StatusBadge status={p.type || 'كامل'} />
                   </td>
-                  <td className="muted small nowrap">{p.date}</td>
+                  <td className="muted small nowrap">{tr(p.date)}</td>
                   <td className="muted small truncate" title={p.note}>
                     {p.note || '—'}
                   </td>
                   <td>
                     <div className="row-actions">
                       {canWrite && (
-                        <Button size="sm" variant="outline" onClick={() => setEditingPayment(p)} title="تعديل">
+                        <Button size="sm" variant="outline" onClick={() => setEditingPayment(p)} title={tr('تعديل')}>
                           ✏️
                         </Button>
                       )}
-                      <Button size="sm" variant="outline" onClick={() => printReceipt(p)} title="فاتورة PDF">
+                      <Button size="sm" variant="outline" onClick={() => printReceipt(p)} title={tr('فاتورة PDF')}>
                         🖨️
                       </Button>
                       {canWrite && (
-                        <Button size="sm" variant="danger" onClick={() => remove(p)} title="حذف">
+                        <Button size="sm" variant="danger" onClick={() => remove(p)} title={tr('حذف')}>
                           🗑️
                         </Button>
                       )}
@@ -351,7 +352,7 @@ export default function Sales() {
             </tbody>
           </table>
         </div>
-        {!scopePayments.length && <EmptyState icon="💰" text="لا توجد مدفوعات" />}
+        {!scopePayments.length && <EmptyState icon="💰" text={tr('لا توجد مدفوعات')} />}
       </Panel>
 
       {editingPayment && (

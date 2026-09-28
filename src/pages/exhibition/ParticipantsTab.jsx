@@ -11,6 +11,7 @@ import { formatOMR } from '../../lib/format.js'
 import { downloadContract } from '../../lib/pdf.js'
 import { useCan, useCanEdit } from '../../context/AuthContext.jsx'
 import { duplicateBooths } from '../../lib/sites.js'
+import { tr } from '../../lib/i18n.js'
 
 export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, clients, onChanged }) {
   const toast = useToast()
@@ -22,29 +23,29 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
   const duplicates = duplicateBooths(exhibitors)
 
   const printContract = async (e) => {
-    toast('📄 جاري طباعة العقد...')
+    toast(tr('📄 جاري طباعة العقد...'))
     try {
       await downloadContract(e, exhibition, newReference('AIB'))
     } catch (err) {
-      toast(`تعذّر إنشاء العقد: ${err.message}`, 'error')
+      toast(tr('تعذّر إنشاء العقد: {0}', [err.message]), 'error')
     }
   }
 
   return (
     <Panel
       icon="🤝"
-      title="المشاركون"
-      subtitle={`${exhibitors.length} مشارك`}
+      title={tr('المشاركون')}
+      subtitle={tr('{0} مشارك', [exhibitors.length])}
       action={
         <div className="row-actions">
           {canPay && (
             <Link to="/sales" className="btn btn-outline btn-sm">
-              💳 تسجيل دفعة
+              {tr('💳 تسجيل دفعة')}
             </Link>
           )}
           {canWrite && (
             <Button size="sm" onClick={() => setEditing({ form: { status: 'مبدئي', exhibition_id: exhibition.id }, id: null })}>
-              + إضافة مشارك
+              {tr('+ إضافة مشارك')}
             </Button>
           )}
         </div>
@@ -52,10 +53,10 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
     >
       {duplicates.length > 0 && (
         <div className="alert alert-danger">
-          ⚠️ مواقع مسجلة لأكثر من مشارك (من قبل منع التكرار) — عدّل رقم الموقع لأحدهم:{' '}
+          {tr('⚠️ مواقع مسجلة لأكثر من مشارك (من قبل منع التكرار) — عدّل رقم الموقع لأحدهم:')}{' '}
           {duplicates
             .slice(0, 6)
-            .map((d) => `الموقع ${d.number}: ${d.exhibitors.map((e) => e.brand).join(' و ')}`)
+            .map((d) => tr('الموقع {0}: {1}', [d.number, d.exhibitors.map((e) => e.brand).join(tr(' و '))]))
             .join(' • ')}
         </div>
       )}
@@ -63,8 +64,8 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
         <table className="table" style={{ minWidth: 820 }}>
           <thead>
             <tr>
-              {['المشارك', 'الهاتف', 'النشاط', 'المواقع', ...(money ? ['العقد', 'المدفوع', 'المتبقي'] : []), 'الحالة', ''].map((h) => (
-                <th key={h}>{h}</th>
+              {[tr('المشارك'), tr('الهاتف'), tr('النشاط'), tr('المواقع'), ...(money ? [tr('العقد'), tr('المدفوع'), tr('المتبقي')] : []), tr('الحالة'), ''].map((h) => (
+                <th key={h}>{tr(h)}</th>
               ))}
             </tr>
           </thead>
@@ -74,11 +75,11 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
               return (
                 <tr key={e.id}>
                   <td>
-                    <div className="strong">{e.brand}</div>
-                    <div className="muted tiny">{e.manager}</div>
+                    <div className="strong">{tr(e.brand)}</div>
+                    <div className="muted tiny">{tr(e.manager)}</div>
                   </td>
-                  <td className="ltr">{e.phone}</td>
-                  <td className="small">{e.category || '—'}</td>
+                  <td className="ltr">{tr(e.phone)}</td>
+                  <td className="small">{tr(e.category) || '—'}</td>
                   <td>{e.booth || '—'}</td>
                   {money && <td className="num">{formatOMR(e.contract)}</td>}
                   {money && <td className="num text-suc strong">{formatOMR(e.paid)}</td>}
@@ -89,17 +90,17 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
                   <td>
                     <div className="row-actions">
                       {money && (
-                        <Button size="sm" variant="outline" onClick={() => printContract(e)} title="طباعة عقد">
+                        <Button size="sm" variant="outline" onClick={() => printContract(e)} title={tr('طباعة عقد')}>
                           📄
                         </Button>
                       )}
                       {canEdit(e) ? (
-                        <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...e }, id: e.id })} title="تعديل">
+                        <Button size="sm" variant="outline" onClick={() => setEditing({ form: { ...e }, id: e.id })} title={tr('تعديل')}>
                           ✏️
                         </Button>
                       ) : (
                         canWrite && (
-                          <span className="lock-note" title="أدخله مسوق آخر — التعديل للإدارة أو لمن أدخله">
+                          <span className="lock-note" title={tr('أدخله مسوق آخر — التعديل للإدارة أو لمن أدخله')}>
                             🔒
                           </span>
                         )
@@ -112,7 +113,7 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
           </tbody>
         </table>
       </div>
-      {!exhibitors.length && <EmptyState icon="🤝" text="لا يوجد مشاركون بعد" />}
+      {!exhibitors.length && <EmptyState icon="🤝" text={tr('لا يوجد مشاركون بعد')} />}
 
       {editing && (
         <ExhibitorForm

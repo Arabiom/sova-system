@@ -1,7 +1,10 @@
 import { supabase } from '../lib/supabase.js'
+import { tr } from '../lib/i18n.js'
 
 /** Turn database / network errors into messages the team can act on. */
-export function friendlyError(error) {
+export const friendlyError = (error) => tr(arabicError(error))
+
+function arabicError(error) {
   const msg = error?.message || String(error)
   switch (error?.code) {
     case '23505':
