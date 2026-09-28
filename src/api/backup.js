@@ -12,11 +12,27 @@ const TABLES = [
   'bookings',
 ]
 
+// Tables added by later updates: included when they exist (a missing one is skipped).
+const LATER_TABLES = [
+  'staff',
+  'staff_expenses',
+  'company_expenses',
+  'company_settings',
+  'whatsapp_templates',
+  'whatsapp_log',
+  'staff_tasks',
+  'staff_activity',
+]
+
 /** Download every table as one JSON file (the free Supabase plan keeps no backups). */
 export async function downloadBackup() {
   const data = {}
   for (const table of TABLES) data[table] = await unwrap(supabase.from(table).select('*'))
-  const backup = { app: 'AIB', created_at: new Date().toISOString(), counts: Object.fromEntries(TABLES.map((t) => [t, data[t].length])), data }
+  for (const table of LATER_TABLES) {
+    const { data: rows, error } = await supabase.from(table).select('*')
+    if (!error) data[table] = rows
+  }
+  const backup = { app: 'AIB', created_at: new Date().toISOString(), counts: Object.fromEntries(Object.entries(data).map(([t, rows]) => [t, rows.length])), data }
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = Object.assign(document.createElement('a'), { href: url, download: `AIB-backup-${todayISO()}.json` })
