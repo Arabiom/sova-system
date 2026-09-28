@@ -22,10 +22,15 @@ export function toExhibitorRow(form) {
     status: form.status || 'مبدئي',
     notes: form.notes || '',
     client_id: form.client_id || null,
+    // Older forms did not carry the package; leave what is stored untouched then.
+    ...('booth_type' in form ? { booth_type: form.booth_type || '' } : {}),
   }
 }
 
-/** Save an exhibitor; one without a client record is linked to (or creates) its client. */
+/**
+ * Save an exhibitor; one without a client record is linked to (or creates) its client.
+ * Returns the exhibitor's id (the new one when adding).
+ */
 export async function saveExhibitor(form, id) {
   const client_id = form.client_id || (await findOrCreateClient(form))
   const row = toExhibitorRow({ ...form, client_id })
@@ -37,9 +42,10 @@ export async function saveExhibitor(form, id) {
       await unwrap(supabase.from('exhibition_sites').update({ exhibitor_id: null }).eq('exhibitor_id', id))
       row.booth = '—'
     }
-    return unwrap(table().update(row).eq('id', id))
+    await unwrap(table().update(row).eq('id', id))
+    return id
   }
-  return unwrap(table().insert(row))
+  return (await unwrap(table().insert(row).select('id').single())).id
 }
 
 /** Insert an exhibitor row as given and return it (with its new id). */

@@ -5,7 +5,7 @@ import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
 import { listTasks, TASK_DONE } from '../api/team.js'
-import { isOverdue } from '../lib/team.js'
+import { isOverdue, omanDay } from '../lib/team.js'
 import Button from '../components/Button.jsx'
 import { Loading } from '../components/Feedback.jsx'
 import PageHeader from '../components/PageHeader.jsx'
@@ -14,8 +14,8 @@ import { ProgressRow } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { COMPANY, DEFAULT_TIERS } from '../lib/constants.js'
-import { balanceOf, exhibitionFinancials, isConfirmed, occupancyOf, summarize, sumBy, vatEnabled, withVat } from '../lib/finance.js'
-import { exhibitionTitle, formatOMR, isolateLtr, monthOf } from '../lib/format.js'
+import { balanceOf, collectionAlerts, exhibitionFinancials, isConfirmed, occupancyOf, summarize, sumBy, vatEnabled, withVat } from '../lib/finance.js'
+import { exhibitionTitle, formatDate, formatOMR, isolateLtr, monthOf } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { tr } from '../lib/i18n.js'
@@ -64,6 +64,8 @@ export default function Dashboard() {
   )
   const exhibitorsOf = (id) => exhibitors.filter((e) => e.exhibition_id === id)
   const brandOf = (id) => exhibitors.find((e) => e.id === id)?.brand || '—'
+  // Every fee is due 10 days before opening: warn from a week before that deadline.
+  const deadlines = collectionAlerts(exhibitions, exhibitors, omanDay())
 
   return (
     <>
@@ -88,6 +90,28 @@ export default function Dashboard() {
           {myOverdue ? ` — ${tr('{0} متأخرة', [myOverdue])}` : ''} — {tr('اضغط للعرض')}
         </button>
       )}
+
+      {deadlines.map((a) => (
+        <button
+          key={a.exhibition.id}
+          type="button"
+          className={`alert ${a.overdue ? 'alert-danger' : 'alert-warning'} alert-link`}
+          onClick={() => go(money ? '/finance' : `/exhibitions/${a.exhibition.id}`, money ? { state: { tab: 'receivables', exhibition: a.exhibition.id } } : undefined)}
+        >
+          ⏰ <strong>{exhibitionTitle(a.exhibition)}</strong>{' '}
+          {a.daysToOpen > 0 ? tr('يفتتح بعد {0} يوم', [a.daysToOpen]) : tr('بدأ المعرض')}
+          {' — '}
+          {a.overdue
+            ? tr('تجاوز آخر موعد لتحصيل الرسوم ({0})', [formatDate(a.deadline)])
+            : a.daysLeft === 0
+              ? tr('اليوم آخر موعد لتحصيل كل الرسوم')
+              : tr('آخر موعد لتحصيل كل الرسوم {0} (بعد {1} يوم)', [formatDate(a.deadline), a.daysLeft])}
+          {' — '}
+          {money ? tr('{0} مشارك عليهم {1}', [a.owing.length, formatOMR(a.remaining)]) : tr('{0} مشارك لم يكملوا الدفع', [a.owing.length])}
+          {' — '}
+          {tr('اضغط للعرض')}
+        </button>
+      ))}
 
       {money && awaiting.length > 0 && (
         <button type="button" className="alert alert-warning alert-link" onClick={() => go('/sales')}>

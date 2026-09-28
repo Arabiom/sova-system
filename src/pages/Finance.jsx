@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   COMPANY_EXPENSE_CATEGORIES,
   deleteCompanyExpense,
@@ -29,11 +29,12 @@ import { useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { DEFAULT_TIERS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
-import { companyOverview, exhibitionFinancials, monthlyFlow, receivables, sumBy, vatEnabled } from '../lib/finance.js'
-import { exhibitionLabel, exhibitionTitle, formatOMR, num, percent, todayISO } from '../lib/format.js'
+import { companyOverview, daysBetween, exhibitionFinancials, monthlyFlow, paymentDeadline, receivables, sumBy, vatEnabled } from '../lib/finance.js'
+import { exhibitionLabel, exhibitionTitle, formatDate, formatOMR, num, percent, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { openWhatsApp, paymentReminderMessage } from '../lib/whatsapp.js'
 import { tr } from '../lib/i18n.js'
+import { omanDay } from '../lib/team.js'
 
 const TABS = [
   { id: 'overview', label: tr('📊 نظرة عامة') },
@@ -153,8 +154,21 @@ function Overview({ o, flow, go }) {
 }
 
 // ── 2. Receivables ──────────────────────────────────────────────────────────
-function Receivables({ data, canRemind }) {
-  const [scope, setScope] = useState('all')
+/** Collection deadline (10 days before opening), red once passed, amber in the last week. */
+function DeadlineCell({ deadline, today }) {
+  if (!deadline) return '—'
+  const days = daysBetween(today, deadline)
+  return (
+    <>
+      <div className={days < 0 ? 'text-dng strong' : days <= 7 ? 'text-wrn strong' : ''}>{formatDate(deadline)}</div>
+      <div className="muted tiny">{days < 0 ? tr('متأخر {0} يوم', [-days]) : days === 0 ? tr('اليوم') : tr('بعد {0} يوم', [days])}</div>
+    </>
+  )
+}
+
+function Receivables({ data, canRemind, initialScope = 'all' }) {
+  const [scope, setScope] = useState(initialScope)
+  const today = omanDay()
   const rows = receivables(data.exhibitors, data.exhibitions).filter((r) => scope === 'all' || r.exhibitor.exhibition_id === scope)
   const total = rows.reduce((t, r) => t + r.remaining, 0)
 
@@ -167,6 +181,7 @@ function Receivables({ data, canRemind }) {
       { label: tr('العقد'), value: (r) => num(r.exhibitor.contract).toFixed(3) },
       { label: tr('المدفوع'), value: (r) => num(r.exhibitor.paid).toFixed(3) },
       { label: tr('المتبقي'), value: (r) => r.remaining.toFixed(3) },
+      { label: tr('آخر موعد للتحصيل'), value: (r) => paymentDeadline(r.exhibition) },
     ])
 
   return (
@@ -183,7 +198,7 @@ function Receivables({ data, canRemind }) {
         <table className="table">
           <thead>
             <tr>
-              {[tr('المشارك'), tr('الهاتف'), tr('المعرض'), tr('العقد'), tr('المدفوع'), tr('المتبقي'), tr('الحالة'), ''].map((h) => (
+              {[tr('المشارك'), tr('الهاتف'), tr('المعرض'), tr('العقد'), tr('المدفوع'), tr('المتبقي'), tr('آخر موعد للتحصيل'), tr('الحالة'), ''].map((h) => (
                 <th key={h}>{tr(h)}</th>
               ))}
             </tr>
@@ -200,6 +215,9 @@ function Receivables({ data, canRemind }) {
                 <td className="num">{formatOMR(e.contract)}</td>
                 <td className="num text-suc">{formatOMR(e.paid)}</td>
                 <td className="num strong text-dng">{formatOMR(remaining)}</td>
+                <td className="small nowrap">
+                  <DeadlineCell deadline={paymentDeadline(exhibition)} today={today} />
+                </td>
                 <td>
                   <StatusBadge status={e.status} />
                 </td>
@@ -640,7 +658,8 @@ function CompanyExpenses({ data, canManage, reload }) {
 
 export default function Finance() {
   const { data, loading, reload } = useData(load, null)
-  const [tab, setTab] = useState('overview')
+  const { state } = useLocation() // the dashboard's deadline alert opens the receivables of one exhibition
+  const [tab, setTab] = useState(state?.tab || 'overview')
   const canManage = useCan('payments.write') // admin + finance; the viewer only reads
   const canRemind = useCan('data.write')
 
@@ -663,7 +682,7 @@ export default function Finance() {
       </div>
 
       {tab === 'overview' && <Overview o={o} flow={flow} go={setTab} />}
-      {tab === 'receivables' && <Receivables data={data} canRemind={canRemind} />}
+      {tab === 'receivables' && <Receivables data={data} canRemind={canRemind} initialScope={state?.exhibition || 'all'} />}
       {tab === 'plan' && <Plan data={data} />}
       {tab === 'exhibition-expenses' && <ExhibitionExpenses data={data} canManage={canManage} reload={reload} />}
       {tab === 'company-expenses' && <CompanyExpenses data={data} canManage={canManage} reload={reload} />}

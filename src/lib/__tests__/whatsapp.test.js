@@ -47,6 +47,7 @@ describe('messages', () => {
 
   it('shows the outstanding amount in the payment reminder', () => {
     expect(paymentReminderMessage(exhibitor, exhibition)).toContain('المبلغ المتبقي: 250.000 ر.ع')
+    expect(paymentReminderMessage(exhibitor, exhibition)).toContain('قبل *30/09/2026*')
   })
 
   it('counts down the days to the exhibition', () => {

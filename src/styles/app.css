@@ -1605,6 +1605,41 @@ textarea.input {
   background: var(--gold-p);
   border-radius: 10px;
 }
+.money-box {
+  margin: 0 0 14px;
+  padding: 10px 14px 14px;
+  border: 1px solid var(--border-l);
+  border-radius: 12px;
+}
+.money-box legend {
+  padding: 0 6px;
+  font-weight: 700;
+  font-size: 13px;
+}
+.money-remaining {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+.money-remaining strong {
+  font-size: 20px;
+}
+.money-remaining.is-due {
+  background: color-mix(in srgb, var(--dng) 9%, #fff);
+  color: var(--dng);
+}
+.money-remaining.is-paid {
+  background: color-mix(in srgb, var(--suc) 10%, #fff);
+  color: var(--suc);
+}
+.money-remaining.is-over {
+  background: color-mix(in srgb, var(--wrn) 12%, #fff);
+  color: var(--wrn);
+}
 
 /* ─── WhatsApp ───────────────────────────────────────────────── */
 .step-title {
