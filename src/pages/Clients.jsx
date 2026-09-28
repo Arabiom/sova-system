@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { clientWithPhone, deleteClient, findClient, listClients, saveClient } from '../api/clients.js'
 import { listStaff } from '../api/staff.js'
 import { listExhibitions } from '../api/exhibitions.js'
@@ -17,7 +17,7 @@ import { downloadCsv } from '../lib/csv.js'
 import { clientHistory } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatDate, formatOMR, phoneKey, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
-import { invitationMessage, openWhatsApp } from '../lib/whatsapp.js'
+import { openWhatsApp } from '../lib/whatsapp.js'
 import { useAuth, useCan, useCanEdit } from '../context/AuthContext.jsx'
 
 const load = async () => {
@@ -293,70 +293,6 @@ function ClientDetails({ client, onClose, onEdit }) {
   )
 }
 
-function InviteModal({ clients, exhibitions, onClose }) {
-  const toast = useToast()
-  const [exhibitionId, setExhibitionId] = useState(exhibitions.find((e) => e.date_from >= todayISO())?.id || '')
-  const [custom, setCustom] = useState('')
-  const [progress, setProgress] = useState(null)
-  const exhibition = exhibitions.find((e) => e.id === exhibitionId)
-  const reachable = clients.filter((c) => c.whatsapp || c.phone)
-  const messageFor = (c) => (exhibition ? invitationMessage(c, exhibition) : custom)
-  const preview = reachable[0] ? messageFor(reachable[0]) : ''
-
-  const send = async () => {
-    if (!exhibition && !custom.trim()) return toast('اختر معرضاً أو اكتب رسالة', 'error')
-    setProgress(0)
-    for (let i = 0; i < reachable.length; i++) {
-      openWhatsApp(reachable[i].whatsapp || reachable[i].phone, messageFor(reachable[i]))
-      setProgress(i + 1)
-      if (i < reachable.length - 1) await new Promise((r) => setTimeout(r, 1500))
-    }
-    toast(`✅ تم فتح واتساب لـ ${reachable.length} عميل`)
-    onClose()
-  }
-
-  return (
-    <Modal
-      title="📱 رسالة واتساب للعملاء"
-      subtitle={`${reachable.length} عميل لديه رقم من ${clients.length} في النتائج الحالية`}
-      onClose={onClose}
-      size="wide"
-      footer={
-        <>
-          <Button variant="outline" onClick={onClose}>
-            إلغاء
-          </Button>
-          <Button variant="whatsapp" onClick={send} disabled={progress !== null || !reachable.length}>
-            {progress !== null ? `جاري الإرسال... ${progress}/${reachable.length}` : `إرسال لـ ${reachable.length} عميل`}
-          </Button>
-        </>
-      }
-    >
-      <Field label="دعوة للمشاركة في معرض" hint="اختر معرضاً لإرسال دعوة جاهزة، أو اتركه فارغاً واكتب رسالتك">
-        <select className="input" value={exhibitionId} onChange={(e) => setExhibitionId(e.target.value)}>
-          <option value="">— رسالة مخصصة —</option>
-          {exhibitions.map((ex) => (
-            <option key={ex.id} value={ex.id}>
-              {exhibitionLabel(ex)}
-            </option>
-          ))}
-        </select>
-      </Field>
-      {!exhibition && (
-        <Field label="نص الرسالة">
-          <textarea className="input" rows={5} value={custom} onChange={(e) => setCustom(e.target.value)} />
-        </Field>
-      )}
-      {preview && (
-        <div className="wa-chat">
-          <div className="wa-bubble">{preview}</div>
-        </div>
-      )}
-      <div className="muted tiny center mt-10">يفتح واتساب لكل عميل بالتتابع والرسالة جاهزة — اضغط إرسال في كل نافذة. قد يطلب المتصفح السماح بفتح النوافذ المنبثقة.</div>
-    </Modal>
-  )
-}
-
 export default function Clients() {
   const toast = useToast()
   const canDelete = useCan('records.delete')
@@ -371,7 +307,7 @@ export default function Clients() {
   const [sort, setSort] = useState('name')
   const [editing, setEditing] = useState(null)
   const [viewing, setViewing] = useState(null)
-  const [inviting, setInviting] = useState(false)
+  const navigate = useNavigate()
 
   if (loading || !data) return <Loading />
   const { clients, exhibitors, exhibitions, staff } = data
@@ -471,7 +407,18 @@ export default function Clients() {
           ⬇️ تصدير Excel
         </Button>
         {canWrite && (
-          <Button variant="whatsapp" onClick={() => setInviting(true)} disabled={!visible.length}>
+          <Button variant="whatsapp" onClick={() =>
+              navigate('/whatsapp', {
+                state: {
+                  audience: 'client',
+                  keys: visible.map((c) => `client:${c.id}`),
+                  template: 'invitation',
+                  exhibitionId: exhibitions.find((e) => e.date_from >= todayISO())?.id || '',
+                },
+              })
+            }
+            disabled={!visible.length}
+          >
             📱 واتساب للنتائج
           </Button>
         )}
@@ -603,7 +550,6 @@ export default function Clients() {
       {viewing && !editing && (
         <ClientDetails client={viewing} onClose={() => setViewing(null)} onEdit={canEdit(viewing) ? () => setEditing({ form: { ...viewing }, id: viewing.id }) : null} />
       )}
-      {inviting && <InviteModal clients={visible} exhibitions={exhibitions} onClose={() => setInviting(false)} />}
     </>
   )
 }

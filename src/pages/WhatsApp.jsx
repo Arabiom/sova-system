@@ -1,166 +1,682 @@
-import { useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
+import { listClients } from '../api/clients.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
+import { listStaff } from '../api/staff.js'
+import { deleteTemplate, groupCampaigns, lastContacts, listLog, listTemplates, saveTemplate } from '../api/whatsapp.js'
 import Button from '../components/Button.jsx'
-import ExhibitionFilter from '../components/ExhibitionFilter.jsx'
 import { Loading } from '../components/Feedback.jsx'
 import PageHeader from '../components/PageHeader.jsx'
+import WhatsAppQueue from '../components/WhatsAppQueue.jsx'
+import { WhatsAppText } from '../components/WhatsAppText.jsx'
+import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
-import { MESSAGE_TYPES, openWhatsApp } from '../lib/whatsapp.js'
-import { useCan } from '../context/AuthContext.jsx'
+import { CLIENT_STATUSES, EXHIBITOR_STATUSES } from '../lib/constants.js'
+import { balanceOf } from '../lib/finance.js'
+import { formatDayMonthYear } from '../lib/dates.js'
+import { exhibitionLabel, formatDate, phoneKey, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
+import {
+  BUILTIN_TEMPLATES,
+  emptyValues,
+  fillTemplate,
+  FORMATS,
+  insertAt,
+  messageProblems,
+  normalizePhone,
+  OPEN_MODES,
+  parseManualList,
+  phoneProblem,
+  recipientVars,
+  toRecipient,
+  uniqueByPhone,
+  usesMoney,
+  VARIABLES,
+  wrapSelection,
+} from '../lib/whatsapp.js'
 
 const load = async () => {
-  const [exhibitors, exhibitions] = await Promise.all([
+  const [exhibitors, exhibitions, clients, templates, contacts, staff] = await Promise.all([
     listExhibitors({ orderBy: 'brand', ascending: true }),
     listExhibitions(),
+    listClients().catch(() => []),
+    listTemplates(),
+    lastContacts(),
+    listStaff().catch(() => []),
   ])
-  return { exhibitors, exhibitions }
+  return { exhibitors, exhibitions, clients, templates, contacts, staff }
 }
 
-const SEND_DELAY_MS = 1500
+const AUDIENCES = [
+  { id: 'exhibitor', label: '🏛️ المشاركون في المعارض' },
+  { id: 'client', label: '👥 قاعدة العملاء' },
+  { id: 'manual', label: '✍️ أرقام أكتبها بنفسي' },
+]
+
+const EMOJIS = ['🌟', '✅', '📅', '📍', '🏛️', '🔢', '💰', '📞', '🎉', '🙏', '⏰', '📌', '🎁', '🔥', '❤️', '👋', '🌙', '🇴🇲']
+
+const RECENT_DAYS = 7
+
+const readPref = (key, fallback) => {
+  try {
+    return localStorage.getItem(key) || fallback
+  } catch {
+    return fallback
+  }
+}
+const writePref = (key, value) => {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // Private window: the choice just isn't remembered.
+  }
+}
+
+const daysAgo = (iso) => Math.floor((Date.now() - new Date(iso)) / 86_400_000)
+const agoText = (iso) => {
+  const d = daysAgo(iso)
+  return d <= 0 ? 'اليوم' : d === 1 ? 'أمس' : `قبل ${d} يوم`
+}
 
 export default function WhatsApp() {
-  const toast = useToast()
-  const { data, loading } = useData(load, null)
-  const [type, setType] = useState('reminder')
-  // Booking confirmation and payment reminder quote amounts — admin/finance only.
-  const money = useCan('money.view')
-  const types = MESSAGE_TYPES.filter((m) => money || !['confirmed', 'payment'].includes(m.id))
-  const [custom, setCustom] = useState('')
-  const [scope, setScope] = useState('all')
-  const [selected, setSelected] = useState([])
-  const [progress, setProgress] = useState(null) // number sent so far while sending
+  const { data, loading, reload } = useData(load, null)
+  const [tab, setTab] = useState('compose')
 
   if (loading || !data) return <Loading />
-  const { exhibitors, exhibitions } = data
 
-  const exhibitionOf = (id) => exhibitions.find((ex) => ex.id === id)
-  const visible = scope === 'all' ? exhibitors : exhibitors.filter((e) => e.exhibition_id === scope)
-  const messageFor = (exhibitor) => {
-    const template = types.find((m) => m.id === type)
-    return template?.build ? template.build(exhibitor, exhibitionOf(exhibitor.exhibition_id)) : custom
+  return (
+    <>
+      <PageHeader title="واتساب 📱" subtitle="رسائل جماعية مخصّصة لكل شخص باسمه وبياناته، مع قوالب جاهزة وسجل لكل ما أُرسل" />
+      <div className="tabs tabs-underline mb-16">
+        <button className={`tab ${tab === 'compose' ? 'active' : ''}`} onClick={() => setTab('compose')}>
+          ✉️ رسالة جديدة
+        </button>
+        <button className={`tab ${tab === 'history' ? 'active' : ''}`} onClick={() => setTab('history')}>
+          🕘 سجل الإرسال
+        </button>
+      </div>
+      {tab === 'compose' ? <Composer data={data} reload={reload} /> : <History staff={data.staff} />}
+    </>
+  )
+}
+
+// ─── Compose ────────────────────────────────────────────────────────────────────────
+
+function Composer({ data, reload }) {
+  const toast = useToast()
+  const location = useLocation()
+  const { session, role } = useAuth()
+  const money = useCan('money.view')
+  const uid = session?.user?.id
+  const { exhibitors, exhibitions, clients, templates, contacts } = data
+  const preset = location.state || {}
+
+  // 1. Who
+  const [audience, setAudience] = useState(preset.audience || 'exhibitor')
+  const [exhibitionId, setExhibitionId] = useState(preset.exhibitionId || '')
+  const [filters, setFilters] = useState({ status: '', sector: '', balance: '', q: '', fresh: false })
+  const [selected, setSelected] = useState(() => new Set(preset.keys || []))
+  const [manualText, setManualText] = useState('')
+
+  // 2. What
+  const initialTemplate = BUILTIN_TEMPLATES.find((t) => t.id === preset.template) || BUILTIN_TEMPLATES.find((t) => t.id === 'reminder')
+  const [templateId, setTemplateId] = useState(initialTemplate.id)
+  const [body, setBody] = useState(initialTemplate.body)
+  const [savingName, setSavingName] = useState(null) // null | '' | name being typed
+  const textRef = useRef(null)
+
+  // 3. How
+  const [mode, setModeState] = useState(() => readPref('sova.whatsapp.mode', 'wa'))
+  const setMode = (m) => {
+    setModeState(m)
+    writePref('sova.whatsapp.mode', m)
   }
-  const previewTarget = exhibitors.find((e) => selected.includes(e.id))
-  const preview = previewTarget ? messageFor(previewTarget) : ''
+  const [queue, setQueue] = useState(null)
+  const [previewIndex, setPreviewIndex] = useState(0)
 
-  const toggle = (id) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
+  const exhibitionOf = (id) => exhibitions.find((e) => e.id === id) || null
+  const chosenExhibition = exhibitionOf(exhibitionId)
 
-  const send = async () => {
-    if (!selected.length) return toast('اختر عارض واحد على الأقل', 'error')
-    if (type === 'custom' && !custom.trim()) return toast('اكتب نص الرسالة أولاً', 'error')
-    const targets = exhibitors.filter((e) => selected.includes(e.id) && e.phone)
-    let sent = 0
-    setProgress(0)
-    for (const exhibitor of targets) {
-      openWhatsApp(exhibitor.phone, messageFor(exhibitor))
-      sent += 1
-      setProgress(sent)
-      if (sent < targets.length) await new Promise((r) => setTimeout(r, SEND_DELAY_MS))
+  // Everyone who can be picked for the current audience, before selection.
+  const pool = useMemo(() => {
+    if (audience === 'manual') return parseManualList(manualText)
+    const rows = audience === 'client' ? clients.map((c) => toRecipient('client', c)) : exhibitors.map((e) => toRecipient('exhibitor', e))
+    const q = filters.q.trim().toLowerCase()
+    return rows.filter((r) => {
+      if (audience === 'exhibitor' && exhibitionId && r.exhibition_id !== exhibitionId) return false
+      if (filters.status && r.status !== filters.status) return false
+      if (filters.sector && !String(r.sector).includes(filters.sector)) return false
+      if (money && audience === 'exhibitor' && filters.balance) {
+        const due = balanceOf(r) > 0
+        if ((filters.balance === 'due') !== due) return false
+      }
+      if (filters.fresh && contacts[phoneKey(r.phone)] && daysAgo(contacts[phoneKey(r.phone)].sent_at) < RECENT_DAYS) return false
+      if (q && ![r.name, r.brand, r.phone, r.sector].some((v) => String(v || '').toLowerCase().includes(q))) return false
+      return true
+    })
+  }, [audience, manualText, clients, exhibitors, exhibitionId, filters, money, contacts])
+
+  const sectors = useMemo(() => {
+    const rows = audience === 'client' ? clients.map((c) => c.sector) : exhibitors.map((e) => e.category)
+    return [...new Set(rows.flatMap((s) => String(s || '').split(/[،,]/).map((x) => x.trim())).filter(Boolean))].sort()
+  }, [audience, clients, exhibitors])
+
+  const sendable = (r) => !phoneProblem(r.phone)
+  const chosen = audience === 'manual' ? pool : pool.filter((r) => selected.has(r.key))
+  const [unique, duplicates] = uniqueByPhone(chosen.filter(sendable))
+  const invalid = chosen.filter((r) => !sendable(r))
+
+  // The exhibition each recipient's message talks about.
+  const exhibitionFor = (r) => (r.exhibition_id ? exhibitionOf(r.exhibition_id) : chosenExhibition)
+  const varsFor = (r) => recipientVars(r, exhibitionFor(r), { money })
+  const messages = unique.map((r) => {
+    const vars = varsFor(r)
+    return { recipient: r, text: fillTemplate(body, vars), problems: messageProblems(body, vars, { money }), empty: emptyValues(body, vars) }
+  })
+  const blocked = messages.filter((m) => m.problems.length)
+  const gaps = messages.filter((m) => !m.problems.length && m.empty.length)
+
+  const previewAt = Math.min(previewIndex, Math.max(0, messages.length - 1))
+  const preview = messages[previewAt]
+
+  // Templates
+  const allowed = (t) => money || !usesMoney(t.body)
+  const builtins = BUILTIN_TEMPLATES.filter(allowed)
+  const saved = (templates || []).filter(allowed)
+  const savedTemplate = saved.find((t) => t.id === templateId)
+  const canManage = (t) => t && (t.created_by === uid || role === 'admin')
+
+  const pickTemplate = (t) => {
+    setTemplateId(t.id)
+    setBody(t.body)
+    setSavingName(null)
+  }
+
+  const edit = (fn) => {
+    const el = textRef.current
+    const start = el?.selectionStart ?? body.length
+    const end = el?.selectionEnd ?? body.length
+    const result = fn(body, start, end)
+    setBody(result.text)
+    requestAnimationFrame(() => {
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(result.start ?? result.cursor, result.end ?? result.cursor)
+    })
+  }
+  const insert = (piece) => edit((text, s, e) => insertAt(text, s, e, piece))
+
+  const saveAsTemplate = async () => {
+    if (!savingName?.trim()) return toast('اكتب اسماً للقالب', 'error')
+    if (!body.trim()) return toast('الرسالة فارغة', 'error')
+    try {
+      await saveTemplate({ name: savingName, body })
+      toast('✅ حُفظ القالب — يظهر لكل الفريق')
+      setSavingName(null)
+      reload()
+    } catch (err) {
+      toast(err.message, 'error')
     }
-    setProgress(null)
-    const skipped = selected.length - targets.length
-    toast(`✅ تم فتح واتساب لـ ${sent} عارض${skipped ? ` (تم تخطي ${skipped} بدون رقم)` : ''}`)
+  }
+  const updateTemplate = async () => {
+    try {
+      await saveTemplate({ id: savedTemplate.id, name: savedTemplate.name, body })
+      toast('✅ حُدّث القالب')
+      reload()
+    } catch (err) {
+      toast(err.message, 'error')
+    }
+  }
+  const removeTemplate = async () => {
+    if (!window.confirm(`حذف القالب «${savedTemplate.name}»؟`)) return
+    try {
+      await deleteTemplate(savedTemplate.id)
+      pickTemplate(BUILTIN_TEMPLATES.find((t) => t.id === 'custom'))
+      toast('تم حذف القالب')
+      reload()
+    } catch (err) {
+      toast(err.message, 'error')
+    }
   }
 
+  const toggle = (key) =>
+    setSelected((s) => {
+      const next = new Set(s)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  const selectAll = () => setSelected(new Set([...selected, ...pool.filter(sendable).map((r) => r.key)]))
+  const clearAll = () => setSelected(new Set())
+
+  const campaignName = () => {
+    const t = [...builtins, ...saved].find((x) => x.id === templateId)
+    const what = t && t.id !== 'custom' ? t.label || t.name : 'رسالة مخصصة'
+    return `${what.replace(/^[^\p{L}\d]+/u, '')} — ${formatDayMonthYear(todayISO())}`
+  }
+
+  const start = () => {
+    if (!body.trim()) return toast('اكتب نص الرسالة أولاً', 'error')
+    if (!messages.length) return toast('اختر رقماً واحداً على الأقل', 'error')
+    if (blocked.length) return toast(`صحّح الرسالة أولاً: ${blocked[0].problems[0]}`, 'error')
+    setQueue({ id: crypto.randomUUID(), name: campaignName(), items: messages.map(({ recipient, text }) => ({ recipient, text })) })
+  }
+
+  const copyNumbers = async () => {
+    try {
+      await navigator.clipboard.writeText(unique.map((r) => `+${normalizePhone(r.phone)}`).join('\n'))
+      toast(`✅ نُسخ ${unique.length} رقم — الصقها في «قائمة بث» في واتساب للأعمال`)
+    } catch {
+      toast('تعذّر النسخ', 'warn')
+    }
+  }
   const copyPreview = async () => {
     try {
-      await navigator.clipboard.writeText(preview)
-      toast('✅ تم نسخ الرسالة')
+      await navigator.clipboard.writeText(preview.text)
+      toast('✅ نُسخت الرسالة')
     } catch {
       toast('تعذّر النسخ', 'warn')
     }
   }
 
-  const sending = progress !== null
+  const setFilter = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
+  const switchAudience = (id) => {
+    setAudience(id)
+    setSelected(new Set())
+    setFilters({ status: '', sector: '', balance: '', q: '', fresh: false })
+  }
+
+  const needsExhibition = audience !== 'exhibitor'
+  const statuses = audience === 'client' ? CLIENT_STATUSES : EXHIBITOR_STATUSES
 
   return (
-    <>
-      <PageHeader title="واتساب 📱" subtitle="أرسل إشعارات للعارضين مباشرة عبر واتساب" />
+    <div className="wa-layout">
+      <div>
+        {/* 1 ─ Who */}
+        <section className="panel panel-pad mb-16">
+          <div className="step-title">1️⃣ لمن الرسالة؟</div>
+          <div className="wa-seg mb-12">
+            {AUDIENCES.map((a) => (
+              <button key={a.id} className={audience === a.id ? 'active' : ''} onClick={() => switchAudience(a.id)}>
+                {a.label}
+              </button>
+            ))}
+          </div>
 
-      <div className="grid-2">
-        <div>
-          <section className="panel panel-pad mb-16">
-            <div className="step-title">1️⃣ نوع الرسالة</div>
-            <div className="type-grid">
-              {types.map((m) => (
-                <button key={m.id} className={`type-btn ${type === m.id ? 'active' : ''}`} style={{ '--accent': m.color }} onClick={() => setType(m.id)}>
-                  {m.label}
-                </button>
+          <div className="wa-filters">
+            <select className="input input-compact" value={exhibitionId} onChange={(e) => setExhibitionId(e.target.value)}>
+              <option value="">{needsExhibition ? '— المعرض المقصود بالرسالة —' : 'كل المعارض'}</option>
+              {exhibitions.map((ex) => (
+                <option key={ex.id} value={ex.id}>
+                  {exhibitionLabel(ex)}
+                </option>
               ))}
-            </div>
-            {type === 'custom' && (
-              <textarea className="input mt-12" rows={5} placeholder="اكتب رسالتك هنا..." value={custom} onChange={(e) => setCustom(e.target.value)} />
+            </select>
+            {audience !== 'manual' && (
+              <>
+                <input className="input input-compact" placeholder="🔍 بحث بالاسم أو الرقم…" value={filters.q} onChange={setFilter('q')} />
+                <select className="input input-compact" value={filters.status} onChange={setFilter('status')}>
+                  <option value="">كل الحالات</option>
+                  {statuses.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+                <select className="input input-compact" value={filters.sector} onChange={setFilter('sector')}>
+                  <option value="">كل القطاعات</option>
+                  {sectors.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+                {money && audience === 'exhibitor' && (
+                  <select className="input input-compact" value={filters.balance} onChange={setFilter('balance')}>
+                    <option value="">كل المدفوعات</option>
+                    <option value="due">عليهم مبالغ متبقية</option>
+                    <option value="paid">دفعوا كامل المبلغ</option>
+                  </select>
+                )}
+              </>
             )}
-          </section>
+          </div>
+          {audience !== 'manual' && (
+            <label className="check-row mb-10">
+              <input type="checkbox" checked={filters.fresh} onChange={setFilter('fresh')} />
+              إخفاء من راسلناهم خلال آخر {RECENT_DAYS} أيام
+            </label>
+          )}
 
-          <section className="panel panel-pad mb-16">
-            <div className="step-title">2️⃣ اختر العارضين</div>
-            <ExhibitionFilter
-              className="w-full mb-10"
-              exhibitions={exhibitions}
-              value={scope}
-              onChange={(value) => {
-                setScope(value)
-                setSelected([])
-              }}
-            />
-            <div className="select-bar">
-              <Button size="sm" onClick={() => setSelected(visible.map((e) => e.id))}>
-                تحديد الكل ({visible.length})
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setSelected([])}>
-                إلغاء الكل
-              </Button>
-              <span className="select-count">{selected.length} محدد</span>
-            </div>
-            <div className="pick-list">
-              {visible.map((e) => {
-                const checked = selected.includes(e.id)
-                return (
-                  <label key={e.id} className={`pick-row ${checked ? 'checked' : ''}`}>
-                    <input type="checkbox" checked={checked} onChange={() => toggle(e.id)} />
-                    <div className="flex-1">
-                      <div className="strong small">{e.brand}</div>
-                      <div className="muted tiny">
-                        {e.phone || 'لا يوجد رقم'}
-                        {e.category ? ` • ${e.category}` : ''}
+          {audience === 'manual' ? (
+            <>
+              <textarea
+                className="input"
+                rows={6}
+                dir="auto"
+                placeholder={'رقم في كل سطر، ويمكن كتابة الاسم معه:\nمتجر الورد 91234567\n+968 9876 5432'}
+                value={manualText}
+                onChange={(e) => setManualText(e.target.value)}
+              />
+              <div className="muted tiny mt-10">
+                {pool.length} رقم • الأرقام العُمانية بدون رمز الدولة يُضاف لها 968 تلقائياً • الرقم المكرر يُحذف
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="select-bar">
+                <Button size="sm" onClick={selectAll}>
+                  تحديد الكل ({pool.filter(sendable).length})
+                </Button>
+                <Button size="sm" variant="outline" onClick={clearAll}>
+                  إلغاء التحديد
+                </Button>
+                <span className="select-count">{chosen.length} محدد</span>
+              </div>
+              <div className="pick-list pick-list-tall">
+                {pool.map((r) => {
+                  const problem = phoneProblem(r.phone)
+                  const last = contacts[phoneKey(r.phone)]
+                  const ex = r.exhibition_id && exhibitionOf(r.exhibition_id)
+                  return (
+                    <label key={r.key} className={`pick-row ${selected.has(r.key) ? 'checked' : ''} ${problem ? 'disabled' : ''}`}>
+                      <input type="checkbox" checked={selected.has(r.key)} disabled={!!problem} onChange={() => toggle(r.key)} />
+                      <div className="flex-1 min-w-0">
+                        <div className="strong small ellipsis">
+                          {r.brand || r.name || 'بدون اسم'}
+                          {r.name && r.brand && r.name !== r.brand && <span className="muted"> • {r.name}</span>}
+                        </div>
+                        <div className="muted tiny ellipsis">
+                          <span dir="ltr">{r.phone || '—'}</span>
+                          {r.sector ? ` • ${r.sector}` : ''}
+                          {audience === 'exhibitor' && !exhibitionId && ex ? ` • ${exhibitionLabel(ex)}` : ''}
+                        </div>
                       </div>
-                    </div>
-                    {!e.phone && <span className="tiny text-dng strong">بدون رقم</span>}
-                  </label>
-                )
-              })}
-              {!visible.length && <div className="empty-inline">لا يوجد عارضون</div>}
+                      {problem ? (
+                        <span className="tiny text-dng strong">{problem}</span>
+                      ) : (
+                        last && (
+                          <span className={`wa-last ${daysAgo(last.sent_at) < RECENT_DAYS ? 'recent' : ''}`} title={last.by ? `أرسلها ${last.by}` : ''}>
+                            💬 {agoText(last.sent_at)}
+                          </span>
+                        )
+                      )}
+                    </label>
+                  )
+                })}
+                {!pool.length && <div className="empty-inline">لا يوجد أحد بهذه الشروط</div>}
+              </div>
+            </>
+          )}
+        </section>
+
+        {/* 2 ─ What */}
+        <section className="panel panel-pad mb-16">
+          <div className="step-title">2️⃣ الرسالة</div>
+          <div className="muted tiny mb-10">اختر قالباً جاهزاً ثم عدّل عليه كما تريد، أو ابدأ رسالة فارغة</div>
+          <div className="wa-templates">
+            {builtins.map((t) => (
+              <button key={t.id} className={`type-btn ${templateId === t.id ? 'active' : ''}`} style={{ '--accent': t.color }} onClick={() => pickTemplate(t)}>
+                {t.label}
+              </button>
+            ))}
+            {saved.map((t) => (
+              <button key={t.id} className={`type-btn ${templateId === t.id ? 'active' : ''}`} style={{ '--accent': 'var(--gold-d)' }} onClick={() => pickTemplate(t)}>
+                💾 {t.name}
+              </button>
+            ))}
+          </div>
+          {templates === null && <div className="muted tiny mt-10">لحفظ قوالبك الخاصة وسجل الإرسال شغّل تحديث 015 في Supabase.</div>}
+
+          <div className="wa-toolbar mt-12">
+            {FORMATS.map((f) => (
+              <button key={f.id} type="button" className={`wa-tool wa-tool-${f.id}`} title={f.title} onClick={() => edit((text, s, e) => wrapSelection(text, s, e, f.mark))}>
+                {f.label}
+              </button>
+            ))}
+            <span className="wa-tool-sep" />
+            {EMOJIS.map((e) => (
+              <button key={e} type="button" className="wa-tool" onClick={() => insert(e)}>
+                {e}
+              </button>
+            ))}
+          </div>
+          <textarea
+            ref={textRef}
+            className="input wa-editor"
+            rows={14}
+            dir="auto"
+            placeholder="اكتب رسالتك هنا… استخدم المتغيرات بالأسفل ليظهر لكل شخص اسمه وبياناته"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+          <div className="wa-editor-meta">
+            <span>{body.length} حرف</span>
+            <span>*عريض*  _مائل_  ~مشطوب~</span>
+          </div>
+
+          <div className="field-label mt-12">المتغيرات — اضغط لإضافتها في مكان المؤشر:</div>
+          <div className="wa-vars">
+            {VARIABLES.filter((v) => money || !v.money).map((v) => (
+              <button key={v.key} type="button" className="wa-var" title={v.hint} onClick={() => insert(`{${v.key}}`)}>
+                {`{${v.key}}`}
+              </button>
+            ))}
+          </div>
+
+          <div className="wa-template-actions">
+            {savingName === null ? (
+              <>
+                {templates !== null && (
+                  <Button size="sm" variant="outline" onClick={() => setSavingName('')} disabled={!body.trim()}>
+                    💾 حفظ كقالب جديد
+                  </Button>
+                )}
+                {canManage(savedTemplate) && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={updateTemplate} disabled={body === savedTemplate.body}>
+                      تحديث «{savedTemplate.name}»
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={removeTemplate}>
+                      🗑️ حذف القالب
+                    </Button>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <input className="input input-compact flex-1" autoFocus placeholder="اسم القالب، مثل: عرض رمضان" value={savingName} onChange={(e) => setSavingName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveAsTemplate()} />
+                <Button size="sm" onClick={saveAsTemplate}>
+                  حفظ
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setSavingName(null)}>
+                  إلغاء
+                </Button>
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* 3 ─ Send */}
+        <section className="panel panel-pad">
+          <div className="step-title">3️⃣ الإرسال</div>
+          <div className="wa-summary">
+            <div>
+              <strong>{messages.length}</strong> رقم سيستلم الرسالة
             </div>
-          </section>
+            {duplicates.length > 0 && <div className="muted">🔁 {duplicates.length} رقم مكرر أُرسل له مرة واحدة فقط</div>}
+            {invalid.length > 0 && <div className="text-dng">⚠️ {invalid.length} بدون رقم صحيح — لن يُرسل لهم</div>}
+            {blocked.length > 0 && <div className="text-dng">⛔ {blocked[0].problems.join('، ')}</div>}
+            {gaps.length > 0 && (
+              <div className="text-wrn">
+                ⚠️ {gaps.length} رسالة فيها خانة فارغة ({[...new Set(gaps.flatMap((g) => g.empty))].map((k) => `{${k}}`).join('، ')}) — راجع المعاينة
+              </div>
+            )}
+          </div>
 
-          <section className="panel panel-pad">
-            <div className="step-title">3️⃣ إرسال</div>
-            <Button variant="whatsapp" size="lg" full onClick={send} disabled={sending || !selected.length}>
-              📱 {sending ? `جاري الإرسال... ${progress}/${selected.length}` : `إرسال لـ ${selected.length} عارض عبر واتساب`}
+          <div className="field-label mt-12">طريقة فتح واتساب:</div>
+          <div className="wa-modes">
+            {OPEN_MODES.map((m) => (
+              <label key={m.id} className={`wa-mode ${mode === m.id ? 'active' : ''}`}>
+                <input type="radio" name="wa-mode" checked={mode === m.id} onChange={() => setMode(m.id)} />
+                <div>
+                  <div className="strong small">{m.label}</div>
+                  <div className="muted tiny">{m.hint}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+
+          <Button variant="whatsapp" size="lg" full onClick={start} disabled={!messages.length || !!blocked.length || !body.trim()}>
+            📱 ابدأ الإرسال لـ {messages.length} رقم
+          </Button>
+          <div className="wa-secondary">
+            <Button size="sm" variant="outline" onClick={copyNumbers} disabled={!messages.length}>
+              📋 نسخ الأرقام (لقائمة بث)
             </Button>
-            <div className="muted tiny center mt-10">سيفتح واتساب تلقائياً لكل عارض مع الرسالة جاهزة — فقط اضغط إرسال</div>
-          </section>
-        </div>
+          </div>
+          <div className="muted tiny center mt-10">
+            كل رسالة تخرج باسم صاحبها وبياناته. تُفتح المحادثات واحدة تلو الأخرى والرسالة جاهزة — تضغط «إرسال» في واتساب ثم تنتقل للتالي.
+          </div>
+        </section>
+      </div>
 
+      <div className="wa-side">
         <div className="wa-preview">
-          <div className="wa-preview-title">📱 معاينة الرسالة</div>
+          <div className="wa-preview-head">
+            <div className="wa-preview-title">📱 المعاينة</div>
+            {messages.length > 1 && (
+              <div className="wa-nav">
+                <button onClick={() => setPreviewIndex(Math.max(0, previewAt - 1))} disabled={previewAt === 0}>
+                  ›
+                </button>
+                <span>
+                  {previewAt + 1}/{messages.length}
+                </span>
+                <button onClick={() => setPreviewIndex(Math.min(messages.length - 1, previewAt + 1))} disabled={previewAt >= messages.length - 1}>
+                  ‹
+                </button>
+              </div>
+            )}
+          </div>
           {preview ? (
             <>
+              <div className="wa-preview-to">
+                إلى: <strong>{preview.recipient.brand || preview.recipient.name || 'بدون اسم'}</strong> <span dir="ltr">+{normalizePhone(preview.recipient.phone)}</span>
+                {exhibitionFor(preview.recipient) && <div>عن: {exhibitionLabel(exhibitionFor(preview.recipient))}</div>}
+              </div>
               <div className="wa-chat">
-                <div className="wa-bubble">{preview}</div>
+                <div className="wa-bubble">
+                  {preview.text ? <WhatsAppText text={preview.text} /> : <span className="muted">الرسالة فارغة</span>}
+                </div>
                 <div className="wa-time">✓✓ {new Date().toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}</div>
               </div>
+              {preview.problems.map((p) => (
+                <div key={p} className="wa-warn">
+                  ⛔ {p}
+                </div>
+              ))}
+              {preview.empty.map((k) => (
+                <div key={k} className="wa-warn soft">
+                  ⚠️ {`{${k}}`} فارغ لهذا الشخص
+                </div>
+              ))}
               <button className="wa-copy" onClick={copyPreview}>
                 📋 نسخ الرسالة
               </button>
             </>
           ) : (
-            <div className="wa-empty">اختر عارضاً لمعاينة الرسالة</div>
+            <div className="wa-empty">{audience === 'manual' ? 'اكتب رقماً لمعاينة الرسالة' : 'اختر شخصاً أو أكثر لمعاينة رسالته'}</div>
           )}
         </div>
       </div>
-    </>
+
+      {queue && (
+        <WhatsAppQueue
+          items={queue.items}
+          mode={mode}
+          campaign={queue}
+          onClose={() => {
+            setQueue(null)
+            reload()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── History ────────────────────────────────────────────────────────────────────────
+
+function History({ staff }) {
+  const { session } = useAuth()
+  const { data: rows, loading } = useData(listLog, null)
+  const [open, setOpen] = useState(null)
+  const [q, setQ] = useState('')
+
+  if (loading) return <Loading />
+  if (rows === null) {
+    return (
+      <div className="panel panel-pad">
+        <div className="empty-inline">سجل الإرسال يحتاج تحديث قاعدة البيانات 015 — شغّله في Supabase ← SQL Editor ثم حدّث الصفحة.</div>
+      </div>
+    )
+  }
+
+  const who = (id) => (id === session?.user?.id ? 'أنت' : staff.find((s) => s.user_id === id)?.name || staff.find((s) => s.user_id === id)?.email || '—')
+  const needle = q.trim().toLowerCase()
+  const campaigns = groupCampaigns(needle ? rows.filter((r) => [r.name, r.phone, r.body, r.campaign_name].some((v) => String(v || '').toLowerCase().includes(needle))) : rows)
+
+  return (
+    <section className="panel">
+      <div className="panel-pad wa-history-head">
+        <div>
+          <div className="strong">{campaigns.length} عملية إرسال</div>
+          <div className="muted tiny">{rows.length} رسالة في السجل (آخر 500)</div>
+        </div>
+        <input className="input input-compact" placeholder="🔍 بحث باسم أو رقم أو نص…" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+      {campaigns.map((c) => (
+        <div key={c.id} className="wa-campaign">
+          <button className="wa-campaign-row" onClick={() => setOpen(open === c.id ? null : c.id)}>
+            <div className="flex-1 min-w-0">
+              <div className="strong small ellipsis">{c.name || 'رسالة'}</div>
+              <div className="muted tiny">
+                {formatDate(c.ended)} • {new Date(c.ended).toLocaleTimeString('ar-OM', { hour: '2-digit', minute: '2-digit' })} • {who(c.sent_by)}
+              </div>
+            </div>
+            <span className="badge badge-success">{c.rows.length} رسالة</span>
+            <span className="muted">{open === c.id ? '▲' : '▼'}</span>
+          </button>
+          {open === c.id && (
+            <div className="wa-campaign-body">
+              <div className="wa-chat mb-12">
+                <div className="wa-bubble">
+                  <WhatsAppText text={c.rows[c.rows.length - 1].body} />
+                </div>
+              </div>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>الاسم</th>
+                      <th>الرقم</th>
+                      <th>الوقت</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {c.rows.map((r) => (
+                      <tr key={r.id}>
+                        <td>{r.name || '—'}</td>
+                        <td dir="ltr">+{r.phone}</td>
+                        <td>{new Date(r.sent_at).toLocaleTimeString('ar-OM', { hour: '2-digit', minute: '2-digit' })}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      {!campaigns.length && <div className="empty-inline">لا توجد رسائل في السجل بعد</div>}
+    </section>
   )
 }
