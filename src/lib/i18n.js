@@ -37,7 +37,8 @@ export function inArabic(build) {
 export const isEnglish = () => lang === 'en'
 
 /** Locale for numbers and dates in the interface. */
-export const uiLocale = () => (lang === 'en' ? 'en-GB' : 'ar-OM')
+// Arabic keeps Arabic month and day names but writes numbers with English digits (123, not ١٢٣).
+export const uiLocale = () => (lang === 'en' ? 'en-GB' : 'ar-OM-u-nu-latn')
 
 /** Switch language: remembered on this device, and the page reloads in the new language. */
 export function setLang(next) {
