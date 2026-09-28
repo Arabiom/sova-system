@@ -273,3 +273,48 @@ export function monthlyFlow({ payments = [], expenses = [], companyExpenses = []
     .map((m) => ({ ...m, out: m.exhibitions + m.company + m.staff, net: m.in - m.exhibitions - m.company - m.staff }))
     .sort((a, b) => b.month.localeCompare(a.month))
 }
+
+// ── Collection deadline ─────────────────────────────────────────────────────
+/** Every fee must be collected this many days before an exhibition opens. */
+export const PAYMENT_DEADLINE_DAYS = 10
+/** The dashboard starts warning this many days before the deadline. */
+export const DEADLINE_WARNING_DAYS = 7
+
+const DAY_MS = 86_400_000
+const dayNumber = (iso) => Math.floor(Date.parse(`${String(iso).slice(0, 10)}T00:00:00Z`) / DAY_MS)
+const isoOfDay = (n) => new Date(n * DAY_MS).toISOString().slice(0, 10)
+
+/** Last day to collect every fee of an exhibition (ISO date), or '' without an opening date. */
+export function paymentDeadline(exhibition) {
+  if (!exhibition?.date_from || Number.isNaN(dayNumber(exhibition.date_from))) return ''
+  return isoOfDay(dayNumber(exhibition.date_from) - PAYMENT_DEADLINE_DAYS)
+}
+
+/** Whole days from `today` to `date` (negative once it has passed). */
+export const daysBetween = (today, date) => dayNumber(date) - dayNumber(today)
+
+/**
+ * Exhibitions whose collection deadline is near or past while participants still owe money:
+ * from DEADLINE_WARNING_DAYS before the deadline until the exhibition ends. Cancelled and
+ * finished exhibitions are left out. Soonest first.
+ */
+export function collectionAlerts(exhibitions, exhibitors, today) {
+  return exhibitions
+    .filter((ex) => ex.date_from && !['منتهي', 'ملغى'].includes(ex.status))
+    .map((ex) => {
+      const deadline = paymentDeadline(ex)
+      const daysLeft = daysBetween(today, deadline)
+      const owing = exhibitors.filter((e) => e.exhibition_id === ex.id && balanceOf(e) > 0.0005)
+      return {
+        exhibition: ex,
+        deadline,
+        daysLeft,
+        daysToOpen: daysBetween(today, ex.date_from),
+        overdue: daysLeft < 0,
+        owing,
+        remaining: baisa(owing.reduce((t, e) => t + balanceOf(e), 0)),
+      }
+    })
+    .filter((a) => a.owing.length && a.daysLeft <= DEADLINE_WARNING_DAYS && daysBetween(today, a.exhibition.date_to || a.exhibition.date_from) >= 0)
+    .sort((a, b) => a.daysLeft - b.daysLeft)
+}

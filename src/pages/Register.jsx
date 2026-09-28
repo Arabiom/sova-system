@@ -95,6 +95,7 @@ export default function Register() {
   const pkg = BOOTH_PACKAGES.find((p) => p.name === f.package)
   const ownSites = data.sites.filter((s) => s.exhibition_id === f.exhibition_id)
   const freeSites = pkg ? ownSites.filter((s) => !s.exhibitor_id && num(s.price) === pkg.price) : []
+  const chosenSite = ownSites.find((s) => s.id === f.site_id)
   const extras = chosenExtras(f)
   const totals = registrationTotals({ boothPrice: pkg?.price || 0, extras })
   const amount = num(f.amount) // paid (VAT included when the company charges VAT)
@@ -298,6 +299,17 @@ export default function Register() {
             {takenBooth && (
               <div className="alert alert-danger">
                 ⛔ {tr('الموقع {0} محجوز مسبقاً لـ «{1}» في هذا المعرض — كل موقع لمشارك واحد فقط.', [takenBooth.numbers.join(tr('، ')), takenBooth.exhibitor.brand])}
+              </div>
+            )}
+            {pkg && (
+              <div className="summary-box">
+                <div className="strong">
+                  📍 {tr('موقعك:')}{' '}
+                  {chosenSite ? tr('رقم {0}', [chosenSite.number]) : f.booth_number?.trim() ? tr('رقم {0}', [f.booth_number.trim()]) : tr('لم يُحدد بعد')}
+                  {' — '}{tr(pkg.name)}{' — '}{formatOMR(pkg.price)}
+                </div>
+                <div className="small">{tr('يشمل:')}{' '}{tr(pkg.includes)}</div>
+                <div className="muted tiny">{tr(BOOTH_NOTE)}</div>
               </div>
             )}
           </Panel>

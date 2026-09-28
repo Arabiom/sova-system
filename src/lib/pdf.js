@@ -5,10 +5,11 @@
 // placed onto A4 pages. Both libraries are loaded on demand to keep the app bundle small.
 
 import { BOOTH_NOTE, BOOTH_PACKAGES, COMPANY, PARTICIPATION_TERMS } from './constants.js'
-import { isConfirmed, occupancyOf, registrationTotals, summarize, vatEnabled, vatOf, withVat } from './finance.js'
+import { isConfirmed, occupancyOf, PAYMENT_DEADLINE_DAYS, paymentDeadline, registrationTotals, summarize, vatEnabled, vatOf, withVat } from './finance.js'
 import { fixed3, monthOf, num } from './format.js'
 import { tiersFromSites } from './sites.js'
 import { inArabic } from './i18n.js'
+import { formatDayMonthYear } from './dates.js'
 
 const A4_WIDTH_PX = 794 // 210mm at 96dpi
 const A4_HEIGHT_PX = 1120 // a hair under 297mm at 96dpi, so rounding never spills onto a 2nd page
@@ -130,6 +131,13 @@ async function renderPdf(html, filename, { onePage = false, fitPages = false } =
   }
 }
 
+/** «Pay everything by …» line, shown while money is still owed and the exhibition has a date. */
+function deadlineLine(exhibition, owed) {
+  const deadline = paymentDeadline(exhibition)
+  if (!deadline || owed <= 0.0005) return ''
+  return `<div style="font-size:11px;font-weight:700;color:#B42318;margin-top:4px">آخر موعد لسداد كامل المبلغ: ${bdi(formatDayMonthYear(deadline))} (قبل الافتتاح بـ ${bdi(PAYMENT_DEADLINE_DAYS)} أيام)</div>`
+}
+
 const safeName = (value) => String(value || 'SOVA').trim().replace(/[\s/\\?%*:|"<>]+/g, '-')
 
 export function contractHtml(exhibitor, exhibition, { contractNo, date = today() } = {}) {
@@ -192,6 +200,7 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
         ${sumRow('المدفوع', withVat(paid))}
         ${sumRow('المتبقي', Math.max(0, withVat(contract) - withVat(paid)), true)}
         <div style="font-size:11px;color:#6B5A40;margin-top:4px">حالة العقد: <strong>${escapeHtml(e.status || '—')}</strong></div>
+        ${deadlineLine(exhibition, withVat(contract) - withVat(paid))}
       </div>
     </div>
     <div style="font-size:11px;color:#6B5A40;margin-top:6px">طريقة السداد: تحويل بنكي إلى ${COMPANY.bank}، أو نقداً مقابل إيصال. المبالغ بالريال العُماني.</div>
@@ -407,6 +416,13 @@ export function participantCharges(exhibitor) {
   return { extras, ...registrationTotals({ boothPrice: num(exhibitor.contract) - extrasSum, extras }) }
 }
 
+/** The booth line of an invoice: package and site number, with what the package includes beneath. */
+function boothItem(e, pkg) {
+  const site = e.booth && !['—', '-'].includes(String(e.booth).trim()) ? ` — موقع رقم ${bdi(e.booth)}` : ''
+  const includes = pkg ? `<div style="font-size:10px;color:#6B5A40;margin-top:2px">يشمل: ${escapeHtml(pkg.includes)}</div>` : ''
+  return `<strong>${escapeHtml(e.booth_type || 'نظام البوث')}</strong>${site}${includes}`
+}
+
 export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment }, { date = today() } = {}) {
   const c = participantCharges(e)
   const pkg = BOOTH_PACKAGES.find((p) => p.name === e.booth_type)
@@ -419,7 +435,7 @@ export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment 
   const money = (v) => bdi(omr(v))
 
   const items = [
-    [`نظام البوث: ${escapeHtml(e.booth_type || '—')}`, 1, c.boothPrice],
+    [boothItem(e, pkg), 1, c.boothPrice],
     ...c.extras.filter((x) => num(x.price) >= 0).map((x) => [escapeHtml(x.name), num(x.qty), num(x.price)]),
   ]
   const td = 'padding:6px 10px;font-size:12px;border-bottom:1px solid #F0E8D8'
@@ -487,6 +503,7 @@ export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment 
         ${payment?.transfer_ref ? `<br>رقم الحساب / المحوَّل إليه: ${bdi(payment.transfer_ref)}` : ''}
       </div>
     </div>
+    ${deadlineLine(ex, remaining)}
     <div style="font-size:10px;color:#6B5A40;margin-top:6px">المبالغ بالريال العُماني. الحجز لا يُعدّ مؤكداً إلا بعد سداد قيمة الاشتراك كاملة.</div>
 
     <div style="margin-top:12px;border:1.5px solid ${INK};padding:8px 12px;font-size:12px;font-weight:700">

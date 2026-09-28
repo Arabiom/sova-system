@@ -2,6 +2,7 @@ import { COMPANY } from './constants.js'
 import { inArabic, tr } from './i18n.js'
 import { formatDayMonthYear } from './dates.js'
 import { exhibitionTitle, fixed3, num, phoneKey } from './format.js'
+import { paymentDeadline } from './finance.js'
 
 /**
  * Number for wa.me links: an 8-digit Omani number gets the 968 country code; a number that
@@ -68,6 +69,7 @@ export const VARIABLES = [
   { key: 'المدينة', hint: tr('مدينة المعرض') },
   { key: 'أوقات_العمل', hint: tr('أوقات المعرض') },
   { key: 'الأيام_المتبقية', hint: tr('كم يوم على الافتتاح') },
+  { key: 'آخر_موعد_للدفع', hint: tr('قبل الافتتاح بـ 10 أيام') },
   { key: 'الموقع', hint: tr('رقم الموقع / البوث') },
   { key: 'مساحة_البوث', hint: tr('حجم البوث') },
   { key: 'قيمة_العقد', hint: tr('للمدير والمالية فقط'), money: true },
@@ -78,7 +80,7 @@ export const VARIABLES = [
 ]
 
 const MONEY_KEYS = VARIABLES.filter((v) => v.money).map((v) => v.key)
-const EXHIBITION_KEYS = ['المعرض', 'المناسبة', 'التاريخ', 'المول', 'المدينة', 'أوقات_العمل', 'الأيام_المتبقية']
+const EXHIBITION_KEYS = ['المعرض', 'المناسبة', 'التاريخ', 'المول', 'المدينة', 'أوقات_العمل', 'الأيام_المتبقية', 'آخر_موعد_للدفع']
 const VARIABLE_RE = /\{([^{}\n]{1,30})\}/g
 
 /** The variables a text uses, in order, each once. */
@@ -118,6 +120,7 @@ function arabicVars(person, exhibition, { money = false, now = new Date() } = {}
       'المدينة': ex.city || '',
       'أوقات_العمل': ex.hours || '',
       'الأيام_المتبقية': days > 0 ? `${days} يوم` : 'أقل من يوم',
+      'آخر_موعد_للدفع': formatDayMonthYear(paymentDeadline(ex)),
     })
   }
   if (money) {
@@ -333,7 +336,7 @@ ${SIGN}`,
 
 💰 *المبلغ المتبقي: {المتبقي}*
 
-الرجاء إتمام الدفع قبل موعد المعرض لضمان مكانكم.
+الرجاء إتمام الدفع قبل *{آخر_موعد_للدفع}* (قبل الافتتاح بـ 10 أيام) لضمان مكانكم.
 
 طرق الدفع:
 • نقداً
