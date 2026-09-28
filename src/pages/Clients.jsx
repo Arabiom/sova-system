@@ -309,6 +309,7 @@ export default function Clients() {
   const [sort, setSort] = useState('name')
   const [editing, setEditing] = useState(null)
   const [viewing, setViewing] = useState(null)
+  const [shows, setShows] = useState([]) // exhibitions whose clients to show (none = everyone)
   const [importing, setImporting] = useState(false)
   const navigate = useNavigate()
 
@@ -336,8 +337,22 @@ export default function Clients() {
   const cities = distinct(clients.map((c) => c.city))
   const setFilter = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target.value }))
 
+  // Clients of the chosen exhibitions (any of them); everyone when none is chosen.
+  const tookPart = (c, ids) => c.h.participations.some((p) => ids.includes(p.exhibition_id))
+  const base = shows.length ? enriched.filter((c) => tookPart(c, shows)) : enriched
+  const byExhibition = [...exhibitions]
+    .sort((a, b) => String(b.date_from).localeCompare(String(a.date_from)))
+    .map((ex) => ({ ex, count: enriched.filter((c) => tookPart(c, [ex.id])).length }))
+  const toggleShow = (id) => setShows((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
+  const clearAll = () => {
+    setSearch('')
+    setShows([])
+    setFilters({ sector: '', city: '', status: '', source: '', participation: '' })
+  }
+  const only = (patch) => setFilters({ sector: '', city: '', status: '', source: '', participation: '', ...patch })
+
   const q = search.trim().toLowerCase()
-  const visible = enriched
+  const visible = base
     .filter(
       (c) =>
         (!q || [c.name, c.contact_name, c.phone, c.whatsapp, c.email, c.instagram].some((v) => v?.toLowerCase().includes(q))) &&
@@ -353,7 +368,7 @@ export default function Clients() {
     )
     .sort(SORTS[sort].fn)
 
-  const active = Object.values(filters).some(Boolean) || q
+  const active = Object.values(filters).some(Boolean) || q || shows.length > 0
 
   const remove = async (c) => {
     const note = c.h.count ? ` ${tr('(سجل مشاركاته في المعارض يبقى، لكن بدون ربط بالعميل)')}` : ''
@@ -393,11 +408,12 @@ export default function Clients() {
       ...(everyone ? [{ label: tr('أضافه'), value: (c) => addedBy(c) }] : []),
     ])
 
+  // The cards count the chosen exhibitions' clients (or everyone), and clicking one filters by it.
   const totals = {
-    all: clients.length,
-    active: clients.filter((c) => c.status === 'نشط').length,
-    repeat: enriched.filter((c) => c.h.count > 1).length,
-    owing: enriched.filter((c) => c.h.outstanding > 0).length,
+    all: base.length,
+    active: base.filter((c) => c.status === 'نشط').length,
+    repeat: base.filter((c) => c.h.count > 1).length,
+    owing: base.filter((c) => c.h.outstanding > 0).length,
   }
 
   return (
@@ -447,10 +463,26 @@ export default function Clients() {
       )}
 
       <div className="grid-4 mb-16">
-        <StatCard flat label={tr('كل العملاء')} value={totals.all} icon="👥" accent="var(--ink)" />
-        <StatCard flat label={tr('عملاء نشطون')} value={totals.active} icon="✅" accent="var(--suc)" />
-        <StatCard flat label={tr('شاركوا أكثر من مرة')} value={totals.repeat} icon="🔁" accent="var(--gold)" />
-        <StatCard flat label={tr('عليهم مبالغ متبقية')} value={totals.owing} icon="⏳" accent="var(--wrn)" />
+        <StatCard flat label={shows.length ? tr('عملاء المعارض المختارة') : tr('كل العملاء')} value={totals.all} icon="👥" accent="var(--ink)" onClick={() => only({})} />
+        <StatCard flat label={tr('عملاء نشطون')} value={totals.active} icon="✅" accent="var(--suc)" onClick={() => only({ status: 'نشط' })} />
+        <StatCard flat label={tr('شاركوا أكثر من مرة')} value={totals.repeat} icon="🔁" accent="var(--gold)" onClick={() => only({ participation: 'repeat' })} />
+        <StatCard flat label={tr('عليهم مبالغ متبقية')} value={totals.owing} icon="⏳" accent="var(--wrn)" onClick={money ? () => only({ participation: 'owing' }) : undefined} />
+      </div>
+
+      <div className="panel panel-pad mb-16">
+        <div className="field-label">{tr('العملاء حسب المعرض — اختر معرضاً أو أكثر:')}</div>
+        <div className="ex-chips">
+          <button type="button" className={`ex-chip ${shows.length ? '' : 'selected'}`} onClick={() => setShows([])}>
+            {tr('كل العملاء')} <strong>{enriched.length}</strong>
+          </button>
+          {byExhibition.map(({ ex, count }) => (
+            <button key={ex.id} type="button" className={`ex-chip ${shows.includes(ex.id) ? 'selected' : ''} ${count ? '' : 'empty'}`} onClick={() => toggleShow(ex.id)}>
+              {shows.includes(ex.id) ? '✓ ' : ''}
+              {exhibitionLabel(ex)} <strong>{count}</strong>
+            </button>
+          ))}
+        </div>
+        {shows.length > 1 && <div className="muted tiny mt-8">{tr('يظهر من شارك في أي معرض من المعارض المختارة.')}</div>}
       </div>
 
       <div className="toolbar">
@@ -477,10 +509,7 @@ export default function Clients() {
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => {
-              setSearch('')
-              setFilters({ sector: '', city: '', status: '', source: '', participation: '' })
-            }}
+            onClick={clearAll}
           >
             {tr('✕ مسح الفلاتر')}
           </Button>

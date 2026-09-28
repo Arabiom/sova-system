@@ -26,7 +26,7 @@ const bdi = (value) => `<bdi dir="ltr">${escapeHtml(value)}</bdi>`
 
 /** Mark a table value as already-escaped HTML. */
 const rawHtml = (html) => ({ html })
-const today = () => new Date().toLocaleDateString('ar-OM')
+const today = () => new Date().toLocaleDateString('ar-OM-u-nu-latn')
 
 function page(body, { footer = `${COMPANY.legalName} | ${COMPANY.nameEn} | ${COMPANY.cr}`, fixedHeight = true, exactHeight = false } = {}) {
   const height = exactHeight ? `height:${A4_HEIGHT_PX}px;overflow:hidden;` : fixedHeight ? `min-height:${A4_HEIGHT_PX}px;` : ''

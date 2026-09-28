@@ -3,7 +3,7 @@ import { isEnglish, tr, uiLocale } from './i18n.js'
 /** Parse any numeric-ish value, treating blanks and garbage as 0. */
 export const num = (value) => +value || 0
 
-/** 1234.5 → "١٬٢٣٤٫٥٠٠ ر.ع" (Omani rial, three decimals). */
+/** 1234.5 → "1,234.500 ر.ع" (Omani rial, three decimals, English digits). */
 export function formatOMR(value) {
   return (
     num(value).toLocaleString(uiLocale(), { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + (isEnglish() ? ' OMR' : ' ر.ع')
