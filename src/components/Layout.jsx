@@ -6,11 +6,13 @@ import { COMPANY } from '../lib/constants.js'
 import { can, ROLES } from '../lib/permissions.js'
 import { Loading } from './Feedback.jsx'
 import LanguageSwitch from './LanguageSwitch.jsx'
+import { useActivityTracker } from '../lib/useActivityTracker.js'
 import { tr, uiLocale } from '../lib/i18n.js'
 
 const NAV = [
   { section: tr('الرئيسية') },
   { path: '/dashboard', icon: '⬡', label: tr('لوحة التحكم'), desc: tr('نظرة عامة شاملة'), sub: tr('نظرة شاملة على أداء الشركة') },
+  { path: '/team', icon: '✅', label: tr('المهام والحضور'), desc: tr('مهام الفريق وساعات العمل'), sub: tr('مهام كل موظف، ومتى دخل وكم ساعة عمل، وفعالية الفريق') },
   { path: '/register', icon: '✚', label: tr('تسجيل مشارك'), desc: tr('استمارة وفاتورة'), sub: tr('استمارة تسجيل المشاركين والفاتورة'), perm: 'data.write' },
   { section: tr('المعارض') },
   { path: '/exhibitions', icon: '◈', label: tr('المعارض والمواعيد'), desc: tr('إدارة كل المعارض'), sub: tr('إدارة وتتبع كل المعارض') },
@@ -141,6 +143,8 @@ export default function Layout() {
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const pendingCount = usePendingCount()
+  const { role } = useAuth()
+  useActivityTracker(Boolean(role))
   const page = NAV.find((item) => item.path && location.pathname.startsWith(item.path)) || NAV[1]
 
   return (

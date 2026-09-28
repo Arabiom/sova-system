@@ -423,6 +423,11 @@ textarea.input {
   border-radius: 10px;
   font-size: 12px;
 }
+.alert-info {
+  background: var(--info-b);
+  border: 1px solid rgba(26, 92, 139, 0.2);
+  color: var(--info);
+}
 .alert-danger {
   background: var(--dng-b);
   border: 1px solid rgba(139, 24, 24, 0.2);
@@ -1258,6 +1263,7 @@ textarea.input {
   text-align: end;
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
 }
 .topbar-date .muted {
   font-size: 10px;
@@ -2846,5 +2852,132 @@ a.ex-card-head {
   }
   [dir='ltr'] .sidebar.open {
     transform: translateX(0);
+  }
+}
+
+/* ─── Team: tasks and working time ───────────────────────────── */
+.task-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.task-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 160px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--surf-d);
+}
+.task-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px 6px;
+  font-size: 13px;
+  font-weight: 800;
+  border-bottom: 3px solid var(--gold);
+}
+.task-col-0 .task-col-head {
+  border-bottom-color: var(--info);
+}
+.task-col-2 .task-col-head {
+  border-bottom-color: var(--suc);
+}
+.task-card {
+  padding: 12px 14px;
+  border: 1px solid var(--border-l);
+  border-inline-start: 4px solid var(--gold);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.task-card.overdue {
+  border-inline-start-color: var(--dng);
+  background: #fff8f7;
+}
+.task-card.done {
+  border-inline-start-color: var(--suc);
+  opacity: 0.85;
+}
+.task-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.task-who {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-60);
+}
+.task-title {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+.task-card.done .task-title {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.task-details {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ink-60);
+  white-space: pre-wrap;
+}
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.task-note {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--gold-p);
+  font-size: 12px;
+}
+.task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 10px;
+}
+.timesheet th,
+.timesheet td {
+  text-align: center;
+  vertical-align: middle;
+}
+.timesheet th:first-child,
+.timesheet td:first-child {
+  text-align: start;
+}
+.timesheet .is-today {
+  background: var(--gold-p);
+}
+.ts-time {
+  font-size: 11px;
+  color: var(--ink-60);
+  white-space: nowrap;
+  direction: ltr;
+}
+.ts-note {
+  padding: 0 20px 16px;
+}
+.ts-hours {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--suc);
+}
+@media (max-width: 900px) {
+  .task-board {
+    grid-template-columns: 1fr;
   }
 }

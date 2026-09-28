@@ -20,6 +20,8 @@ const MATRIX = {
   'money.view': ['admin', 'finance', 'viewer'], // income, totals, contract values, payments — marketing sees names and operations only
   'expenses.review': ['admin', 'finance'], // approve / reject / reimburse expense claims
   'data.write': ['admin', 'finance', 'marketing'], // add / edit anything — the viewer only looks
+  'tasks.assign': ['admin', 'finance'], // give tasks to any employee (others add tasks for themselves)
+  'team.view': ['admin', 'finance', 'viewer'], // everyone's working time and effectiveness
   'finance.internal': ['admin', 'finance', 'viewer'], // see expenses, sponsors, net results, backup
   'records.delete': ['admin', 'finance'], // delete clients, exhibitors, bookings
 }

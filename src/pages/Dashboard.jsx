@@ -4,6 +4,8 @@ import { listExpenses, listSites } from '../api/exhibitionFile.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
+import { listTasks, TASK_DONE } from '../api/team.js'
+import { isOverdue } from '../lib/team.js'
 import Button from '../components/Button.jsx'
 import { Loading } from '../components/Feedback.jsx'
 import PageHeader from '../components/PageHeader.jsx'
@@ -15,7 +17,7 @@ import { COMPANY, DEFAULT_TIERS } from '../lib/constants.js'
 import { balanceOf, exhibitionFinancials, isConfirmed, occupancyOf, summarize, sumBy, vatEnabled, withVat } from '../lib/finance.js'
 import { exhibitionTitle, formatOMR, isolateLtr, monthOf } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
-import { useCan } from '../context/AuthContext.jsx'
+import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { tr } from '../lib/i18n.js'
 
 const load = async () => {
@@ -27,7 +29,8 @@ const load = async () => {
     listSites(),
     listExpenses(),
   ])
-  return { exhibitions, exhibitors, payments: payments.filter(isConfirmed), awaiting: payments.filter((p) => !isConfirmed(p)), bookings, sites, expenses }
+  const tasks = await listTasks().catch(() => null)
+  return { exhibitions, exhibitors, payments: payments.filter(isConfirmed), awaiting: payments.filter((p) => !isConfirmed(p)), bookings, sites, expenses, tasks }
 }
 
 const barColor = (status) =>
@@ -41,10 +44,13 @@ export default function Dashboard() {
   const go = useNavigate()
   const { data, loading } = useData(load, null)
   const money = useCan('money.view') // marketing: operations only, no amounts
+  const uid = useAuth().session?.user?.id
   const canWrite = useCan('data.write') // the viewer only looks
   if (loading || !data) return <Loading />
 
-  const { exhibitions, exhibitors, payments, awaiting, bookings, sites, expenses } = data
+  const { exhibitions, exhibitors, payments, awaiting, bookings, sites, expenses, tasks } = data
+  const myTasks = (tasks || []).filter((t) => t.assigned_to === uid && t.status !== TASK_DONE)
+  const myOverdue = myTasks.filter((t) => isOverdue(t)).length
   const totals = summarize(exhibitors)
   const pending = bookings.filter((b) => b.status === 'معلق').length
   const confirmed = exhibitors.filter((e) => e.status === 'مؤكد').length
@@ -75,6 +81,13 @@ export default function Dashboard() {
           </Button>
         )}
       </PageHeader>
+
+      {myTasks.length > 0 && (
+        <button type="button" className={`alert ${myOverdue ? 'alert-danger' : 'alert-info'} alert-link`} onClick={() => go('/team')}>
+          📋 {tr('لديك {0} مهمة مفتوحة', [myTasks.length])}
+          {myOverdue ? ` — ${tr('{0} متأخرة', [myOverdue])}` : ''} — {tr('اضغط للعرض')}
+        </button>
+      )}
 
       {money && awaiting.length > 0 && (
         <button type="button" className="alert alert-warning alert-link" onClick={() => go('/sales')}>

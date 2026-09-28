@@ -19,6 +19,7 @@ const Finance = lazy(() => import('./pages/Finance.jsx'))
 const Reports = lazy(() => import('./pages/Reports.jsx'))
 const Sales = lazy(() => import('./pages/Sales.jsx'))
 const WhatsApp = lazy(() => import('./pages/WhatsApp.jsx'))
+const Team = lazy(() => import('./pages/Team.jsx'))
 const Staff = lazy(() => import('./pages/Staff.jsx'))
 
 /** Internal system: every page requires a signed-in staff member. */
@@ -58,6 +59,7 @@ export default function App() {
     <Routes>
       <Route element={<Protected />}>
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/team" element={<Team />} />
         <Route
           path="/register"
           element={

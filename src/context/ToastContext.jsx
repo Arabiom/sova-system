@@ -20,7 +20,7 @@ export function ToastProvider({ children }) {
       {children}
       {toast && (
         <div key={toast.key} className={`toast toast-${toast.type} fade-in`} role="status">
-          <span>{ICONS[toast.type] || ICONS.success}</span> {tr(toast.msg)}
+          {!/^\p{Extended_Pictographic}/u.test(String(toast.msg)) && <span>{ICONS[toast.type] || ICONS.success}</span>} {tr(toast.msg)}
         </div>
       )}
     </ToastContext.Provider>
