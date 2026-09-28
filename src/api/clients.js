@@ -74,3 +74,28 @@ export async function findOrCreateClient({ brand, manager, phone, email, categor
   known?.push(created)
   return created.id
 }
+
+/**
+ * Add many clients (from an imported file). Saved 50 at a time; if a batch is refused (say one
+ * number was added by a colleague meanwhile — the database refuses repeated numbers), that
+ * batch is saved one by one so only the refused rows are left out.
+ * Returns { added, failed: [{ row, message }] }.
+ */
+export async function importClients(rows, onProgress = () => {}) {
+  let added = 0
+  const failed = []
+  for (let i = 0; i < rows.length; i += 50) {
+    const batch = rows.slice(i, i + 50)
+    const { error } = await table().insert(batch.map((r) => toClientRow(r)))
+    if (!error) added += batch.length
+    else {
+      for (const row of batch) {
+        const { error: rowError } = await table().insert(toClientRow(row))
+        if (rowError) failed.push({ row, message: friendlyError(rowError) })
+        else added++
+      }
+    }
+    onProgress(Math.min(rows.length, i + batch.length), rows.length)
+  }
+  return { added, failed }
+}

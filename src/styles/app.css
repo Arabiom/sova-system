@@ -2981,3 +2981,42 @@ a.ex-card-head {
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── Client import ──────────────────────────────────────────── */
+.import-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+.import-map-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-60);
+}
+.import-map-item .input {
+  width: 100%;
+  min-width: 0;
+}
+.import-table {
+  max-height: 380px;
+  overflow: auto;
+  border: 1px solid var(--border-l);
+  border-radius: 10px;
+}
+.row-muted td {
+  opacity: 0.55;
+}
+.import-result {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+.import-result-big {
+  font-size: 22px;
+  font-weight: 900;
+}

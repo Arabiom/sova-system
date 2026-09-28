@@ -5,6 +5,7 @@ import { listStaff } from '../api/staff.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import Button from '../components/Button.jsx'
+import ClientImport from '../components/ClientImport.jsx'
 import { EmptyState, Loading } from '../components/Feedback.jsx'
 import Field, { SelectOptions } from '../components/Field.jsx'
 import Modal from '../components/Modal.jsx'
@@ -308,6 +309,7 @@ export default function Clients() {
   const [sort, setSort] = useState('name')
   const [editing, setEditing] = useState(null)
   const [viewing, setViewing] = useState(null)
+  const [importing, setImporting] = useState(false)
   const navigate = useNavigate()
 
   if (loading || !data) return <Loading />
@@ -423,6 +425,11 @@ export default function Clients() {
             {tr('📱 واتساب للنتائج')}
           </Button>
         )}
+        {canWrite && (
+          <Button variant="outline" onClick={() => setImporting(true)}>
+            {tr('📥 استيراد من Excel')}
+          </Button>
+        )}
         {canWrite && <Button onClick={() => setEditing({ form: { status: 'نشط' }, id: null })}>{tr('+ إضافة عميل')}</Button>}
       </PageHeader>
 
@@ -535,6 +542,7 @@ export default function Clients() {
         {!visible.length && <EmptyState icon="👥" text={clients.length ? tr('لا توجد نتائج مطابقة للفلاتر') : tr('لا يوجد عملاء بعد — أضف عميلاً أو استورد ملف مشاركين من ملف المعرض')} />}
       </div>
 
+      {importing && <ClientImport existing={clients} onClose={() => setImporting(false)} onDone={reload} />}
       {editing && (
         <ClientForm
           initial={editing.form}
