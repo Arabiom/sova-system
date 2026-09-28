@@ -9,15 +9,20 @@ export const isConfirmed = (payment) => payment.status !== PAYMENT_PENDING
 /** Round to the baisa (3 decimals) so sums of prices never show floating-point noise. */
 const baisa = (value) => Math.round(num(value) * 1000) / 1000
 
+/** Name of the discount line kept with a participant's extras (a negative price). */
+export const DISCOUNT_ITEM = 'خصم'
+
 /**
- * Charges on a registration: booth package + extras (+ any other extras), VAT 5% on top.
- * `extras` is [{ name, price, qty }].
+ * Charges on a registration: booth package + extras (+ any other extras) − discount, VAT 5% on top.
+ * `extras` is [{ name, price, qty }]; a discount is an item with a negative price.
  */
 export function registrationTotals({ boothPrice = 0, extras = [], otherAmount = 0 }) {
-  const extrasTotal = baisa(extras.reduce((t, x) => t + num(x.price) * Math.max(0, num(x.qty)), 0) + num(otherAmount))
-  const subtotal = baisa(num(boothPrice) + extrasTotal)
+  const line = (x) => num(x.price) * Math.max(0, num(x.qty))
+  const extrasTotal = baisa(extras.filter((x) => num(x.price) >= 0).reduce((t, x) => t + line(x), 0) + num(otherAmount))
+  const discount = baisa(-extras.filter((x) => num(x.price) < 0).reduce((t, x) => t + line(x), 0))
+  const subtotal = baisa(Math.max(0, num(boothPrice) + extrasTotal - discount))
   const vat = baisa(vatOf(subtotal))
-  return { boothPrice: num(boothPrice), extrasTotal, subtotal, vat, total: baisa(subtotal + vat) }
+  return { boothPrice: num(boothPrice), extrasTotal, discount, subtotal, vat, total: baisa(subtotal + vat) }
 }
 
 // VAT applies only while the company is registered for it (company settings, migration 014).

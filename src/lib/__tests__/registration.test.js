@@ -25,8 +25,20 @@ describe('registration form', () => {
       { name: 'رف', price: 3, qty: 1 },
     ])
     // 200 + 10 + 2×5 + 3 = 223; VAT 11.150; total 234.150
-    expect(registrationTotals({ boothPrice: 200, extras })).toEqual({ boothPrice: 200, extrasTotal: 23, subtotal: 223, vat: 11.15, total: 234.15 })
+    expect(registrationTotals({ boothPrice: 200, extras })).toEqual({ boothPrice: 200, extrasTotal: 23, discount: 0, subtotal: 223, vat: 11.15, total: 234.15 })
     expect(registrationTotals({ boothPrice: 100 })).toMatchObject({ subtotal: 100, vat: 5, total: 105 })
+  })
+
+  it('keeps a discount as its own line and takes it off the total', () => {
+    const extras = chosenExtras({ extras: { 'علاقة': 1 }, extraPrices, discount: '25' })
+    expect(extras).toEqual([
+      { name: 'علاقة', price: 10, qty: 1 },
+      { name: 'خصم', price: -25, qty: 1 },
+    ])
+    // 200 + 10 − 25 = 185
+    expect(registrationTotals({ boothPrice: 200, extras })).toMatchObject({ extrasTotal: 10, discount: 25, subtotal: 185 })
+    // the invoice rebuilds the full package price from the stored contract (185) and extras
+    expect(participantCharges({ contract: 185, extras })).toMatchObject({ boothPrice: 200, discount: 25, subtotal: 185 })
   })
 
   it('lists what is missing before saving', () => {

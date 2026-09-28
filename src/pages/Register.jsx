@@ -48,6 +48,7 @@ const blankForm = (exhibitionId = '') => ({
   extraPrices,
   otherExtras: '',
   otherAmount: '',
+  discount: '',
   amount: '',
   method: '',
   transfer_ref: '',
@@ -116,6 +117,7 @@ export default function Register() {
     if (savingRef.current) return
     const errors = validateRegistration(f)
     if (ownSites.length && pkg && !f.site_id) errors.push(tr('رقم الموقع'))
+    if (num(f.discount) > totals.boothPrice + totals.extrasTotal + 0.0005) errors.push('الخصم أكبر من قيمة الاشتراك والإضافات')
     if (errors.length) return toast(tr('أكمل: {0}', [errors.map((x) => tr(x)).join(tr('، '))]), 'error')
     if (takenBooth) return toast(tr('الموقع {0} محجوز مسبقاً لـ «{1}» في هذا المعرض', [takenBooth.numbers.join(tr('، ')), takenBooth.exhibitor.brand]), 'error')
     if (duplicate && !confirm(tr('{0} مسجّل بنفس رقم الهاتف في هذا المعرض. تسجيل مشاركة جديدة؟', [duplicate.brand]))) return
@@ -325,6 +327,14 @@ export default function Register() {
             <div className="muted small">{tr('إجمالي الرسوم الإضافية:')}{' '}{formatOMR(totals.extrasTotal)}</div>
           </Panel>
 
+          {!pending && (
+            <Panel icon="🏷️" title={tr('خصم (اختياري)')} subtitle={tr('للمدير والمالية فقط — يظهر في الفاتورة سطراً مستقلاً، وتُحسب قيمة العقد بعده')}>
+              <Field label={tr('مبلغ الخصم (ر.ع)')}>
+                <input className="input" type="number" min="0" step="0.001" placeholder="0.000" value={f.discount} onChange={set('discount')} />
+              </Field>
+            </Panel>
+          )}
+
           <Panel icon="💳" title={tr('السداد')}>
             <div className="summary-box mb-16">
               <div className="kv-row">
@@ -335,6 +345,12 @@ export default function Register() {
                 <span>{tr('الرسوم الإضافية')}</span>
                 <strong>{formatOMR(totals.extrasTotal)}</strong>
               </div>
+              {totals.discount > 0 && (
+                <div className="kv-row">
+                  <span>{tr('الخصم')}</span>
+                  <strong className="text-dng">− {formatOMR(totals.discount)}</strong>
+                </div>
+              )}
               {vatEnabled() && (
                 <div className="kv-row muted small">
                   <span>{tr('ضريبة القيمة المضافة 5%')}</span>

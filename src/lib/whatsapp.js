@@ -1,5 +1,5 @@
 import { COMPANY } from './constants.js'
-import { tr } from './i18n.js'
+import { inArabic, tr } from './i18n.js'
 import { formatDayMonthYear } from './dates.js'
 import { exhibitionTitle, fixed3, num, phoneKey } from './format.js'
 
@@ -93,7 +93,12 @@ const hasBooth = (booth) => booth && !['—', '-'].includes(String(booth).trim()
  * Values for one recipient. `person` is an exhibitor, a booking or a client in the shape of
  * toRecipient(); money values are only filled in when `money` is true.
  */
-export function recipientVars(person, exhibition, { money = false, now = new Date() } = {}) {
+export function recipientVars(person, exhibition, options = {}) {
+  // Messages to participants are Arabic whatever the interface language.
+  return inArabic(() => arabicVars(person, exhibition, options))
+}
+
+function arabicVars(person, exhibition, { money = false, now = new Date() } = {}) {
   const ex = exhibition || null
   const vars = {
     'الاسم': person?.name || person?.brand || '',

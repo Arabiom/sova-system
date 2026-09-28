@@ -1213,4 +1213,11 @@ export default {
   "هذا الشهر": "This month",
   "الشهر الماضي": "Last month",
   "تعديل المهمة للمدير — يمكنك تغيير حالتها وإضافة ملاحظة فقط": "Only the manager edits the task — you can change its status and add a note",
+  "الخصم": "Discount",
+  "خصم (اختياري)": "Discount (optional)",
+  "للمدير والمالية فقط — يظهر في الفاتورة سطراً مستقلاً، وتُحسب قيمة العقد بعده": "Manager and finance only — it appears as its own line on the invoice, and the contract value is after it",
+  "مبلغ الخصم (ر.ع)": "Discount amount (OMR)",
+  "الخصم أكبر من قيمة الاشتراك والإضافات": "Discount (more than the fee and extras)",
+  "الخصم لا يكون سالباً": "The discount can't be negative",
+  "خصم": "Discount",
 }

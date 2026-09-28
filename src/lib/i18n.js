@@ -23,6 +23,17 @@ function readLang() {
 let lang = readLang()
 
 export const currentLang = () => lang
+
+/** Build something (an Arabic document) with the interface in Arabic, whatever the chosen language. */
+export function inArabic(build) {
+  const chosen = lang
+  lang = 'ar'
+  try {
+    return build()
+  } finally {
+    lang = chosen
+  }
+}
 export const isEnglish = () => lang === 'en'
 
 /** Locale for numbers and dates in the interface. */

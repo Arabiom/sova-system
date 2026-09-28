@@ -8,6 +8,7 @@ import { BOOTH_NOTE, BOOTH_PACKAGES, COMPANY, PARTICIPATION_TERMS } from './cons
 import { isConfirmed, occupancyOf, registrationTotals, summarize, vatEnabled, vatOf, withVat } from './finance.js'
 import { fixed3, monthOf, num } from './format.js'
 import { tiersFromSites } from './sites.js'
+import { inArabic } from './i18n.js'
 
 const A4_WIDTH_PX = 794 // 210mm at 96dpi
 const A4_HEIGHT_PX = 1120 // a hair under 297mm at 96dpi, so rounding never spills onto a 2nd page
@@ -288,15 +289,15 @@ export function reportHtml({ exhibitions, exhibitors, sites = [] }, exhibitionId
 }
 
 export function downloadContract(exhibitor, exhibition, contractNo) {
-  return renderPdf(contractHtml(exhibitor, exhibition, { contractNo }), `AIB-Contract-${safeName(exhibitor.brand)}.pdf`, { onePage: true })
+  return renderPdf(inArabic(() => contractHtml(exhibitor, exhibition, { contractNo })), `AIB-Contract-${safeName(exhibitor.brand)}.pdf`, { onePage: true })
 }
 
 export function downloadReceipt(payment, exhibitor, exhibition) {
-  return renderPdf(receiptHtml(payment, exhibitor, exhibition), `AIB-Receipt-${safeName(payment.invoice_no)}.pdf`)
+  return renderPdf(inArabic(() => receiptHtml(payment, exhibitor, exhibition)), `AIB-Receipt-${safeName(payment.invoice_no)}.pdf`)
 }
 
 export function downloadReport(data, exhibitionId) {
-  return renderPdf(reportHtml(data, exhibitionId), `AIB-Financial-Report-${new Date().toISOString().slice(0, 10)}.pdf`)
+  return renderPdf(inArabic(() => reportHtml(data, exhibitionId)), `AIB-Financial-Report-${new Date().toISOString().slice(0, 10)}.pdf`)
 }
 
 function table(headers, rows, { total } = {}) {
@@ -388,7 +389,7 @@ export function exhibitionFileHtml({ exhibition: ex, sites, exhibitors, expenses
 
 export function downloadExhibitionFile(data) {
   const name = data.exhibition.name?.trim() || `SOVA-${data.exhibition.city}`
-  return renderPdf(exhibitionFileHtml(data), `ملف-معرض-${safeName(name)}.pdf`)
+  return renderPdf(inArabic(() => exhibitionFileHtml(data)), `ملف-معرض-${safeName(name)}.pdf`)
 }
 
 // ── Registration tax invoice (استمارة تسجيل المشاركين) ─────────────────────
@@ -419,7 +420,7 @@ export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment 
 
   const items = [
     [`نظام البوث: ${escapeHtml(e.booth_type || '—')}`, 1, c.boothPrice],
-    ...c.extras.map((x) => [escapeHtml(x.name), num(x.qty), num(x.price)]),
+    ...c.extras.filter((x) => num(x.price) >= 0).map((x) => [escapeHtml(x.name), num(x.qty), num(x.price)]),
   ]
   const td = 'padding:6px 10px;font-size:12px;border-bottom:1px solid #F0E8D8'
   const th = `padding:7px 10px;font-size:11px;background:${INK};color:${GOLD};text-align:right`
@@ -465,6 +466,7 @@ export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment 
       <thead><tr><th style="${th}">البند</th><th style="${th}">الكمية</th><th style="${th}">سعر الوحدة</th><th style="${th}">المبلغ</th></tr></thead>
       <tbody>
         ${items.map(([name, qty, price]) => `<tr><td style="${td}">${name}</td><td style="${td}">${bdi(qty)}</td><td style="${td}">${money(price)}</td><td style="${td}">${money(qty * price)}</td></tr>`).join('')}
+        ${c.discount ? sumRow('الخصم', -c.discount) : ''}
         ${vatEnabled()
           ? `${sumRow('المجموع قبل الضريبة', c.subtotal)}${sumRow('ضريبة القيمة المضافة 5%', c.vat)}${sumRow('الإجمالي شامل الضريبة', c.total, true)}`
           : sumRow('الإجمالي', c.total, true)}
@@ -522,5 +524,5 @@ export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment 
 
 export function downloadRegistrationInvoice(data) {
   const ref = data.payment?.invoice_no || safeName(data.exhibitor.brand)
-  return renderPdf(registrationInvoiceHtml(data), `AIB-Invoice-${safeName(ref)}.pdf`, { fitPages: true })
+  return renderPdf(inArabic(() => registrationInvoiceHtml(data)), `AIB-Invoice-${safeName(ref)}.pdf`, { fitPages: true })
 }

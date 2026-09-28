@@ -2,7 +2,7 @@
 // client record, an exhibitor with their site, the payment received and the tax invoice.
 
 import { BOOTH_AREA, EXHIBITOR_STATUSES } from '../lib/constants.js'
-import { registrationTotals, withoutVat } from '../lib/finance.js'
+import { DISCOUNT_ITEM, registrationTotals, withoutVat } from '../lib/finance.js'
 import { num, todayISO } from '../lib/format.js'
 import { supabase, unwrap } from './client.js'
 import { findOrCreateClient } from './clients.js'
@@ -18,6 +18,9 @@ export function chosenExtras(form) {
   if (num(form.otherAmount) > 0 || form.otherExtras?.trim()) {
     list.push({ name: form.otherExtras?.trim() || 'إضافات أخرى', price: num(form.otherAmount), qty: 1 })
   }
+  // A discount (manager / finance) is kept as a negative line, so the invoice shows the full
+  // package price and the discount given.
+  if (num(form.discount) > 0) list.push({ name: DISCOUNT_ITEM, price: -num(form.discount), qty: 1 })
   return list
 }
 
@@ -38,6 +41,7 @@ export function validateRegistration(form) {
   if (Array.isArray(form.categories) && form.categories.length > MAX_SECTORS) errors.push(tr('القطاع ({0} كحد أقصى)', [MAX_SECTORS]))
   if (!form.package) errors.push('نظام البوث')
   if (num(form.amount) < 0) errors.push('المبلغ المدفوع لا يكون سالباً')
+  if (num(form.discount) < 0) errors.push('الخصم لا يكون سالباً')
   if (num(form.amount) > 0 && !form.method) errors.push('طريقة السداد')
   if (!form.terms_accepted) errors.push('موافقة المشارك على الشروط والأحكام')
   return errors
