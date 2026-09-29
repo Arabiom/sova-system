@@ -22,6 +22,7 @@ import { listStaff } from '../api/staff.js'
 import { listStaffExpenses, openReceipt } from '../api/staffExpenses.js'
 import { checkFile } from '../api/storage.js'
 import Button from '../components/Button.jsx'
+import PlanHealth, { HealthBadge } from '../components/PlanHealth.jsx'
 import DateInput from '../components/DateInput.jsx'
 import ExhibitionFilter from '../components/ExhibitionFilter.jsx'
 import { EmptyState, Loading } from '../components/Feedback.jsx'
@@ -35,7 +36,7 @@ import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { DEFAULT_TIERS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
-import { allExpenses, collectionAlerts, companyOverview, daysBetween, exhibitionFinancials, EXPENSE_KINDS, isConfirmed, ledger, monthlyFlow, paymentDeadline, receivables, sumBy, vatEnabled } from '../lib/finance.js'
+import { allExpenses, collectionAlerts, combineFinancials, companyOverview, daysBetween, exhibitionFinancials, EXPENSE_KINDS, isConfirmed, ledger, monthlyFlow, paymentDeadline, receivables, sumBy, vatEnabled } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatDate, formatOMR, num, percent, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { openWhatsApp, paymentReminderMessage } from '../lib/whatsapp.js'
@@ -284,14 +285,17 @@ function Plan({ data }) {
       ),
     }))
   const sum = (key) => rows.reduce((t, r) => t + num(r.f[key]), 0)
+  const ahead = rows.filter(({ ex }) => !['منتهي', 'ملغى'].includes(ex.status))
 
   return (
+    <>
+    {ahead.length > 0 && <PlanHealth f={combineFinancials(ahead.map((r) => r.f))} title={tr('تقييم المعارض القادمة والجارية ({0})', [ahead.length])} />}
     <Panel icon="🏛️" title={tr('نتائج المعارض')} subtitle={tr('كل معرض: الإشغال، الإيراد الممكن لو بيعت كل المواقع، العقود، المحصّل، المصروفات، والصافي — مرتبة حسب التاريخ')}>
       <div className="table-wrap">
-        <table className="table table-compact" style={{ minWidth: 1050 }}>
+        <table className="table table-compact" style={{ minWidth: 1160 }}>
           <thead>
             <tr>
-              {[tr('المعرض'), tr('التاريخ'), tr('الحالة'), tr('المواقع'), tr('الإيراد الممكن'), tr('العقود'), tr('المحصّل / المتبقي'), tr('المصروفات'), tr('الصافي'), tr('التعادل')].map((h) => (
+              {[tr('المعرض'), tr('التاريخ'), tr('الحالة'), tr('المواقع'), tr('الإيراد الممكن'), tr('العقود'), tr('المحصّل / المتبقي'), tr('المصروفات'), tr('الصافي'), tr('التعادل'), tr('التقييم')].map((h) => (
                 <th key={h}>{tr(h)}</th>
               ))}
             </tr>
@@ -336,6 +340,9 @@ function Plan({ data }) {
                     '—'
                   )}
                 </td>
+                <td>
+                  <HealthBadge f={f} />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -353,7 +360,7 @@ function Plan({ data }) {
                 </td>
                 <td className="num strong">{formatOMR(sum('expensesTotal'))}</td>
                 <td className="num strong">{formatOMR(sum('netOnContracts'))}</td>
-                <td />
+                <td colSpan={2} />
               </tr>
             </tfoot>
           )}
@@ -362,6 +369,7 @@ function Plan({ data }) {
       {!rows.length && <EmptyState icon="🏛️" text={tr('لا توجد معارض بعد')} />}
       <div className="muted tiny mt-8">{tr('الصافي = العقود + الرعايات − مصروفات المعرض (ومنها مطالبات الموظفين المعتمدة له). الإيراد الممكن = بيع كل المواقع. المعارض الملغاة غير معروضة.')}</div>
     </Panel>
+    </>
   )
 }
 

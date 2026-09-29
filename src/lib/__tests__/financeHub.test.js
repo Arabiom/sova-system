@@ -142,3 +142,26 @@ describe('obligations', async () => {
     expect(ledger({ obligations: [{ ...paid, refund_invoice: 'RFD-1' }] })).toEqual([])
   })
 })
+
+describe('is the plan sound?', async () => {
+  const { planHealth, combineFinancials } = await import('../finance.js')
+  const base = { capacity: 20, booked: 8, fullRevenue: 4000, sponsorship: 0, contract: 1600, expensesTotal: 1200, breakEven: 6 }
+  it('good: signed contracts already cover the expenses', () => {
+    expect(planHealth(base)).toMatchObject({ level: 'good', netNow: 400, netFull: 2800, margin: 70, toSell: 0, coveredNow: true })
+  })
+  it('watch: profitable at full sale but more sites must sell', () => {
+    expect(planHealth({ ...base, booked: 3, contract: 600 })).toMatchObject({ level: 'watch', toSell: 3, netNow: -600 })
+  })
+  it('watch: covered but a thin margin', () => {
+    expect(planHealth({ ...base, expensesTotal: 3700, contract: 3800, booked: 19, breakEven: 19 }).level).toBe('watch')
+  })
+  it('risk: even a full sale loses; missing: nothing to judge', () => {
+    expect(planHealth({ ...base, expensesTotal: 5000 })).toMatchObject({ level: 'risk', netFull: -1000 })
+    expect(planHealth({ ...base, expensesTotal: 0 }).level).toBe('missing')
+    expect(planHealth({ ...base, capacity: 0 }).level).toBe('missing')
+  })
+  it('combines exhibitions (and company expenses on top)', () => {
+    const c = combineFinancials([base, { ...base, fullRevenue: 2000, contract: 400, expensesTotal: 300, booked: 2 }], 500)
+    expect(c).toMatchObject({ capacity: 40, booked: 10, fullRevenue: 6000, contract: 2000, expensesTotal: 2000, breakEven: 14 })
+  })
+})

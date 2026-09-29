@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom'
 import { endAfter } from '../../api/contracts.js'
 import DateInput from '../../components/DateInput.jsx'
 import Panel from '../../components/Panel.jsx'
-import StatCard from '../../components/StatCard.jsx'
 import { DEFAULT_TIERS } from '../../lib/constants.js'
 import { downloadCsv } from '../../lib/csv.js'
-import { vatEnabled } from '../../lib/finance.js'
+import { combineFinancials, vatEnabled } from '../../lib/finance.js'
+import PlanHealth, { HealthBadge } from '../../components/PlanHealth.jsx'
 import { exhibitionTitle, formatDate, formatOMR, todayISO } from '../../lib/format.js'
 import { tr } from '../../lib/i18n.js'
 import { companyPlan } from '../../lib/plan.js'
@@ -77,12 +77,13 @@ export default function CompanyPlan({ data }) {
             {vatEnabled() ? ` • ${tr('المبالغ قبل الضريبة')}` : ''}
           </div>
 
-          <div className="grid-4 mb-16">
-            <StatCard flat label={tr('الدخل المتوقع')} value={formatOMR(p.income.expected)} sub={tr('عقود موقّعة {0} + رعايات {1}', [formatOMR(p.income.contracts), formatOMR(p.income.sponsorship)])} accent="var(--suc)" icon="💵" />
-            <StatCard flat label={tr('المصروفات المتوقعة')} value={formatOMR(p.spend.total)} sub={tr('منها رواتب الفريق {0}', [formatOMR(p.teamFixed)])} accent="var(--dng)" icon="🧾" />
-            <StatCard flat label={tr('الصافي المتوقع')} value={formatOMR(p.net)} sub={p.net >= 0 ? tr('ربح') : tr('خسارة')} accent={tone(p.net)} icon="📈" />
-            <StatCard flat label={tr('الصافي لو بيعت كل المواقع')} value={formatOMR(p.netPotential)} sub={tr('الدخل الممكن {0}', [formatOMR(p.income.potential)])} accent={tone(p.netPotential)} icon="🎯" />
-          </div>
+          <PlanHealth
+            f={combineFinancials(
+              p.shows.map((x) => x.f),
+              p.spend.company + p.spend.fixed + p.spend.claims,
+            )}
+            title={tr('تقييم خطة الفترة (مع مصروفات الشركة والرواتب)')}
+          />
 
           <div className="grid-2 mb-16">
             <Panel icon="💵" title={tr('الدخل')} bodyClass="panel-pad">
@@ -153,14 +154,14 @@ export default function CompanyPlan({ data }) {
             <div className="muted tiny mt-8">{tr('دخل المعرض يُحسب في شهر افتتاحه، والمصروفات في شهر تاريخها.')}</div>
           </Panel>
 
-          <div className="grid-2 mb-16">
-            <Panel icon="🏛️" title={tr('معارض الفترة ({0})', [p.shows.length])}>
+          <div className="mb-16">
+            <Panel icon="🏛️" title={tr('معارض الفترة ({0})', [p.shows.length])} className="mb-16">
               {p.shows.length ? (
                 <div className="table-wrap">
                   <table className="table table-compact">
                     <thead>
                       <tr>
-                        {[tr('المعرض'), tr('العقود'), tr('المصروفات'), tr('الصافي')].map((h) => (
+                        {[tr('المعرض'), tr('العقود'), tr('المصروفات'), tr('الصافي'), tr('التقييم')].map((h) => (
                           <th key={h}>{h}</th>
                         ))}
                       </tr>
@@ -175,6 +176,9 @@ export default function CompanyPlan({ data }) {
                           <td className="num">{formatOMR(f.contract)}</td>
                           <td className="num text-dng">{formatOMR(f.expensesTotal)}</td>
                           <td className="num strong" style={{ color: tone(f.netOnContracts) }}>{formatOMR(f.netOnContracts)}</td>
+                          <td>
+                            <HealthBadge f={f} />
+                          </td>
                         </tr>
                       ))}
                     </tbody>

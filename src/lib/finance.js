@@ -438,3 +438,55 @@ export function ledger({ payments = [], sponsors = [], expenses = [], companyExp
   }
   return rows.reverse()
 }
+
+// ── Is the plan sound? ───────────────────────────────────────────────────────
+/** Below this profit margin at full sale, a plan is flagged as thin. */
+export const THIN_MARGIN_PCT = 15
+
+/**
+ * A verdict on an exhibition's (or a period's) numbers, from exhibitionFinancials()-like
+ * figures: { fullRevenue, sponsorship, contract, expensesTotal, capacity, booked, breakEven }.
+ *  – 'missing': no sites or no expenses yet, nothing to judge;
+ *  – 'risk':    even selling every site does not cover the expenses;
+ *  – 'good':    the contracts signed already cover the expenses;
+ *  – 'watch':   it can be profitable, but more sites must sell (or the margin is thin).
+ */
+export function planHealth(f) {
+  const potential = num(f.fullRevenue) + num(f.sponsorship)
+  const current = num(f.contract) + num(f.sponsorship)
+  const expenses = num(f.expensesTotal)
+  const netFull = baisa(potential - expenses)
+  const netNow = baisa(current - expenses)
+  const margin = potential > 0 ? Math.round((netFull / potential) * 100) : 0
+  const toSell = Math.max(0, num(f.breakEven) - num(f.booked))
+  const base = { potential: baisa(potential), current: baisa(current), expenses: baisa(expenses), netFull, netNow, margin, toSell }
+  if (!num(f.capacity) || !expenses) return { ...base, level: 'missing' }
+  if (netFull < 0) return { ...base, level: 'risk' }
+  if (netNow >= 0) return { ...base, level: margin < THIN_MARGIN_PCT ? 'watch' : 'good', coveredNow: true }
+  return { ...base, level: 'watch' }
+}
+
+/**
+ * Several exhibitions' figures as one (for a verdict on all of them, or on a period whose
+ * company expenses — rent, salaries… — come on top via `extraExpenses`). Break-even is
+ * recomputed on the combined numbers at the average site price.
+ */
+export function combineFinancials(list, extraExpenses = 0) {
+  const sum = (k) => list.reduce((t, f) => t + num(f[k]), 0)
+  const capacity = sum('capacity')
+  const fullRevenue = list.reduce((t, f) => t + Math.max(num(f.fullRevenue), num(f.contract)), 0)
+  const sponsorship = sum('sponsorship')
+  const expensesTotal = sum('expensesTotal') + num(extraExpenses)
+  const avgPrice = capacity ? fullRevenue / capacity : 0
+  const breakEven = avgPrice ? Math.ceil(Math.max(0, expensesTotal - sponsorship) / avgPrice - 1e-9) : 0
+  return {
+    capacity,
+    booked: sum('booked'),
+    fullRevenue: baisa(fullRevenue),
+    sponsorship: baisa(sponsorship),
+    contract: baisa(sum('contract')),
+    collected: baisa(sum('collected')),
+    expensesTotal: baisa(expensesTotal),
+    breakEven,
+  }
+}
