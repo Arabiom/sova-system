@@ -335,6 +335,7 @@ export const EXPENSE_KINDS = {
   exhibition: 'مصروف معرض',
   company: 'مصروف شركة',
   claim: 'مطالبة موظف',
+  obligation: 'التزام مستحق',
 }
 
 /**
@@ -342,8 +343,23 @@ export const EXPENSE_KINDS = {
  * exhibition expenses, company overheads and staff claims (rejected claims left out).
  * `counted` is false for a claim still awaiting review — it is shown but not yet an expense.
  */
-export function allExpenses({ expenses = [], companyExpenses = [], staffExpenses = [] }) {
+export function allExpenses({ expenses = [], companyExpenses = [], staffExpenses = [], obligations = [] }) {
   return [
+    // Obligations (refunds owed, postponed cheques…) are listed with the expenses but are not
+    // expenses themselves: counted = false, and they have their own total.
+    ...obligations.map((x) => ({
+      key: `obligation:${x.id}`,
+      kind: 'obligation',
+      source: x,
+      date: x.due_date || String(x.created_at || '').slice(0, 10),
+      description: [x.party, x.description].filter(Boolean).join(' — ') || x.kind,
+      category: x.kind || '',
+      amount: num(x.amount),
+      exhibition_id: x.exhibition_id || null,
+      paid: x.status === 'مدفوع',
+      counted: false,
+      notes: [x.cheque_no && `شيك رقم ${x.cheque_no}`, x.notes].filter(Boolean).join(' • '),
+    })),
     ...expenses.map((x) => ({
       key: `exhibition:${x.id}`,
       kind: 'exhibition',
@@ -403,7 +419,7 @@ export function allExpenses({ expenses = [], companyExpenses = [], staffExpenses
  * balance after each one. In: confirmed payments (refunds come out) and paid sponsorships.
  * Out: paid exhibition and company expenses, and staff claims paid back.
  */
-export function ledger({ payments = [], sponsors = [], expenses = [], companyExpenses = [], staffExpenses = [] }) {
+export function ledger({ payments = [], sponsors = [], expenses = [], companyExpenses = [], staffExpenses = [], obligations = [] }) {
   const day = (v) => String(v || '').slice(0, 10)
   const rows = [
     ...payments.filter(isConfirmed).map((p) => ({ key: `p:${p.id}`, kind: num(p.amount) < 0 ? 'refund' : 'payment', date: day(p.date || p.created_at), amount: num(p.amount), ref: p.invoice_no || '', exhibitor_id: p.exhibitor_id, method: p.method || '', note: p.note || '' })),
@@ -411,6 +427,8 @@ export function ledger({ payments = [], sponsors = [], expenses = [], companyExp
     ...expenses.filter((x) => x.paid).map((x) => ({ key: `e:${x.id}`, kind: 'exhibition', date: day(x.due_date || x.created_at), amount: -num(x.amount), label: x.item, exhibition_id: x.exhibition_id })),
     ...companyExpenses.filter((x) => x.paid !== false).map((x) => ({ key: `c:${x.id}`, kind: 'company', date: day(x.date), amount: -num(x.amount), label: x.description })),
     ...staffExpenses.filter((x) => x.status === CLAIM_REIMBURSED).map((x) => ({ key: `st:${x.id}`, kind: 'claim', date: day(x.reviewed_at || x.date), amount: -num(x.amount), label: x.description, exhibition_id: x.exhibition_id || null, user_id: x.user_id })),
+    // A paid obligation — unless it was a participant refund, already in the payments as a refund.
+    ...obligations.filter((x) => x.status === 'مدفوع' && !x.refund_invoice).map((x) => ({ key: `ob:${x.id}`, kind: 'obligation', date: day(x.paid_at || x.due_date), amount: -num(x.amount), label: [x.party, x.description].filter(Boolean).join(' — '), exhibition_id: x.exhibition_id || null })),
   ].sort((a, b) => a.date.localeCompare(b.date) || a.key.localeCompare(b.key))
   let balance = 0
   for (const r of rows) {

@@ -110,3 +110,26 @@ describe('payment window of a company expense', async () => {
     expect('pay_from' in toCompanyExpenseRow(base)).toBe(false)
   })
 })
+
+describe('obligations', async () => {
+  const { obligationState, toObligationRow, validateObligation } = await import('../../api/obligations.js')
+  const ob = { id: 'o1', kind: 'شيك مؤجل', party: 'مطبعة', amount: 120, due_date: '2026-10-10', status: 'قائم' }
+  it('late, due soon, open, paid', () => {
+    expect(obligationState(ob, '2026-10-11')).toBe('late')
+    expect(obligationState(ob, '2026-10-04')).toBe('soon')
+    expect(obligationState(ob, '2026-09-20')).toBe('later')
+    expect(obligationState({ ...ob, status: 'مدفوع' }, '2026-10-11')).toBe('')
+  })
+  it('needs a party, an amount and a date', () => {
+    expect(validateObligation({})).toEqual(['لمن (الجهة أو المشارك)', 'المبلغ', 'تاريخ الاستحقاق'])
+    expect(validateObligation({ exhibitor_id: 'e1', amount: 5, due_date: '2026-10-01' })).toEqual([])
+    expect(toObligationRow({ party: ' x ', amount: '5', due_date: '2026-10-01' })).toMatchObject({ party: 'x', amount: 5, exhibitor_id: null })
+  })
+  it('are listed with the expenses but not counted as expenses; paid ones go to the ledger unless recorded as a refund', () => {
+    const rows = allExpenses({ obligations: [ob] })
+    expect(rows[0]).toMatchObject({ kind: 'obligation', counted: false, paid: false, amount: 120 })
+    const paid = { ...ob, status: 'مدفوع', paid_at: '2026-10-09' }
+    expect(ledger({ obligations: [paid] }).map((r) => [r.kind, r.amount])).toEqual([['obligation', -120]])
+    expect(ledger({ obligations: [{ ...paid, refund_invoice: 'RFD-1' }] })).toEqual([])
+  })
+})
