@@ -390,6 +390,7 @@ export function allExpenses({ expenses = [], companyExpenses = [], staffExpenses
       receipt: x.receipt_path || '',
       notes: x.notes || '',
       recurring: Boolean(x.recurring),
+      recurring_every: Number(x.recurring_every) || 1,
       series_id: x.series_id || null,
       period: x.period || '',
     })),

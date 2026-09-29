@@ -43,6 +43,7 @@ export function validateCompanyExpense(form) {
   if (!(num(form.amount) > 0)) errors.push('المبلغ')
   if (!form.date) errors.push('التاريخ')
   if (form.pay_from && form.pay_to && form.pay_to < form.pay_from) errors.push('نهاية فترة الدفع قبل بدايتها')
+  if (form.recurring && ![1, 3, 6].includes(Number(form.recurring_every))) errors.push('مدة التكرار (شهر أو 3 أو 6 أشهر)')
   return errors
 }
 
@@ -81,6 +82,10 @@ export function toCompanyExpenseRow(form) {
   if (form.recurring || form.wasRecurring) {
     row.recurring = Boolean(form.recurring)
     row.recurring_end = form.recurring && form.recurring_end ? `${form.recurring_end}-01` : null
+    // How often (migration 022): sent only when it differs from what is stored (monthly by
+    // default), so a database without that update still saves monthly ones.
+    const every = Number(form.recurring_every) || 1
+    if (form.recurring && every !== (Number(form.origEvery) || 1)) row.recurring_every = every
   }
   return row
 }
@@ -94,8 +99,9 @@ export async function addDueMonthlyExpenses() {
   return error ? 0 : data || 0
 }
 
-/** Monthly total of the fixed expenses still running. */
-export const monthlyFixedTotal = (rows) => rows.filter((x) => x.recurring).reduce((t, x) => t + num(x.amount), 0)
+/** Monthly equivalent of the fixed expenses still running (a 3-monthly one counts a third). */
+export const monthlyFixedTotal = (rows) =>
+  Math.round(rows.filter((x) => x.recurring).reduce((t, x) => t + num(x.amount) / (Number(x.recurring_every) || 1), 0) * 1000) / 1000
 
 export async function saveCompanyExpense(form, { id, receiptFile, oldReceipt } = {}) {
   let receipt_path = oldReceipt || null
