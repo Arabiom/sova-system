@@ -114,7 +114,7 @@ export default function Dashboard() {
       ))}
 
       {money && awaiting.length > 0 && (
-        <button type="button" className="alert alert-warning alert-link" onClick={() => go('/sales')}>
+        <button type="button" className="alert alert-warning alert-link" onClick={() => go('/finance?tab=income')}>
           ⏳ {awaiting.length}{' '}{tr('دفعة بانتظار تأكيد وصول المبلغ (بقيمة')}{' '}{formatOMR(withVat(sumBy(awaiting, 'amount')))}{vatEnabled() ? tr(' شامل الضريبة') : ''}{tr(') — اضغط للمراجعة')}
         </button>
       )}
@@ -123,18 +123,18 @@ export default function Dashboard() {
         <>
       <div className="section-label">{tr('المؤشرات المالية')}</div>
       <div className="grid-4">
-        <StatCard label={tr('إجمالي قيمة العقود')} value={formatOMR(totals.contract)} sub={tr('{0} عارض مسجل', [totals.count])} accent="var(--ink)" icon="📋" onClick={() => go('/reports')} />
-        <StatCard label={tr('إجمالي المحصّل')} value={formatOMR(totals.paid)} sub={vatEnabled() ? tr('ضريبة القيمة المضافة: {0}', [formatOMR(totals.vat)]) : tr('نسبة التحصيل {0}%', [totals.collectionRate])} accent="var(--gold)" icon="💵" onClick={() => go('/sales')} />
+        <StatCard label={tr('إجمالي قيمة العقود')} value={formatOMR(totals.contract)} sub={tr('{0} عارض مسجل', [totals.count])} accent="var(--ink)" icon="📋" onClick={() => go('/finance?tab=reports')} />
+        <StatCard label={tr('إجمالي المحصّل')} value={formatOMR(totals.paid)} sub={vatEnabled() ? tr('ضريبة القيمة المضافة: {0}', [formatOMR(totals.vat)]) : tr('نسبة التحصيل {0}%', [totals.collectionRate])} accent="var(--gold)" icon="💵" onClick={() => go('/finance?tab=income')} />
         <StatCard
           label={tr('المبلغ المتبقي للتحصيل')}
           value={formatOMR(totals.remaining)}
           sub={totals.contract ? tr('{0}% من إجمالي العقود', [100 - totals.collectionRate]) : tr('لا توجد عقود بعد')}
           accent={totals.remaining > 0 ? 'var(--wrn)' : 'var(--suc)'}
           icon="⏳"
-          onClick={() => go('/sales')}
+          onClick={() => go('/finance?tab=receivables')}
         />
         {vatEnabled() ? (
-          <StatCard label={tr('المجموع الكلي شامل الضريبة')} value={formatOMR(totals.paidWithVat)} sub={tr('نسبة التحصيل {0}%', [totals.collectionRate])} accent="var(--suc)" icon="🏆" onClick={() => go('/reports')} />
+          <StatCard label={tr('المجموع الكلي شامل الضريبة')} value={formatOMR(totals.paidWithVat)} sub={tr('نسبة التحصيل {0}%', [totals.collectionRate])} accent="var(--suc)" icon="🏆" onClick={() => go('/finance?tab=reports')} />
         ) : (
           <StatCard label={tr('الدخل المتوقع من المعارض')} value={formatOMR(expectedIncome)} sub={tr('بيع كل المواقع في المعارض القادمة والجارية')} accent="var(--suc)" icon="🏆" onClick={() => go('/finance')} />
         )}
@@ -146,7 +146,7 @@ export default function Dashboard() {
       <div className="grid-4 mb-24">
         <StatCard label={tr('عارضون مؤكدون')} value={confirmed} sub={tr('{0} قيد الإجراءات', [exhibitors.length - confirmed])} accent="var(--suc)" icon="🤝" onClick={() => go('/exhibitors')} />
         <StatCard label={tr('طلبات حجز معلقة')} value={pending} sub={tr('تحتاج مراجعة ومتابعة')} accent="var(--wrn)" icon="📬" onClick={() => go('/bookings')} />
-        <StatCard label={tr('مدفوعات غير مكتملة')} value={withBalance} sub={tr('عارض بمبلغ متبقٍّ')} accent="var(--dng)" icon="⚠️" onClick={() => go(money ? '/sales' : '/exhibitors')} />
+        <StatCard label={tr('مدفوعات غير مكتملة')} value={withBalance} sub={tr('عارض بمبلغ متبقٍّ')} accent="var(--dng)" icon="⚠️" onClick={() => go(money ? '/finance?tab=receivables' : '/exhibitors')} />
         <StatCard label={tr('معارض نشطة')} value={active} sub={tr('من إجمالي {0} معرض', [exhibitions.length])} accent="var(--purple)" icon="🏛️" onClick={() => go('/exhibitions')} />
       </div>
 
@@ -310,7 +310,7 @@ export default function Dashboard() {
           icon="💰"
           title={tr('آخر المدفوعات')}
           action={
-            <Button size="sm" variant="ghost" onClick={() => go('/sales')}>
+            <Button size="sm" variant="ghost" onClick={() => go('/finance?tab=income')}>
               {tr('عرض الكل ↗')}
             </Button>
           }
@@ -327,7 +327,7 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {payments.slice(0, 6).map((p) => (
-                  <tr key={p.id} className="clickable" onClick={() => go('/sales')}>
+                  <tr key={p.id} className="clickable" onClick={() => go('/finance?tab=income')}>
                     <td className="strong">{brandOf(p.exhibitor_id)}</td>
                     <td className="amount">{formatOMR(p.amount)}</td>
                     <td>

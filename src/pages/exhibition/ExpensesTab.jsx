@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import StatusBadge from '../../components/StatusBadge.jsx'
 import { useCan } from '../../context/AuthContext.jsx'
 import DateInput from '../../components/DateInput.jsx'
 import { deleteExpense, saveExpense, setExpensePaid } from '../../api/exhibitionFile.js'
@@ -10,10 +12,14 @@ import Panel from '../../components/Panel.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { EXPENSE_CATEGORIES } from '../../lib/constants.js'
 import { sumBy } from '../../lib/finance.js'
-import { formatOMR } from '../../lib/format.js'
+import { exhibitionLabel, formatOMR } from '../../lib/format.js'
 import { tr } from '../../lib/i18n.js'
 
-function ExpenseForm({ exhibitionId, initial, id, onClose, onSaved }) {
+/**
+ * Add / edit an exhibition expense. Opened from the finance centre (no fixed exhibition),
+ * it asks which exhibition the expense belongs to.
+ */
+export function ExpenseForm({ exhibitionId, exhibitions, initial, id, onClose, onSaved }) {
   const toast = useToast()
   const [form, setForm] = useState(initial)
   const [saving, setSaving] = useState(false)
@@ -22,9 +28,11 @@ function ExpenseForm({ exhibitionId, initial, id, onClose, onSaved }) {
   const submit = async () => {
     if (!form.item?.trim() || !(+form.amount >= 0) || form.amount === '' || form.amount === undefined)
       return toast(tr('اكتب البند والمبلغ'), 'error')
+    const target = exhibitionId || form.exhibition_id
+    if (!target) return toast(tr('اختر المعرض'), 'error')
     setSaving(true)
     try {
-      await saveExpense(form, exhibitionId, id)
+      await saveExpense(form, target, id)
       toast(id ? tr('✅ تم التحديث') : tr('✅ تمت إضافة المصروف'))
       onSaved()
     } catch (err) {
@@ -50,6 +58,18 @@ function ExpenseForm({ exhibitionId, initial, id, onClose, onSaved }) {
       }
     >
       <div className="form-grid">
+        {!exhibitionId && (
+          <Field label={tr('المعرض')} required className="span-2">
+            <select className="input" value={form.exhibition_id || ''} onChange={set('exhibition_id')}>
+              <option value="">{tr('اختر...')}</option>
+              {(exhibitions || []).map((ex) => (
+                <option key={ex.id} value={ex.id}>
+                  {exhibitionLabel(ex)}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         <Field label={tr('البند')} required className="span-2">
           <input className="input" placeholder={tr('مثال: شيك حجز المساحة')} value={form.item || ''} onChange={set('item')} />
         </Field>
@@ -76,12 +96,13 @@ function ExpenseForm({ exhibitionId, initial, id, onClose, onSaved }) {
   )
 }
 
-export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
+export default function ExpensesTab({ exhibitionId, expenses, claims = [], onChanged }) {
   const toast = useToast()
   const canWrite = useCan('data.write') // the viewer only looks
   const [editing, setEditing] = useState(null)
-  const total = sumBy(expenses, 'amount')
-  const paid = sumBy(expenses.filter((x) => x.paid), 'amount')
+  // Staff claims approved for this exhibition count as its expenses too (paid once reimbursed).
+  const total = sumBy(expenses, 'amount') + sumBy(claims, 'amount')
+  const paid = sumBy(expenses.filter((x) => x.paid), 'amount') + sumBy(claims.filter((x) => x.status === 'تم التعويض'), 'amount')
 
   const togglePaid = async (x) => {
     try {
@@ -160,7 +181,7 @@ export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
               <tr>
                 <td className="strong">{tr('الإجمالي')}</td>
                 <td />
-                <td className="num strong">{formatOMR(total)}</td>
+                <td className="num strong">{formatOMR(sumBy(expenses, 'amount'))}</td>
                 <td colSpan={4} />
               </tr>
             </tfoot>
@@ -168,6 +189,40 @@ export default function ExpensesTab({ exhibitionId, expenses, onChanged }) {
         </table>
       </div>
       {!expenses.length && <EmptyState icon="🧾" text={tr('لا توجد مصروفات بعد — أضف شيك حجز المساحة ومصروفات التشغيل')} />}
+
+      {claims.length > 0 && (
+        <>
+          <div className="section-label mt-16">{tr('👥 مطالبات الموظفين المعتمدة لهذا المعرض ({0})', [claims.length])}</div>
+          <div className="table-wrap">
+            <table className="table table-compact">
+              <thead>
+                <tr>
+                  {[tr('التاريخ'), tr('الوصف'), tr('التصنيف'), tr('المبلغ'), tr('الحالة')].map((h) => (
+                    <th key={h}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {claims.map((x) => (
+                  <tr key={x.id}>
+                    <td className="small nowrap">{x.date}</td>
+                    <td className="strong">{tr(x.description)}</td>
+                    <td className="small">{tr(x.category) || '—'}</td>
+                    <td className="num strong">{formatOMR(x.amount)}</td>
+                    <td>
+                      <StatusBadge status={x.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="muted tiny mt-8">
+            {tr('تُضاف تلقائياً عند اعتمادها في «المالية ← مطالبات الموظفين»، وتُعدّل من هناك.')}{' '}
+            <Link to="/finance?tab=claims">{tr('فتح المطالبات ↗')}</Link>
+          </div>
+        </>
+      )}
 
       {editing && (
         <ExpenseForm

@@ -16,8 +16,6 @@ const Exhibitors = lazy(() => import('./pages/Exhibitors.jsx'))
 const Register = lazy(() => import('./pages/Register.jsx'))
 const Expenses = lazy(() => import('./pages/Expenses.jsx'))
 const Finance = lazy(() => import('./pages/Finance.jsx'))
-const Reports = lazy(() => import('./pages/Reports.jsx'))
-const Sales = lazy(() => import('./pages/Sales.jsx'))
 const WhatsApp = lazy(() => import('./pages/WhatsApp.jsx'))
 const Team = lazy(() => import('./pages/Team.jsx'))
 const Staff = lazy(() => import('./pages/Staff.jsx'))
@@ -29,6 +27,12 @@ function Protected() {
   if (!session) return <Login />
   if (!role) return <NoAccess error={staffError} />
   return <Layout />
+}
+
+/** Finance roles review claims inside the finance centre; everyone else records their own here. */
+function MyExpenses() {
+  const money = useCan('money.view')
+  return money ? <Navigate to="/finance?tab=claims" replace /> : <Expenses />
 }
 
 /** Signed in, but no staff role (removed by an admin, or the role could not be loaded). */
@@ -81,22 +85,9 @@ export default function App() {
             </Allow>
           }
         />
-        <Route
-          path="/sales"
-          element={
-            <Allow permission="money.view">
-              <Sales />
-            </Allow>
-          }
-        />
-        <Route
-          path="/reports"
-          element={
-            <Allow permission="reports.view">
-              <Reports />
-            </Allow>
-          }
-        />
+        {/* Payments, reports and expenses now live in the finance centre. */}
+        <Route path="/sales" element={<Navigate to="/finance?tab=income" replace />} />
+        <Route path="/reports" element={<Navigate to="/finance?tab=reports" replace />} />
         <Route
           path="/staff"
           element={
@@ -105,7 +96,7 @@ export default function App() {
             </Allow>
           }
         />
-        <Route path="/expenses" element={<Expenses />} />
+        <Route path="/expenses" element={<MyExpenses />} />
         <Route
           path="/whatsapp"
           element={

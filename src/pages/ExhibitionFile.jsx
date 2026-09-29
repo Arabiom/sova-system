@@ -5,6 +5,7 @@ import { listExpenses, listSites, listSponsors } from '../api/exhibitionFile.js'
 import { getExhibition, listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
+import { listStaffExpenses } from '../api/staffExpenses.js'
 import Button from '../components/Button.jsx'
 import ExhibitionForm from '../components/ExhibitionForm.jsx'
 import ExhibitionMap from '../components/ExhibitionMap.jsx'
@@ -16,7 +17,7 @@ import StatusBadge from '../components/StatusBadge.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { DEFAULT_TIERS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
-import { exhibitionFinancials } from '../lib/finance.js'
+import { claimsOf, exhibitionFinancials } from '../lib/finance.js'
 import { exhibitionTitle, formatOMR, todayISO } from '../lib/format.js'
 import { downloadExhibitionFile } from '../lib/pdf.js'
 import { siteStatus } from '../lib/sites.js'
@@ -46,7 +47,9 @@ async function loadFile(id) {
     listExhibitions(),
     listClients(),
   ])
-  return { exhibition, sites, expenses, sponsors, exhibitors, payments, exhibitions, clients }
+  // Staff claims tied to this exhibition count in its costs (only readable by finance roles).
+  const staffExpenses = await listStaffExpenses().catch(() => [])
+  return { exhibition, sites, expenses, sponsors, exhibitors, payments, exhibitions, clients, staffExpenses }
 }
 
 function Summary({ f, internal }) {
@@ -110,16 +113,19 @@ export default function ExhibitionFile() {
   if (loading || !data) return <Loading />
   if (!data.exhibition) return <EmptyState icon="🏛️" text={tr('المعرض غير موجود أو تم حذفه')} />
 
-  const { exhibition: ex, sites, expenses, sponsors, exhibitors, payments, exhibitions, clients } = data
+  const { exhibition: ex, sites, expenses, sponsors, exhibitors, payments, exhibitions, clients, staffExpenses } = data
   const own = exhibitors.filter((e) => e.exhibition_id === ex.id)
-  const f = exhibitionFinancials({ exhibition: ex, sites, exhibitors, payments, expenses, sponsors }, DEFAULT_TIERS)
+  const claims = claimsOf(staffExpenses, ex.id)
+  const f = exhibitionFinancials({ exhibition: ex, sites, exhibitors, payments, expenses, sponsors, staffExpenses }, DEFAULT_TIERS)
   const title = exhibitionTitle(ex)
 
   const print = async () => {
     setPrinting(true)
     toast(tr('📄 جاري تجهيز ملف المعرض...'))
     try {
-      await downloadExhibitionFile({ exhibition: ex, sites, exhibitors: own, expenses, sponsors, financials: f })
+      // Approved staff claims print as expense lines, so the lines add up to the file's totals.
+      const claimLines = claims.map((x) => ({ id: x.id, item: `مطالبة موظف: ${x.description}`, category: x.category, amount: x.amount, due_date: x.date, paid: x.status === 'تم التعويض' }))
+      await downloadExhibitionFile({ exhibition: ex, sites, exhibitors: own, expenses: [...expenses, ...claimLines], sponsors, financials: f })
     } catch (err) {
       toast(tr('تعذّر إنشاء الملف: {0}', [err.message]), 'error')
     } finally {
@@ -214,7 +220,7 @@ export default function ExhibitionFile() {
       )}
       {tab === 'sites' && <SitesTab exhibition={ex} sites={sites} exhibitors={own} canManage={canManage} onChanged={reload} />}
       {tab === 'participants' && <ParticipantsTab exhibition={ex} exhibitions={exhibitions} exhibitors={own} clients={clients} onChanged={reload} />}
-      {internal && tab === 'expenses' && <ExpensesTab exhibitionId={ex.id} expenses={expenses} onChanged={reload} />}
+      {internal && tab === 'expenses' && <ExpensesTab exhibitionId={ex.id} expenses={expenses} claims={claims} onChanged={reload} />}
       {internal && tab === 'sponsors' && <SponsorsTab exhibitionId={ex.id} sponsors={sponsors} onChanged={reload} />}
 
       {editing && (

@@ -3103,3 +3103,18 @@ a.ex-card-head {
 .stat-flat.clickable:hover {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
 }
+
+/* ─── Finance centre ─────────────────────────────────────────── */
+.tabs-scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.tabs-scroll .tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.page-actions-bar {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}

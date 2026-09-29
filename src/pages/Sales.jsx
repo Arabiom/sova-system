@@ -137,9 +137,14 @@ function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
   )
 }
 
-export default function Sales() {
+export default function Sales({ embedded = false, onChanged } = {}) {
   const toast = useToast()
-  const { data, loading, reload } = useData(load, null)
+  const { data, loading, reload: reloadOwn } = useData(load, null)
+  // Inside the finance centre, the centre's own totals are refreshed too.
+  const reload = () => {
+    reloadOwn()
+    onChanged?.()
+  }
   const [scope, setScope] = useState('all')
   const [adding, setAdding] = useState(false)
   const [editingPayment, setEditingPayment] = useState(null)
@@ -205,7 +210,7 @@ export default function Sales() {
 
   return (
     <>
-      <PageHeader title={tr('المبيعات والمدفوعات')} subtitle={tr('{0} دفعة مسجلة', [payments.length])}>
+      <PageHeader embedded={embedded} title={tr('المبيعات والمدفوعات')} subtitle={tr('{0} دفعة مسجلة', [payments.length])}>
         <ExhibitionFilter exhibitions={exhibitions} value={scope} onChange={setScope} />
         {canWrite && <Button onClick={() => setAdding(true)}>{tr('+ تسجيل دفعة / إرجاع')}</Button>}
       </PageHeader>

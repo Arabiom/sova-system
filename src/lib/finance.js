@@ -9,6 +9,14 @@ export const isConfirmed = (payment) => payment.status !== PAYMENT_PENDING
 /** Round to the baisa (3 decimals) so sums of prices never show floating-point noise. */
 const baisa = (value) => Math.round(num(value) * 1000) / 1000
 
+/** Staff claims that count as company money spent (approved, or already paid back). */
+export const APPROVED_CLAIMS = ['معتمد', 'تم التعويض']
+const CLAIM_REIMBURSED = 'تم التعويض'
+
+/** Approved staff claims of one exhibition (or, with no id, those not tied to any exhibition). */
+export const claimsOf = (staffExpenses, exhibitionId) =>
+  staffExpenses.filter((x) => APPROVED_CLAIMS.includes(x.status) && (exhibitionId ? x.exhibition_id === exhibitionId : !x.exhibition_id))
+
 /** Name of the discount line kept with a participant's extras (a negative price). */
 export const DISCOUNT_ITEM = 'خصم'
 
@@ -128,7 +136,7 @@ export function newReference(prefix, now = new Date()) {
  * When the site map exists it is the source of truth for capacity and full revenue;
  * otherwise the three planning tiers stored on the exhibition are used.
  */
-export function exhibitionFinancials({ exhibition, sites = [], exhibitors = [], payments = [], expenses = [], sponsors = [] }, defaults) {
+export function exhibitionFinancials({ exhibition, sites = [], exhibitors = [], payments = [], expenses = [], sponsors = [], staffExpenses = [] }, defaults) {
   const own = exhibitors.filter((e) => e.exhibition_id === exhibition.id)
   const ownIds = new Set(own.map((e) => e.id))
   const hasSites = sites.length > 0
@@ -145,8 +153,11 @@ export function exhibitionFinancials({ exhibition, sites = [], exhibitors = [], 
   const collected = payments.filter((p) => ownIds.has(p.exhibitor_id) && isConfirmed(p)).reduce((t, p) => t + num(p.amount), 0)
   const sponsorship = sumBy(sponsors, 'amount')
   const sponsorshipPaid = sumBy(sponsors.filter((s) => s.status === 'مدفوع'), 'amount')
-  const expensesTotal = sumBy(expenses, 'amount')
-  const expensesPaid = sumBy(expenses.filter((x) => x.paid), 'amount')
+  // Staff claims approved for this exhibition are part of its cost (paid once reimbursed).
+  const claims = claimsOf(staffExpenses, exhibition.id)
+  const claimsTotal = sumBy(claims, 'amount')
+  const expensesTotal = sumBy(expenses, 'amount') + claimsTotal
+  const expensesPaid = sumBy(expenses.filter((x) => x.paid), 'amount') + sumBy(claims.filter((x) => x.status === CLAIM_REIMBURSED), 'amount')
 
   // Break-even: sites to sell (at the average list price) to cover expenses not covered by sponsors.
   const avgPrice = pricedCount ? fullRevenue / pricedCount : 0
@@ -168,6 +179,7 @@ export function exhibitionFinancials({ exhibition, sites = [], exhibitors = [], 
     sponsorshipPaid,
     expensesTotal,
     expensesPaid,
+    claimsTotal,
     netAtFull: fullRevenue + sponsorship - expensesTotal,
     netOnContracts: contract + sponsorship - expensesTotal,
     cashPosition: collected + sponsorshipPaid - expensesPaid,
@@ -202,7 +214,6 @@ export function receivables(exhibitors, exhibitions) {
     .sort((a, b) => b.remaining - a.remaining)
 }
 
-const APPROVED_CLAIMS = ['معتمد', 'تم التعويض']
 
 /**
  * The whole company's money in one place: what was sold, collected and is still owed, and
@@ -317,4 +328,89 @@ export function collectionAlerts(exhibitions, exhibitors, today) {
     })
     .filter((a) => a.owing.length && a.daysLeft <= DEADLINE_WARNING_DAYS && daysBetween(today, a.exhibition.date_to || a.exhibition.date_from) >= 0)
     .sort((a, b) => a.daysLeft - b.daysLeft)
+}
+
+// ── One list for every expense, one log for every movement ──────────────────
+export const EXPENSE_KINDS = {
+  exhibition: 'مصروف معرض',
+  company: 'مصروف شركة',
+  claim: 'مطالبة موظف',
+}
+
+/**
+ * Every expense of the company in one shape, whatever table it lives in:
+ * exhibition expenses, company overheads and staff claims (rejected claims left out).
+ * `counted` is false for a claim still awaiting review — it is shown but not yet an expense.
+ */
+export function allExpenses({ expenses = [], companyExpenses = [], staffExpenses = [] }) {
+  return [
+    ...expenses.map((x) => ({
+      key: `exhibition:${x.id}`,
+      kind: 'exhibition',
+      source: x,
+      date: x.due_date || String(x.created_at || '').slice(0, 10),
+      description: x.item,
+      category: x.category || '',
+      amount: num(x.amount),
+      exhibition_id: x.exhibition_id,
+      paid: Boolean(x.paid),
+      counted: true,
+      notes: x.notes || '',
+    })),
+    ...companyExpenses.map((x) => ({
+      key: `company:${x.id}`,
+      kind: 'company',
+      source: x,
+      date: x.date,
+      description: x.description,
+      category: x.category || '',
+      amount: num(x.amount),
+      exhibition_id: null,
+      paid: x.paid !== false,
+      counted: true,
+      due_date: x.due_date || '',
+      receipt: x.receipt_path || '',
+      notes: x.notes || '',
+    })),
+    ...staffExpenses
+      .filter((x) => x.status !== 'مرفوض')
+      .map((x) => ({
+        key: `claim:${x.id}`,
+        kind: 'claim',
+        source: x,
+        date: x.date,
+        description: x.description,
+        category: x.category || '',
+        amount: num(x.amount),
+        exhibition_id: x.exhibition_id || null,
+        paid: x.status === CLAIM_REIMBURSED,
+        counted: APPROVED_CLAIMS.includes(x.status),
+        status: x.status,
+        receipt: x.receipt_path || '',
+        user_id: x.user_id,
+        notes: [x.vendor, x.payment_method].filter(Boolean).join(' • '),
+      })),
+  ].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+}
+
+/**
+ * Every movement of money actually received or paid out, newest first, with the running
+ * balance after each one. In: confirmed payments (refunds come out) and paid sponsorships.
+ * Out: paid exhibition and company expenses, and staff claims paid back.
+ */
+export function ledger({ payments = [], sponsors = [], expenses = [], companyExpenses = [], staffExpenses = [] }) {
+  const day = (v) => String(v || '').slice(0, 10)
+  const rows = [
+    ...payments.filter(isConfirmed).map((p) => ({ key: `p:${p.id}`, kind: num(p.amount) < 0 ? 'refund' : 'payment', date: day(p.date || p.created_at), amount: num(p.amount), ref: p.invoice_no || '', exhibitor_id: p.exhibitor_id, method: p.method || '', note: p.note || '' })),
+    ...sponsors.filter((s) => s.status === 'مدفوع').map((s) => ({ key: `s:${s.id}`, kind: 'sponsor', date: day(s.created_at), amount: num(s.amount), label: s.name, exhibition_id: s.exhibition_id })),
+    ...expenses.filter((x) => x.paid).map((x) => ({ key: `e:${x.id}`, kind: 'exhibition', date: day(x.due_date || x.created_at), amount: -num(x.amount), label: x.item, exhibition_id: x.exhibition_id })),
+    ...companyExpenses.filter((x) => x.paid !== false).map((x) => ({ key: `c:${x.id}`, kind: 'company', date: day(x.date), amount: -num(x.amount), label: x.description })),
+    ...staffExpenses.filter((x) => x.status === CLAIM_REIMBURSED).map((x) => ({ key: `st:${x.id}`, kind: 'claim', date: day(x.reviewed_at || x.date), amount: -num(x.amount), label: x.description, exhibition_id: x.exhibition_id || null, user_id: x.user_id })),
+  ].sort((a, b) => a.date.localeCompare(b.date) || a.key.localeCompare(b.key))
+  let balance = 0
+  for (const r of rows) {
+    balance = baisa(balance + r.amount)
+    r.balance = balance
+  }
+  return rows.reverse()
 }

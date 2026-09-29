@@ -32,7 +32,7 @@ const load = async () => {
   return { exhibitions, exhibitors, payments, sites, expenses, sponsors }
 }
 
-export default function Reports() {
+export default function Reports({ embedded = false } = {}) {
   const toast = useToast()
   const { data, loading } = useData(load, null)
   const [scope, setScope] = useState('all')
@@ -77,7 +77,7 @@ export default function Reports() {
 
   return (
     <>
-      <PageHeader title={tr('التقارير المالية 📊')} subtitle={COMPANY.legalName}>
+      <PageHeader embedded={embedded} title={tr('التقارير المالية 📊')} subtitle={COMPANY.legalName}>
         <ExhibitionFilter exhibitions={exhibitions} value={scope} onChange={setScope} />
         <Button variant="outline" onClick={backup} disabled={backingUp} title={tr('تنزيل كل البيانات في ملف واحد')}>
           {tr('💾 نسخة احتياطية')}
