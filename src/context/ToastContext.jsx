@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useRef, useState } from 'react'
 import { tr } from '../lib/i18n.js'
+import Icon from '../components/Icon.jsx'
 
 const ToastContext = createContext(() => {})
 
-const ICONS = { success: '✅', error: '❌', warn: '⚠️', info: 'ℹ️' }
+const ICONS = { success: 'checkCircle', error: 'stop', warn: 'warning', info: 'info' }
 
 export function ToastProvider({ children }) {
   const [toast, setToast] = useState(null)
@@ -19,8 +20,11 @@ export function ToastProvider({ children }) {
     <ToastContext.Provider value={showToast}>
       {children}
       {toast && (
-        <div key={toast.key} className={`toast toast-${toast.type} fade-in`} role="status">
-          {!/^\p{Extended_Pictographic}/u.test(String(toast.msg)) && <span>{ICONS[toast.type] || ICONS.success}</span>} {tr(toast.msg)}
+        <div key={toast.key} className={`toast toast-${toast.type}`} role="status">
+          <span className="toast-icon">
+            <Icon name={ICONS[toast.type] || ICONS.success} size={18} />
+          </span>
+          <span>{String(tr(toast.msg)).replace(/^(\p{Extended_Pictographic}\uFE0F?\s*)+/u, '')}</span>
         </div>
       )}
     </ToastContext.Provider>

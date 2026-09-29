@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { IconText } from '../components/Glyph.jsx'
 import { listClients } from '../api/clients.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
@@ -75,7 +76,7 @@ export default function Team() {
       <div className="tabs tabs-underline mb-16">
         {tabs.map((t) => (
           <button key={t.id} className={`tab ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>
-            {t.label}
+            <IconText text={t.label} size={16} />
           </button>
         ))}
       </div>

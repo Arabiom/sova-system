@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { autoSlash, formatDayMonthYear, parseDayMonthYear } from '../lib/dates.js'
 import { tr } from '../lib/i18n.js'
+import Icon from './Icon.jsx'
 
 /**
  * Date field typed as day/month/year whatever the browser's language, plus a calendar button.
@@ -58,7 +59,7 @@ export default function DateInput({ value = '', onChange, className = '', ...res
           }
         }}
       >
-        📅
+        <Icon name="calendar" size={17} />
       </button>
       <input ref={picker} type="date" className="date-input-native" tabIndex={-1} aria-hidden="true" value={value || ''} onChange={(e) => emit(e.target.value)} />
     </div>

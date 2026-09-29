@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { IconText } from '../components/Glyph.jsx'
 import { useLocation } from 'react-router-dom'
 import { listClients } from '../api/clients.js'
 import { listExhibitions } from '../api/exhibitions.js'
@@ -91,10 +92,10 @@ export default function WhatsApp() {
       <PageHeader title={tr('واتساب 📱')} subtitle={tr('رسائل جماعية مخصّصة لكل شخص باسمه وبياناته، مع قوالب جاهزة وسجل لكل ما أُرسل')} />
       <div className="tabs tabs-underline mb-16">
         <button className={`tab ${tab === 'compose' ? 'active' : ''}`} onClick={() => setTab('compose')}>
-          {tr('✉️ رسالة جديدة')}
+          <IconText text={tr('✉️ رسالة جديدة')} />
         </button>
         <button className={`tab ${tab === 'history' ? 'active' : ''}`} onClick={() => setTab('history')}>
-          {tr('🕘 سجل الإرسال')}
+          <IconText text={tr('🕘 سجل الإرسال')} />
         </button>
       </div>
       {tab === 'compose' ? <Composer data={data} reload={reload} /> : <History staff={data.staff} />}
