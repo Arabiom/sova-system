@@ -85,7 +85,7 @@ function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
       {!editing && (
         <Field label={tr('العارض')} required>
           <select className="input" value={form.exhibitor_id || ''} onChange={set('exhibitor_id')}>
-            <option value="">{tr('اختر عارض...')}</option>
+            <option value="">{tr('اختر العارض...')}</option>
             {exhibitors.map((e) => {
               const balance = balanceOf(e)
               return (

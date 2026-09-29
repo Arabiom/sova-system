@@ -323,7 +323,7 @@ function Tasks({ data, reload }) {
                   onDelete={remove}
                 />
               ))}
-              {!rows.length && <div className="empty-inline">{status === TASK_DONE ? tr('لا مهام منجزة بعد') : tr('لا توجد مهام')}</div>}
+              {!rows.length && <div className="empty-inline">{status === TASK_DONE ? tr('لا توجد مهام منجزة بعد') : tr('لا توجد مهام')}</div>}
             </section>
           )
         })}

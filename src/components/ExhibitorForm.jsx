@@ -95,7 +95,7 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
         })
         await confirmIfPaid(savedId)
         toast(tr('✅ تم الحفظ وتسجيل الدفعة — {0}', [invoice]))
-      } else toast(id ? tr('✅ تم التحديث') : tr('✅ تم إضافة العارض'))
+      } else toast(id ? tr('✅ تم التحديث') : tr('✅ تمت إضافة العارض'))
       onSaved()
     } catch (err) {
       toast(err.message, 'error')
@@ -205,7 +205,7 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
               <>
                 <Field
                   label={id ? tr('دفعة جديدة الآن (ر.ع)') : tr('المبلغ المدفوع (ر.ع)')}
-                  hint={id ? tr('اتركها فارغة إذا لم يُدفع شيء — تُسجَّل في المبيعات والمدفوعات بإيصال') : tr('ما دفعه العارض عند التسجيل — اتركه فارغاً إذا لم يدفع. يُسجَّل دفعةً بإيصال في المالية')}
+                  hint={id ? tr('اتركها فارغة إذا لم يُدفع شيء — تُسجَّل في «المالية ← الإيرادات والدفعات» بإيصال') : tr('ما دفعه العارض عند التسجيل — اتركه فارغاً إذا لم يدفع. يُسجَّل دفعةً بإيصال في المالية')}
                 >
                   <input className="input" type="number" min="0" step="0.001" placeholder="0.000" value={payment.amount} onChange={(e) => setPayment((p) => ({ ...p, amount: e.target.value }))} />
                 </Field>

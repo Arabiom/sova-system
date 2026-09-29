@@ -99,13 +99,13 @@ export default function Reports({ embedded = false } = {}) {
           {byCategory.map(([category, count]) => (
             <ShareRow key={category} label={category} valueText={tr('{0} عارض', [count])} value={count} total={scopeExhibitors.length} color="linear-gradient(90deg,var(--gold),var(--gold-l))" />
           ))}
-          {!byCategory.length && <div className="empty-inline">{tr('لا بيانات')}</div>}
+          {!byCategory.length && <div className="empty-inline">{tr('لا توجد بيانات')}</div>}
         </Panel>
         <Panel title={tr('💳 المدفوعات حسب الطريقة')} bodyClass="panel-pad">
           {byMethod.map(([method, amount]) => (
             <ShareRow key={method} label={method} valueText={formatOMR(amount)} value={amount} total={methodTotal} color="linear-gradient(90deg,var(--suc),#62C88C)" />
           ))}
-          {!byMethod.length && <div className="empty-inline">{tr('لا بيانات')}</div>}
+          {!byMethod.length && <div className="empty-inline">{tr('لا توجد بيانات')}</div>}
         </Panel>
       </div>
 
