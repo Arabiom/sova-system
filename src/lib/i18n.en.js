@@ -1419,4 +1419,13 @@ export default {
   "تتكرر كل شهر: من يوم {0} من كل شهر.": "Repeats every month: from day {0} of each month.",
   "تتكرر كل شهر: من يوم {0} إلى يوم {1} من الشهر الذي يليه.": "Repeats every month: from day {0} to day {1} of the following month.",
   "تتكرر كل شهر: من يوم {0} إلى يوم {1} من كل شهر.": "Repeats every month: from day {0} to day {1} of each month.",
+  "✏️ تصنيف آخر — أكتبه": "✏️ Other category — type it",
+  "اكتب التصنيف": "Type the category",
+  "إيجار مخزن": "Warehouse rent",
+  "كهرباء ومياه": "Electricity & water",
+  "تصميم وطباعة": "Design & printing",
+  "صيانة وإصلاحات": "Maintenance & repairs",
+  "تأمين": "Insurance",
+  "رسوم بنكية": "Bank charges",
+  "أثاث ومعدات": "Furniture & equipment",
 }

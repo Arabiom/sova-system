@@ -374,7 +374,9 @@ function repeatText(from, to) {
     : tr('تتكرر كل شهر: من يوم {0} إلى يوم {1} من كل شهر.', [a, b])
 }
 
-function CompanyExpenseForm({ expense, onClose, onSaved }) {
+const OTHER_CATEGORY = '__other__'
+
+function CompanyExpenseForm({ expense, used = [], onClose, onSaved }) {
   const toast = useToast()
   const editing = Boolean(expense?.id)
   const [form, setForm] = useState(() =>
@@ -388,6 +390,9 @@ function CompanyExpenseForm({ expense, onClose, onSaved }) {
       : { date: todayISO(), category: COMPANY_EXPENSE_CATEGORIES[0], paid: true },
   )
   const monthOfSeries = Boolean(expense?.series_id) // a month added automatically from a fixed expense
+  // Every category: the suggested ones plus any the company already typed itself.
+  const categoryOptions = [...new Set([...COMPANY_EXPENSE_CATEGORIES, ...used.filter(Boolean)])]
+  const [customCategory, setCustomCategory] = useState(() => Boolean(expense?.category) && !categoryOptions.includes(expense.category))
   const [file, setFile] = useState(null)
   const [saving, setSaving] = useState(false)
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -443,12 +448,23 @@ function CompanyExpenseForm({ expense, onClose, onSaved }) {
           <DateInput value={form.date || ''} onChange={set('date')} />
         </Field>
         <Field label={tr('التصنيف')}>
-          <input className="input" list="company-expense-categories" value={form.category || ''} onChange={set('category')} />
-          <datalist id="company-expense-categories">
-            {COMPANY_EXPENSE_CATEGORIES.map((c) => (
-              <option key={c} value={c} />
+          <select
+            className="input"
+            value={customCategory ? OTHER_CATEGORY : form.category || ''}
+            onChange={(e) => {
+              const v = e.target.value
+              setCustomCategory(v === OTHER_CATEGORY)
+              setForm((f) => ({ ...f, category: v === OTHER_CATEGORY ? '' : v }))
+            }}
+          >
+            {categoryOptions.map((c) => (
+              <option key={c} value={c}>
+                {tr(c)}
+              </option>
             ))}
-          </datalist>
+            <option value={OTHER_CATEGORY}>{tr('✏️ تصنيف آخر — أكتبه')}</option>
+          </select>
+          {customCategory && <input className="input mt-8" autoFocus placeholder={tr('اكتب التصنيف')} value={form.category || ''} onChange={set('category')} />}
         </Field>
         <Field label={tr('الحالة')}>
           <select className="input" value={form.paid === false ? 'no' : 'yes'} onChange={(e) => setForm((f) => ({ ...f, paid: e.target.value === 'yes' }))}>
@@ -738,7 +754,7 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
           onSaved={saved}
         />
       )}
-      {(adding === 'company' || editing?.kind === 'company') && <CompanyExpenseForm expense={editing?.source || null} onClose={() => (setAdding(null), setEditing(null))} onSaved={saved} />}
+      {(adding === 'company' || editing?.kind === 'company') && <CompanyExpenseForm expense={editing?.source || null} used={data.companyExpenses.map((x) => x.category)} onClose={() => (setAdding(null), setEditing(null))} onSaved={saved} />}
       {adding === 'claim' && <StaffExpenseForm exhibitions={data.exhibitions} userId={userId} onClose={() => setAdding(null)} onSaved={saved} />}
     </>
   )
