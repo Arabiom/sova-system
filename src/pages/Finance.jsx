@@ -101,7 +101,7 @@ function Overview({ o, flow, go, fixed = 0 }) {
 
       {fixed > 0 && (
         <button type="button" className="alert alert-info alert-link" onClick={() => go('expenses', { kind: 'company' })}>
-          🔁 {tr('مصروفات الشركة الثابتة: {0} شهرياً — تُضاف تلقائياً كل شهر', [formatOMR(fixed)])}
+          🔁 {tr('مصروفات الشركة الثابتة: ما يعادل {0} شهرياً — تُضاف تلقائياً في مواعيدها', [formatOMR(fixed)])}
         </button>
       )}
 
@@ -361,18 +361,25 @@ function Plan({ data }) {
 }
 
 // ── 5. Company expenses ─────────────────────────────────────────────────────
-/** «تتكرر كل شهر: من 20 إلى 28 من كل شهر» from the chosen window (days only). */
-function repeatText(from, to) {
+/** How often a fixed expense repeats (months → wording). */
+const EVERY_OPTIONS = [
+  [1, 'كل شهر'],
+  [3, 'كل 3 أشهر'],
+  [6, 'كل 6 أشهر'],
+]
+const everyLabel = (n) => EVERY_OPTIONS.find(([v]) => v === Number(n))?.[1] || ''
+
+/** «تتكرر كل 3 أشهر: من يوم 20 إلى يوم 28» from the chosen window (days only). */
+function repeatText(from, to, every) {
   const day = (iso) => +String(iso || '').slice(8, 10) || 0
   const a = day(from)
   const b = day(to)
-  if (!a && !b) return tr('تتكرر نفس الفترة كل شهر — اختر «من» و«إلى» أعلاه.')
-  if (!a) return tr('تتكرر كل شهر: حتى يوم {0} من كل شهر.', [b])
-  if (!b) return tr('تتكرر كل شهر: من يوم {0} من كل شهر.', [a])
+  const when = tr(everyLabel(every) || 'كل مرة')
+  if (!a && !b) return tr('تتكرر نفس الفترة {0} — اختر «من» و«إلى» أعلاه.', [when])
+  if (!a) return tr('تتكرر {0}: حتى يوم {1}.', [when, b])
+  if (!b) return tr('تتكرر {0}: من يوم {1}.', [when, a])
   const nextMonth = String(to).slice(0, 7) > String(from).slice(0, 7)
-  return nextMonth
-    ? tr('تتكرر كل شهر: من يوم {0} إلى يوم {1} من الشهر الذي يليه.', [a, b])
-    : tr('تتكرر كل شهر: من يوم {0} إلى يوم {1} من كل شهر.', [a, b])
+  return nextMonth ? tr('تتكرر {0}: من يوم {1} إلى يوم {2} من الشهر الذي يليه.', [when, a, b]) : tr('تتكرر {0}: من يوم {1} إلى يوم {2}.', [when, a, b])
 }
 
 const OTHER_CATEGORY = '__other__'
@@ -385,6 +392,8 @@ function CompanyExpenseForm({ expense, used = [], onClose, onSaved }) {
       ? {
           ...expense,
           wasRecurring: Boolean(expense.recurring),
+          recurring_every: expense.recurring ? expense.recurring_every || 1 : '',
+          origEvery: expense.recurring_every || 1,
           hadWindow: Boolean(expense.pay_from || expense.pay_to),
           recurring_end: expense.recurring_end ? String(expense.recurring_end).slice(0, 7) : '',
         }
@@ -484,25 +493,46 @@ function CompanyExpenseForm({ expense, used = [], onClose, onSaved }) {
             <DateInput value={form.pay_to || form.due_date || ''} onChange={set('pay_to')} />
           </Field>
         </div>
-        {form.recurring && !monthOfSeries && <div className="muted tiny strong">{repeatText(form.pay_from, form.pay_to || form.due_date)}</div>}
+        {form.recurring && !monthOfSeries && <div className="muted tiny strong">{repeatText(form.pay_from, form.pay_to || form.due_date, form.recurring_every)}</div>}
       </div>
       {monthOfSeries ? (
-        <div className="alert alert-info">{tr('🔁 هذا شهر {0} من مصروف شهري ثابت، أُضيف تلقائياً. تعديله يغيّر هذا الشهر فقط؛ لتغيير المبلغ لكل الأشهر القادمة أو إيقافه عدّل التسجيل الأصلي.', [expense.period])}</div>
+        <div className="alert alert-info">{tr('🔁 هذا شهر {0} من مصروف ثابت متكرر، أُضيف تلقائياً. تعديله يغيّر هذه المرة فقط؛ لتغيير المبلغ للمرات القادمة أو إيقافه عدّل التسجيل الأصلي.', [expense.period])}</div>
       ) : (
         <div className="recurring-box">
           <label className="check-row">
             <input type="checkbox" checked={Boolean(form.recurring)} onChange={(e) => setForm((f) => ({ ...f, recurring: e.target.checked }))} />
-            <span className="strong">{tr('🔁 مصروف ثابت شهري')}</span>
+            <span className="strong">{tr('🔁 مصروف ثابت متكرر (عقد ثابت)')}</span>
           </label>
           <div className="muted tiny">
             {form.recurring
-              ? tr('يُضاف تلقائياً كل شهر بنفس المبلغ في يوم {0}، «غير مدفوع» حتى تؤشّر عليه. تغيير المبلغ هنا يسري على الأشهر القادمة.', [String(form.date || '').slice(8, 10) || '—'])
-              : tr('مثل الإيجار والرواتب والاشتراكات — سجّله مرة واحدة ويُضاف كل شهر.')}
+              ? tr('يُضاف تلقائياً {0} بنفس المبلغ في يوم {1}، «غير مدفوع» حتى تؤشّر عليه. تغيير المبلغ هنا يسري على المرات القادمة.', [
+                  tr(everyLabel(form.recurring_every) || 'حسب المدة المختارة'),
+                  String(form.date || '').slice(8, 10) || '—',
+                ])
+              : tr('مثل الإيجار والرواتب والتأمين والتراخيص — سجّله مرة واحدة ويُضاف تلقائياً كل شهر أو 3 أشهر أو 6 أشهر.')}
           </div>
           {form.recurring && (
-            <Field label={tr('يتوقف بعد شهر (اختياري)')} hint={tr('اتركه فارغاً ليستمر حتى تلغي العلامة')}>
-              <input className="input" type="month" value={form.recurring_end || ''} onChange={set('recurring_end')} />
-            </Field>
+            <>
+              <Field label={tr('يُدفع كل')} required>
+                <div className="choice-grid choice-grid-3">
+                  {EVERY_OPTIONS.map(([v, label]) => (
+                    <button
+                      type="button"
+                      key={v}
+                      className={`choice ${Number(form.recurring_every) === v ? 'selected' : ''}`}
+                      aria-pressed={Number(form.recurring_every) === v}
+                      onClick={() => setForm((f) => ({ ...f, recurring_every: v }))}
+                    >
+                      <span className="choice-title">{tr(label)}</span>
+                    </button>
+                  ))}
+                </div>
+                {!form.recurring_every && <span className="field-hint text-dng">{tr('اختر مدة التكرار — إلزامي')}</span>}
+              </Field>
+              <Field label={tr('يتوقف بعد شهر (اختياري)')} hint={tr('اتركه فارغاً ليستمر حتى تلغي العلامة')}>
+                <input className="input" type="month" value={form.recurring_end || ''} onChange={set('recurring_end')} />
+              </Field>
+            </>
           )}
         </div>
       )}
@@ -882,7 +912,7 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
                   <td>
                     <div className="strong">
                       {tr(x.description)}
-                      {x.recurring && <span className="badge badge-info mis-6" title={tr('يُضاف تلقائياً كل شهر')}>{tr('🔁 شهري ثابت')}</span>}
+                      {x.recurring && <span className="badge badge-info mis-6" title={tr('يُضاف تلقائياً')}>🔁 {tr(everyLabel(x.recurring_every) || 'كل شهر')}</span>}
                       {x.series_id && <span className="badge badge-neutral mis-6">{tr('🔁 شهر {0}', [x.period])}</span>}
                     </div>
                     {(x.user_id || x.notes) && <div className="muted tiny">{[x.user_id && nameOf(x.user_id), x.notes].filter(Boolean).join(' • ')}</div>}

@@ -79,9 +79,18 @@ describe('fixed monthly company expenses', async () => {
     expect('recurring' in toCompanyExpenseRow(base)).toBe(false)
     expect(toCompanyExpenseRow({ ...base, recurring: true, recurring_end: '2027-06' })).toMatchObject({ recurring: true, recurring_end: '2027-06-01' })
     expect(toCompanyExpenseRow({ ...base, recurring: false, wasRecurring: true })).toMatchObject({ recurring: false, recurring_end: null })
+    expect(toCompanyExpenseRow({ ...base, recurring: true, recurring_every: 3 }).recurring_every).toBe(3)
+    expect('recurring_every' in toCompanyExpenseRow({ ...base, recurring: true, recurring_every: 1 })).toBe(false)
+  })
+  it('requires how often when recurring', async () => {
+    const { validateCompanyExpense } = await import('../../api/companyExpenses.js')
+    const base = { description: 'تأمين', amount: 90, date: '2026-09-30', recurring: true }
+    expect(validateCompanyExpense(base)).toContain('مدة التكرار (شهر أو 3 أو 6 أشهر)')
+    expect(validateCompanyExpense({ ...base, recurring_every: 3 })).toEqual([])
   })
   it('adds up what runs every month', () => {
     expect(monthlyFixedTotal([{ recurring: true, amount: 150 }, { recurring: true, amount: '300' }, { amount: 20 }, { series_id: 'x', amount: 150 }])).toBe(450)
+    expect(monthlyFixedTotal([{ recurring: true, amount: 90, recurring_every: 3 }, { recurring: true, amount: 600, recurring_every: 6 }])).toBe(130)
   })
   it('marks them in the unified list', () => {
     const rows = allExpenses({ companyExpenses: [{ id: 'a', date: '2026-09-30', description: 'إيجار', amount: 150, recurring: true }, { id: 'b', date: '2026-10-30', description: 'إيجار', amount: 150, paid: false, series_id: 'a', period: '2026-10' }] })
