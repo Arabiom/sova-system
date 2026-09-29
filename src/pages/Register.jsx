@@ -114,6 +114,7 @@ export default function Register() {
   const amount = num(f.amount) // paid (VAT included when the company charges VAT)
   const withTax = vatEnabled() ? tr(' شامل الضريبة') : ''
   const amountNet = withoutVat(amount)
+  const remainingDue = Math.round((totals.total - amount) * 1000) / 1000 // live, as the amount is typed
   const toggleSector = (name) => {
     const list = f.categories.includes(name) ? f.categories.filter((c) => c !== name) : [...f.categories, name]
     if (list.length > MAX_SECTORS) return toast(tr('يمكن اختيار {0} قطاعات كحد أقصى', [MAX_SECTORS]), 'error')
@@ -428,6 +429,21 @@ export default function Register() {
               <Field label={tr('التاريخ')}>
                 <DateInput value={f.date} onChange={set('date')} />
               </Field>
+            </div>
+            <div className="money-trio mb-16">
+              <div>
+                <span>{tr('قيمة العقد')}{tr(withTax)}</span>
+                <strong>{formatOMR(totals.total)}</strong>
+              </div>
+              <div className="is-paid">
+                <span>{tr('المبلغ المدفوع')}</span>
+                <strong>{formatOMR(amount)}</strong>
+              </div>
+              <div className={remainingDue > 0.0005 ? 'is-due' : amount > totals.total + 0.0005 ? 'is-over' : 'is-paid'}>
+                <span>{amount > totals.total + 0.0005 ? tr('زيادة عن العقد') : tr('المتبقي')}</span>
+                <strong>{formatOMR(Math.abs(totals.total - amount))}</strong>
+                {totals.total > 0 && remainingDue <= 0.0005 && amount <= totals.total + 0.0005 && <em>{tr('✅ مدفوع بالكامل')}</em>}
+              </div>
             </div>
             <Field label={tr('طريقة السداد')} required={amount > 0}>
               <Choices options={FORM_PAYMENT_METHODS} keyOf={(m) => m.value} render={(m) => tr(m.label)} value={f.method} onChange={set('method')} />
