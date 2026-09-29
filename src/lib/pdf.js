@@ -457,7 +457,7 @@ export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment 
         ${COMPANY.vatNumber ? `الرقم الضريبي: ${bdi(COMPANY.vatNumber)}` : ''}
       </div>
     </div>
-    ${pending ? `<div style="background:#FFF4DB;border:1px solid #E8C877;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;text-align:center">الدفعة بانتظار تأكيد استلام المبلغ من الإدارة المالية</div>` : ''}
+    ${pending ? `<div style="background:#FFF4DB;border:1px solid #E8C877;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;text-align:center">${payment.transfer_status === 'لم يُحوَّل بعد' ? 'المبلغ لم يُحوَّل لحساب الشركة بعد — الدفعة بانتظار التحويل وتأكيد الإدارة المالية' : 'الدفعة بانتظار تأكيد استلام المبلغ من الإدارة المالية'}</div>` : ''}
 
     ${heading('بيانات المشارك')}
     <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:28px">

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import DateInput from '../components/DateInput.jsx'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
-import { confirmPayment, deletePayment, listPayments, recordPayment, updatePayment } from '../api/payments.js'
+import { attachPaymentReceipt, confirmPayment, deletePayment, listPayments, openPaymentReceipt, recordPayment, TRANSFER_NOT_YET, updatePayment } from '../api/payments.js'
 import { confirmIfPaid } from '../api/registration.js'
 import Button from '../components/Button.jsx'
 import ExhibitionFilter from '../components/ExhibitionFilter.jsx'
@@ -15,6 +15,7 @@ import { ProgressBar } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { useToast } from '../context/ToastContext.jsx'
+import { checkFile } from '../api/storage.js'
 import { PAYMENT_METHOD_META, PAYMENT_METHODS, PAYMENT_TYPES, REFUND_TYPE } from '../lib/constants.js'
 import { balanceOf, exhibitionStats, isConfirmed, sumBy, vatEnabled, vatOf, withVat } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatOMR, monthOf, num, percent, todayISO } from '../lib/format.js'
@@ -193,6 +194,22 @@ export default function Sales({ embedded = false, onChanged } = {}) {
     }
   }
 
+  const viewReceipt = (p) => openPaymentReceipt(p.receipt_path).catch((err) => toast(err.message, 'error'))
+  const attachReceipt = async (p, e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const problem = checkFile(file, 'الإيصال')
+    if (problem) return toast(problem, 'error')
+    try {
+      await attachPaymentReceipt(p, file, session?.user?.id)
+      toast(tr('✅ أُرفق الإيصال'))
+      reload()
+    } catch (err) {
+      toast(err.message, 'error')
+    }
+  }
+
   const confirm_ = async (payment) => {
     if (!confirm(tr('تأكيد وصول {0} من {1}؟', [formatOMR(withVat(payment.amount)), exhibitorOf(payment.exhibitor_id)?.brand || tr('العارض')]))) return
     setConfirming(payment.id)
@@ -236,7 +253,10 @@ export default function Sales({ embedded = false, onChanged } = {}) {
                     <td>
                       <Chip>{p.method === 'نقد' ? tr('كاش') : p.method}</Chip>
                     </td>
-                    <td className="muted small" dir="auto">{p.transfer_ref || '—'}</td>
+                    <td className="small">
+                      <div className="muted" dir="auto">{p.transfer_ref || '—'}</div>
+                      {p.transfer_status && <div className={`tiny strong ${p.transfer_status === TRANSFER_NOT_YET ? 'text-wrn' : 'text-suc'}`}>{tr(p.transfer_status)}</div>}
+                    </td>
                     <td className="muted small nowrap">{tr(p.date)}</td>
                     <td>
                       <div className="row-actions">
@@ -244,6 +264,17 @@ export default function Sales({ embedded = false, onChanged } = {}) {
                           <Button size="sm" onClick={() => confirm_(p)} disabled={confirming === p.id}>
                             {confirming === p.id ? '...' : tr('✓ تأكيد الوصول')}
                           </Button>
+                        )}
+                        {p.receipt_path && (
+                          <Button size="sm" variant="outline" onClick={() => viewReceipt(p)} title={tr('إيصال التحويل')}>
+                            📎
+                          </Button>
+                        )}
+                        {canWrite && (
+                          <label className="btn btn-outline btn-sm file-pick" title={p.receipt_path ? tr('تغيير الإيصال') : tr('إرفاق إيصال التحويل')}>
+                            {p.receipt_path ? '🔄' : tr('📎 إرفاق إيصال')}
+                            <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" onChange={(e) => attachReceipt(p, e)} hidden />
+                          </label>
                         )}
                         <Button size="sm" variant="outline" onClick={() => printReceipt(p)} title={tr('فاتورة PDF')}>
                           🖨️
@@ -340,6 +371,11 @@ export default function Sales({ embedded = false, onChanged } = {}) {
                       {canWrite && (
                         <Button size="sm" variant="outline" onClick={() => setEditingPayment(p)} title={tr('تعديل')}>
                           ✏️
+                        </Button>
+                      )}
+                      {p.receipt_path && (
+                        <Button size="sm" variant="outline" onClick={() => viewReceipt(p)} title={tr('إيصال التحويل')}>
+                          📎
                         </Button>
                       )}
                       <Button size="sm" variant="outline" onClick={() => printReceipt(p)} title={tr('فاتورة PDF')}>

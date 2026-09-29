@@ -11,7 +11,9 @@ import ExhibitionMap from '../components/ExhibitionMap.jsx'
 import Field from '../components/Field.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import Panel from '../components/Panel.jsx'
-import { useCan } from '../context/AuthContext.jsx'
+import { useAuth, useCan } from '../context/AuthContext.jsx'
+import { uploadPaymentReceipt } from '../api/payments.js'
+import { checkFile, FILE_MAX_MB } from '../api/storage.js'
 import { useToast } from '../context/ToastContext.jsx'
 import { FORM_PAYMENT_METHODS, FORM_SECTORS } from '../lib/constants.js'
 import { boothNoteOf, extrasOf, hasOwnPackages, packagesOf } from '../lib/packages.js'
@@ -21,7 +23,7 @@ import { exhibitionLabel, formatDate, formatOMR, num, phoneKey, todayISO } from 
 import { downloadRegistrationInvoice } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
 import { boothHolder } from '../lib/sites.js'
-import { chosenExtras, MAX_SECTORS } from '../api/registration.js'
+import { chosenExtras, isTransfer, MAX_SECTORS } from '../api/registration.js'
 import { tr } from '../lib/i18n.js'
 
 const load = async () => {
@@ -52,6 +54,7 @@ const blankForm = (exhibitionId = '') => ({
   amount: '',
   method: '',
   transfer_ref: '',
+  transferred: '',
   date: todayISO(),
   notes: '',
   terms_accepted: false,
@@ -78,6 +81,16 @@ export default function Register() {
   const toast = useToast()
   const { data, loading, reload } = useData(load, null)
   const pending = !useCan('payments.write') // marketing: the payment waits for finance to confirm it
+  const userId = useAuth().session?.user?.id
+  const [receipt, setReceipt] = useState(null) // transfer receipt chosen on the form
+  const chooseReceipt = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const problem = checkFile(file, 'الإيصال')
+    if (problem) return toast(problem, 'error')
+    setReceipt(file)
+  }
   const canSetPackages = useCan('exhibitions.manage')
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -130,7 +143,7 @@ export default function Register() {
 
   const submit = async () => {
     if (savingRef.current) return
-    const errors = validateRegistration(f)
+    const errors = validateRegistration({ ...f, hasReceipt: Boolean(receipt) })
     if (ownSites.length && pkg && !f.site_id) errors.push(tr('رقم الموقع'))
     if (discountValue > beforeDiscount + 0.0005) errors.push('الخصم أكبر من قيمة الاشتراك والإضافات')
     if (f.discountType === 'percent' && num(f.discount) > 100) errors.push('نسبة الخصم أكثر من 100%')
@@ -142,7 +155,8 @@ export default function Register() {
     savingRef.current = true
     setSaving(true)
     try {
-      const result = await registerParticipant({ ...f, extraPrices, discount: discountValue }, { pending, boothPrice: pkg.price, boothArea: pkg.area })
+      const receipt_path = receipt && amount > 0 && isTransfer(f.method) ? await uploadPaymentReceipt(userId, receipt) : ''
+      const result = await registerParticipant({ ...f, extraPrices, discount: discountValue, receipt_path }, { pending, boothPrice: pkg.price, boothArea: pkg.area })
       const invoice = { exhibitor: result.exhibitor, exhibition, payment: result.payment }
       setDone({ ...invoice, totals: result.totals, siteLost: result.siteLost })
       toast(tr('✅ تم تسجيل المشارك'))
@@ -196,6 +210,7 @@ export default function Register() {
               variant="outline"
               onClick={() => {
                 setDone(null)
+                setReceipt(null)
                 setForm(blankForm(f.exhibition_id))
               }}
             >
@@ -448,12 +463,40 @@ export default function Register() {
             <Field label={tr('طريقة السداد')} required={amount > 0}>
               <Choices options={FORM_PAYMENT_METHODS} keyOf={(m) => m.value} render={(m) => tr(m.label)} value={f.method} onChange={set('method')} />
             </Field>
-            {f.method && f.method !== 'نقد' && (
-              <Field label={tr('رقم الحساب أو رقم الشخص الذي تم التحويل إليه')}>
-                <input className="input" dir="auto" value={f.transfer_ref} onChange={set('transfer_ref')} />
-              </Field>
+            {amount > 0 && isTransfer(f.method) && (
+              <div className="window-box">
+                <Field label={tr('هل تم تحويل المبلغ لحساب الشركة؟')} required>
+                  <div className="choice-grid choice-grid-2">
+                    {[
+                      ['yes', tr('✅ نعم، تم التحويل')],
+                      ['no', tr('⏳ لا، لم يُحوَّل بعد')],
+                    ].map(([v, label]) => (
+                      <button type="button" key={v} className={`choice ${f.transferred === v ? 'selected' : ''}`} aria-pressed={f.transferred === v} onClick={() => setForm({ ...f, transferred: v })}>
+                        <span className="choice-title">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+                <Field label={tr('رقم الحساب أو رقم الشخص الذي تم التحويل إليه')}>
+                  <input className="input" dir="auto" value={f.transfer_ref} onChange={set('transfer_ref')} />
+                </Field>
+                <Field
+                  label={tr('إيصال التحويل')}
+                  required={f.transferred === 'yes'}
+                  hint={f.transferred === 'no' ? tr('أرفقه الآن إن وُجد، أو تُرفقه المالية لاحقاً من «المالية ← الإيرادات والدفعات» عند وصول التحويل') : tr('صورة أو PDF، حتى {0} ميجابايت — يظهر للمالية مع الدفعة', [FILE_MAX_MB])}
+                >
+                  <div className="row-actions">
+                    <label className="btn btn-outline btn-sm file-pick">
+                      {receipt ? tr('🔄 تغيير الإيصال') : tr('📎 إرفاق الإيصال')}
+                      <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" onChange={chooseReceipt} hidden />
+                    </label>
+                    <span className="muted small">{receipt ? `✓ ${receipt.name}` : tr('لم يُرفق بعد')}</span>
+                  </div>
+                </Field>
+                {f.transferred === 'no' && <div className="alert alert-warning">{tr('تُسجَّل الدفعة «بانتظار التأكيد» ولا تُحسب محصّلة حتى تتأكد المالية من وصول المبلغ.')}</div>}
+              </div>
             )}
-            {pending && amount > 0 && <div className="alert alert-warning">{tr('تُسجَّل الدفعة «بانتظار التأكيد» حتى تتأكد المالية من وصول المبلغ.')}</div>}
+            {pending && amount > 0 && f.transferred !== 'no' && <div className="alert alert-warning">{tr('تُسجَّل الدفعة «بانتظار التأكيد» حتى تتأكد المالية من وصول المبلغ.')}</div>}
           </Panel>
 
           <Panel icon="📝" title={tr('الملاحظات والموافقة')}>

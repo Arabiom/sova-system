@@ -3261,3 +3261,6 @@ a.ex-card-head {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+.choice-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
