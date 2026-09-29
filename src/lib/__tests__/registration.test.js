@@ -137,3 +137,17 @@ describe('paid amount includes VAT; several sectors', () => {
     expect(validateRegistration({ ...ok, categories: ['أزياء', 'أقمشة', 'تجميل', 'حلويات'] })).toEqual(['القطاع (3 كحد أقصى)'])
   })
 })
+
+describe('transfer to the company account', async () => {
+  const { isTransfer, validateRegistration } = await import('../../api/registration.js')
+  const base = { exhibition_id: 'x', manager: 'م', brand: 'ب', phone: '9', categories: ['أزياء'], package: 'أ', terms_accepted: true, amount: '50' }
+  it('a transfer must say whether it arrived; a done transfer needs its receipt', () => {
+    expect(isTransfer('نقد')).toBe(false)
+    expect(isTransfer('تحويل بنكي')).toBe(true)
+    expect(validateRegistration({ ...base, method: 'تحويل بنكي' })).toContain('هل تم التحويل لحساب الشركة؟')
+    expect(validateRegistration({ ...base, method: 'تحويل بنكي', transferred: 'yes' })).toContain('إيصال التحويل')
+    expect(validateRegistration({ ...base, method: 'تحويل بنكي', transferred: 'yes', hasReceipt: true })).toEqual([])
+    expect(validateRegistration({ ...base, method: 'تحويل بنكي', transferred: 'no' })).toEqual([])
+    expect(validateRegistration({ ...base, method: 'نقد' })).toEqual([])
+  })
+})

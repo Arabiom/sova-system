@@ -24,6 +24,9 @@ export function chosenExtras(form) {
   return list
 }
 
+/** Payment methods that are a transfer to the company's account (not cash). */
+export const isTransfer = (method) => Boolean(method) && method !== 'نقد'
+
 /** Most sectors one participant may tick on the form. */
 export const MAX_SECTORS = 3
 
@@ -43,6 +46,8 @@ export function validateRegistration(form) {
   if (num(form.amount) < 0) errors.push('المبلغ المدفوع لا يكون سالباً')
   if (num(form.discount) < 0) errors.push('الخصم لا يكون سالباً')
   if (num(form.amount) > 0 && !form.method) errors.push('طريقة السداد')
+  if (num(form.amount) > 0 && isTransfer(form.method) && !form.transferred) errors.push('هل تم التحويل لحساب الشركة؟')
+  if (num(form.amount) > 0 && isTransfer(form.method) && form.transferred === 'yes' && !form.hasReceipt) errors.push('إيصال التحويل')
   if (!form.terms_accepted) errors.push('موافقة المشارك على الشروط والأحكام')
   return errors
 }
@@ -52,7 +57,9 @@ export function validateRegistration(form) {
  * Returns { exhibitor, payment, totals, siteLost } for the invoice; siteLost = the chosen site was
  * booked by someone else in the same moment, so the participant was saved without a site.
  */
-export async function registerParticipant(form, { pending, boothPrice, boothArea }) {
+export async function registerParticipant(form, { pending: marketing, boothPrice, boothArea }) {
+  // Not transferred yet → the payment waits for finance to confirm the money arrived.
+  const pending = marketing || form.transferred === 'no'
   const extras = chosenExtras(form)
   const totals = registrationTotals({ boothPrice, extras })
   // The form takes what the participant actually paid, VAT included; payments are kept before VAT.
@@ -111,8 +118,10 @@ export async function registerParticipant(form, { pending, boothPrice, boothArea
         method: form.method,
         type: fullyPaid ? 'كامل' : 'مقدمة',
         date: form.date || todayISO(),
-        note: 'استمارة تسجيل',
+        note: form.transferred === 'no' ? 'استمارة تسجيل — لم يُحوَّل بعد' : 'استمارة تسجيل',
         transfer_ref: form.transfer_ref?.trim() || '',
+        transfer_status: isTransfer(form.method) ? (form.transferred === 'no' ? 'لم يُحوَّل بعد' : form.transferred === 'yes' ? 'تم التحويل' : '') : '',
+        receipt_path: form.receipt_path || '',
       },
       { pending },
     )
