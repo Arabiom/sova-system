@@ -371,6 +371,9 @@ export function allExpenses({ expenses = [], companyExpenses = [], staffExpenses
       due_date: x.due_date || '',
       receipt: x.receipt_path || '',
       notes: x.notes || '',
+      recurring: Boolean(x.recurring),
+      series_id: x.series_id || null,
+      period: x.period || '',
     })),
     ...staffExpenses
       .filter((x) => x.status !== 'مرفوض')

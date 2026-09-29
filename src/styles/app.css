@@ -3190,3 +3190,15 @@ a.ex-card-head {
     padding: 10px;
   }
 }
+.recurring-box {
+  margin-bottom: 14px;
+  padding: 10px 14px 4px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+.recurring-box .field {
+  margin-top: 8px;
+}
+.mis-6 {
+  margin-inline-start: 6px;
+}
