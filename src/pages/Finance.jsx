@@ -443,20 +443,18 @@ function CompanyExpenseForm({ expense, onClose, onSaved }) {
           </select>
         </Field>
       </div>
-      {(form.paid === false || form.recurring || form.pay_from || form.pay_to) && (
-        <div className="window-box">
-          <div className="field-label">{tr('📅 فترة الدفع — يتوجب الدفع')}</div>
-          <div className="form-grid">
-            <Field label={tr('من تاريخ')}>
-              <DateInput value={form.pay_from || ''} onChange={set('pay_from')} />
-            </Field>
-            <Field label={tr('إلى تاريخ')} hint={tr('بعده يظهر «متأخر» في المتابعة')}>
-              <DateInput value={form.pay_to || form.due_date || ''} onChange={set('pay_to')} />
-            </Field>
-          </div>
-          {form.recurring && !monthOfSeries && <div className="muted tiny">{tr('تتكرر نفس الفترة كل شهر — مثال: من 1 إلى 5 من كل شهر.')}</div>}
+      <div className="window-box">
+        <div className="field-label">{tr('📅 فترة الدفع — يتوجب الدفع')}</div>
+        <div className="form-grid">
+          <Field label={tr('من تاريخ')}>
+            <DateInput value={form.pay_from || ''} onChange={set('pay_from')} />
+          </Field>
+          <Field label={tr('إلى تاريخ')} hint={tr('اختياري — بعده يظهر «متأخر» في المتابعة إذا لم يُدفع')}>
+            <DateInput value={form.pay_to || form.due_date || ''} onChange={set('pay_to')} />
+          </Field>
         </div>
-      )}
+        {form.recurring && !monthOfSeries && <div className="muted tiny">{tr('تتكرر نفس الفترة كل شهر — مثال: من 1 إلى 5 من كل شهر.')}</div>}
+      </div>
       {monthOfSeries ? (
         <div className="alert alert-info">{tr('🔁 هذا شهر {0} من مصروف شهري ثابت، أُضيف تلقائياً. تعديله يغيّر هذا الشهر فقط؛ لتغيير المبلغ لكل الأشهر القادمة أو إيقافه عدّل التسجيل الأصلي.', [expense.period])}</div>
       ) : (
