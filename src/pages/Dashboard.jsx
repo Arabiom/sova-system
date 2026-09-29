@@ -136,7 +136,7 @@ export default function Dashboard() {
         {vatEnabled() ? (
           <StatCard label={tr('المجموع الكلي شامل الضريبة')} value={formatOMR(totals.paidWithVat)} sub={tr('نسبة التحصيل {0}%', [totals.collectionRate])} accent="var(--suc)" icon="🏆" onClick={() => go('/finance?tab=reports')} />
         ) : (
-          <StatCard label={tr('الدخل المتوقع من المعارض')} value={formatOMR(expectedIncome)} sub={tr('بيع كل المواقع في المعارض القادمة والجارية')} accent="var(--suc)" icon="🏆" onClick={() => go('/finance')} />
+          <StatCard label={tr('الدخل الممكن من المعارض')} value={formatOMR(expectedIncome)} sub={tr('بيع كل المواقع في المعارض القادمة والجارية')} accent="var(--suc)" icon="🏆" onClick={() => go('/finance')} />
         )}
       </div>
         </>
@@ -194,7 +194,7 @@ export default function Dashboard() {
               <StatusBadge status={ex.status} />
             </div>
           ))}
-          {!exhibitions.length && <div className="empty-inline">{tr('لا معارض')}</div>}
+          {!exhibitions.length && <div className="empty-inline">{tr('لا توجد معارض')}</div>}
         </Panel>
       </div>
 
@@ -296,7 +296,7 @@ export default function Dashboard() {
                 {!exhibitors.length && (
                   <tr>
                     <td colSpan={4} className="empty-inline">
-                      {tr('لا عارضون بعد')}
+                      {tr('لا يوجد عارضون بعد')}
                     </td>
                   </tr>
                 )}
@@ -339,7 +339,7 @@ export default function Dashboard() {
                 {!payments.length && (
                   <tr>
                     <td colSpan={4} className="empty-inline">
-                      {tr('لا مدفوعات بعد')}
+                      {tr('لا توجد مدفوعات بعد')}
                     </td>
                   </tr>
                 )}

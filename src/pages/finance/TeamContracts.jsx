@@ -88,7 +88,7 @@ function ContractForm({ contract, staff, onClose, onSaved }) {
   return (
     <Modal
       title={editing ? tr('تعديل عقد') : tr('عقد جديد مع عضو فريق')}
-      subtitle={tr('عقد لمدة محددة — راتبه يُسجَّل في مصروفات الشركة تلقائياً ويتوقف مع نهاية العقد')}
+      subtitle={tr('عقد عمل مع عضو الفريق — راتبه يُسجَّل في مصروفات الشركة تلقائياً ويتوقف مع نهاية العقد')}
       onClose={onClose}
       size="lg"
       footer={

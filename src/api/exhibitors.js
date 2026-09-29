@@ -66,7 +66,7 @@ export async function countPayments(exhibitorIds) {
 export async function deleteExhibitor(id) {
   const count = await countPayments([id])
   if (count) {
-    throw new Error(tr('لا يمكن الحذف: له {0} دفعة مسجّلة. احذف دفعاته أولاً من «المبيعات والمدفوعات» إن كانت خاطئة، أو غيّر حالته بدل حذفه.', [count]))
+    throw new Error(tr('لا يمكن الحذف: له {0} دفعة مسجّلة. احذف دفعاته أولاً من «المالية ← الإيرادات والدفعات» إن كانت خاطئة، أو غيّر حالته بدل حذفه.', [count]))
   }
   return unwrap(table().delete().eq('id', id))
 }

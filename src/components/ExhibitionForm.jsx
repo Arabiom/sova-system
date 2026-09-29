@@ -81,7 +81,7 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
       const mapChanged = map_path !== savedMap
       await saveExhibition(mapChanged ? { ...form, map_path } : form, id)
       if (mapChanged && savedMap) await removeMapFile(savedMap)
-      toast(id ? tr('✅ تم التحديث') : tr('✅ تم إضافة المعرض'))
+      toast(id ? tr('✅ تم التحديث') : tr('✅ تمت إضافة المعرض'))
       onSaved()
     } catch (err) {
       toast(err.message, 'error')

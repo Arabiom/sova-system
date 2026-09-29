@@ -275,7 +275,7 @@ export default function Expenses({ embedded = false, onChanged } = {}) {
         <div className="toolbar-count">{visible.length}{' '}{tr('نتيجة')}</div>
       </div>
 
-      <Panel title={tr('🧾 المصروفات والفواتير')}>
+      <Panel title={seeAll ? tr('🧾 مطالبات الموظفين وفواتيرها') : tr('🧾 مصروفاتي وفواتيرها')}>
         <div className="table-wrap">
           <table className="table" style={{ minWidth: 900 }}>
             <thead>
