@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useCan } from '../context/AuthContext.jsx'
-import { acceptBooking, listBookings, rejectBooking } from '../api/bookings.js'
+import { acceptBooking, isInquiry, listBookings, markInquiryAnswered, rejectBooking } from '../api/bookings.js'
+import { publicBookingUrl } from '../api/publicBooking.js'
+import Panel from '../components/Panel.jsx'
+import { COMPANY } from '../lib/constants.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import Button from '../components/Button.jsx'
 import { EmptyState, Loading } from '../components/Feedback.jsx'
@@ -22,16 +25,17 @@ const load = async () => {
 const TONES = { 'معلق': 'var(--wrn)', 'مقبول': 'var(--suc)', 'مرفوض': 'var(--dng)' }
 const ALL = 'الكل'
 
-function BookingDetails({ booking, exhibition, onClose, onAccept, onReject, busy }) {
+function BookingDetails({ booking, exhibition, onClose, onAccept, onReject, onAnswered, busy }) {
   const toast = useToast()
   const canWrite = useCan('data.write') // the viewer only looks
+  const inquiry = isInquiry(booking)
   const rows = [
     ['👤 المسؤول', booking.manager],
     ['📱 الجوال', booking.phone],
     ['📧 البريد', booking.email || '—'],
     ['🏷️ التصنيف', booking.category || '—'],
     ['🏛️ المعرض', exhibitionLabel(exhibition)],
-    ['📐 حجم البوث', booking.booth_size || '—'],
+    [inquiry ? '📐 الباقة' : '📐 حجم البوث / الباقة', booking.booth_size || '—'],
     ['💬 الرسالة', booking.message || '—'],
   ]
   return (
@@ -40,7 +44,7 @@ function BookingDetails({ booking, exhibition, onClose, onAccept, onReject, busy
         <div className="modal-header modal-header-dark">
           <div>
             <div className="modal-title">{tr(booking.brand)}</div>
-            <div className="modal-subtitle">{tr('طلب حجز •')}{' '}{formatDate(booking.created_at)}</div>
+            <div className="modal-subtitle">{inquiry ? tr('استفسار •') : tr('طلب حجز •')}{' '}{formatDate(booking.created_at)}</div>
           </div>
           <div className="row-actions">
             <StatusBadge status={booking.status} />
@@ -70,7 +74,12 @@ function BookingDetails({ booking, exhibition, onClose, onAccept, onReject, busy
               {tr('📱 تواصل واتساب')}
             </Button>
           )}
-          {canWrite && booking.status === 'معلق' && (
+          {canWrite && booking.status === 'معلق' && inquiry && (
+            <Button variant="success" onClick={onAnswered} disabled={busy}>
+              {tr('✅ تم الرد')}
+            </Button>
+          )}
+          {canWrite && booking.status === 'معلق' && !inquiry && (
             <>
               <Button variant="success" onClick={onAccept} disabled={busy}>
                 {tr('✅ قبول')}
@@ -86,6 +95,37 @@ function BookingDetails({ booking, exhibition, onClose, onAccept, onReject, busy
         </div>
       </div>
     </Overlay>
+  )
+}
+
+/** The public link (/book) to share: requests sent from it land here as pending. */
+function PublicLinkPanel() {
+  const toast = useToast()
+  const url = publicBookingUrl()
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url)
+      toast(tr('🔗 تم نسخ الرابط'))
+    } catch {
+      toast(tr('تعذّر النسخ — انسخ الرابط يدوياً'), 'error')
+    }
+  }
+  const share = tr('للحجز في معارض {0} أو التواصل معنا: {1}', [COMPANY.brand, url])
+  return (
+    <Panel icon="link" title={tr('رابط الحجز العام')} subtitle={tr('انشره في إنستقرام وواتساب: أي شخص يرسل منه طلب حجز أو استفسار بدون حساب، ويظهر هنا مباشرة.')} className="mb-20" bodyClass="panel-pad">
+      <div className="share-link">
+        <code dir="ltr">{url}</code>
+        <Button variant="outline" onClick={copy}>
+          {tr('📋 نسخ الرابط')}
+        </Button>
+        <Button variant="whatsapp" onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(share)}`, '_blank', 'noopener')}>
+          {tr('📱 مشاركة واتساب')}
+        </Button>
+        <Button variant="outline" onClick={() => window.open(url, '_blank', 'noopener')}>
+          {tr('↗ فتح الصفحة')}
+        </Button>
+      </div>
+    </Panel>
   )
 }
 
@@ -132,6 +172,7 @@ export default function Bookings() {
   }
 
   const reject = (booking) => run(() => rejectBooking(booking.id), '✗ تم الرفض')
+  const answered = (booking) => run(() => markInquiryAnswered(booking.id), '✅ تم تسجيل الرد على الاستفسار')
 
   return (
     <>
@@ -145,6 +186,8 @@ export default function Bookings() {
         </div>
       </PageHeader>
 
+      <PublicLinkPanel />
+
       <div className="grid-3 mb-20">
         {BOOKING_STATUSES.map((s) => (
           <button key={s} className="count-card" style={{ '--accent': TONES[s] }} onClick={() => setFilter(s)}>
@@ -157,11 +200,13 @@ export default function Bookings() {
       <div className="panel">
         {visible.map((b) => (
           <div key={b.id} className="booking-row" onClick={() => setSelected(b)}>
-            <div className="booking-icon">🏪</div>
+            <div className="booking-icon">{isInquiry(b) ? '💬' : '🏪'}</div>
             <div className="flex-1">
-              <div className="booking-brand">{tr(b.brand)}</div>
+              <div className="booking-brand">
+                {tr(b.brand)} {isInquiry(b) && <span className="badge badge-info">{tr('استفسار')}</span>}
+              </div>
               <div className="muted small">
-                {[b.manager, b.phone, b.category, exhibitionLabel(exhibitionOf(b.exhibition_id))].filter(Boolean).join(' • ')}
+                {[b.manager, b.phone, b.category, b.exhibition_id && exhibitionLabel(exhibitionOf(b.exhibition_id))].filter(Boolean).join(' • ')}
               </div>
             </div>
             <div className="muted tiny hide-mobile">{formatDate(b.created_at)}</div>
@@ -180,6 +225,7 @@ export default function Bookings() {
           onClose={() => setSelected(null)}
           onAccept={() => accept(selected)}
           onReject={() => reject(selected)}
+          onAnswered={() => answered(selected)}
         />
       )}
     </>
