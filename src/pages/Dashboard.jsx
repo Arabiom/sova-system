@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom'
 import { listBookings } from '../api/bookings.js'
-import { listExpenses, listSites } from '../api/exhibitionFile.js'
+import { listExpenses, listSites, listSponsors } from '../api/exhibitionFile.js'
+import { listStaffExpenses } from '../api/staffExpenses.js'
+import { HealthBadge } from '../components/PlanHealth.jsx'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
@@ -30,7 +32,9 @@ const load = async () => {
     listExpenses(),
   ])
   const tasks = await listTasks().catch(() => null)
-  return { exhibitions, exhibitors, payments: payments.filter(isConfirmed), awaiting: payments.filter((p) => !isConfirmed(p)), bookings, sites, expenses, tasks }
+  // For each exhibition's verdict (finance roles; others simply get nothing back).
+  const [sponsors, staffExpenses] = await Promise.all([listSponsors().catch(() => []), listStaffExpenses().catch(() => [])])
+  return { exhibitions, exhibitors, payments: payments.filter(isConfirmed), awaiting: payments.filter((p) => !isConfirmed(p)), bookings, sites, expenses, tasks, sponsors, staffExpenses }
 }
 
 const barColor = (status) =>
@@ -48,7 +52,20 @@ export default function Dashboard() {
   const canWrite = useCan('data.write') // the viewer only looks
   if (loading || !data) return <Loading />
 
-  const { exhibitions, exhibitors, payments, awaiting, bookings, sites, expenses, tasks } = data
+  const { exhibitions, exhibitors, payments, awaiting, bookings, sites, expenses, tasks, sponsors, staffExpenses } = data
+  const financialsOf = (ex) =>
+    exhibitionFinancials(
+      {
+        exhibition: ex,
+        sites: sites.filter((s) => s.exhibition_id === ex.id),
+        exhibitors,
+        payments,
+        expenses: expenses.filter((x) => x.exhibition_id === ex.id),
+        sponsors: sponsors.filter((s) => s.exhibition_id === ex.id),
+        staffExpenses,
+      },
+      DEFAULT_TIERS,
+    )
   const myTasks = (tasks || []).filter((t) => t.assigned_to === uid && t.status !== TASK_DONE)
   const myOverdue = myTasks.filter((t) => isOverdue(t)).length
   const totals = summarize(exhibitors)
@@ -191,7 +208,10 @@ export default function Dashboard() {
                   {occupancyOf(ex, sites, exhibitors).booked}/{occupancyOf(ex, sites, exhibitors).capacity}{' '}{tr('موقع •')}{' '}{isolateLtr(monthOf(ex.date_from))}
                 </div>
               </div>
-              <StatusBadge status={ex.status} />
+              <div className="list-row-end">
+                <StatusBadge status={ex.status} />
+                {money && !['منتهي', 'ملغى'].includes(ex.status) && <HealthBadge f={financialsOf(ex)} />}
+              </div>
             </div>
           ))}
           {!exhibitions.length && <div className="empty-inline">{tr('لا توجد معارض')}</div>}

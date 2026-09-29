@@ -13,6 +13,7 @@ import Panel from '../components/Panel.jsx'
 import { EmptyState, Loading } from '../components/Feedback.jsx'
 import { ProgressBar } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
+import PlanHealth from '../components/PlanHealth.jsx'
 import StatusBadge from '../components/StatusBadge.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { DEFAULT_TIERS } from '../lib/constants.js'
@@ -53,30 +54,16 @@ async function loadFile(id) {
 }
 
 function Summary({ f, internal }) {
-  const tone = (v) => (v >= 0 ? 'var(--suc)' : 'var(--dng)')
   return (
     <>
-      <div className="section-label">{tr('الإشغال والتعادل')}</div>
-      <div className="grid-4">
+      {internal && <PlanHealth f={f} title={tr('تقييم خطة المعرض')} />}
+
+      <div className="section-label">{tr('المواقع')}</div>
+      <div className={internal ? 'grid-4' : 'grid-2'}>
         <StatCard flat label={tr('المواقع المحجوزة')} icon="🗺️" accent="var(--ink)" value={`${f.booked} / ${f.capacity}`} sub={tr('{0} متاح • إشغال {1}%', [f.available, f.occupancy])} />
-        {internal && (
-        <StatCard
-          flat
-          label={tr('نقطة التعادل')}
-          icon="⚖️"
-          accent={!f.expensesTotal ? 'var(--muted)' : f.booked >= f.breakEven ? 'var(--suc)' : 'var(--wrn)'}
-          value={f.expensesTotal && f.capacity ? tr('{0} موقع', [f.breakEven]) : '—'}
-          sub={
-            !f.capacity
-              ? tr('أضف المواقع أولاً')
-              : !f.expensesTotal
-                ? tr('أضف المصروفات لحسابها')
-                : tr('{0}% من المواقع • {1}', [f.breakEvenPct, f.booked >= f.breakEven ? tr('✓ تم تجاوزها') : tr('باقي {0} موقع', [f.breakEven - f.booked])])
-          }
-        />
-        )}
-        {internal && <StatCard flat label={tr('الإيراد عند البيع الكامل')} icon="🎯" accent="var(--gold)" value={formatOMR(f.fullRevenue)} sub={tr('متوسط سعر الموقع {0}', [formatOMR(f.avgPrice)])} />}
-        {internal && <StatCard flat label={tr('المصروفات')} icon="🧾" accent="var(--wrn)" value={formatOMR(f.expensesTotal)} sub={tr('مدفوع {0}', [formatOMR(f.expensesPaid)])} />}
+        {internal && <StatCard flat label={tr('متوسط سعر الموقع')} icon="🏷️" accent="var(--gold)" value={formatOMR(f.avgPrice)} sub={tr('الدخل الممكن {0}', [formatOMR(f.fullRevenue)])} />}
+        {internal && <StatCard flat label={tr('المحصّل')} icon="💵" accent="var(--suc)" value={formatOMR(f.collected)} sub={tr('المتبقي للتحصيل {0}', [formatOMR(f.outstanding)])} />}
+        {internal && <StatCard flat label={tr('الرصيد النقدي الآن')} icon="🏦" accent={f.cashPosition >= 0 ? 'var(--suc)' : 'var(--dng)'} value={formatOMR(f.cashPosition)} sub={tr('المحصّل + الرعايات المدفوعة − المصروفات المدفوعة')} />}
       </div>
       <div className="occupancy-bar mb-16">
         <ProgressBar pct={f.occupancy} height={10} color="linear-gradient(90deg,var(--gold),var(--gold-l))" />
@@ -84,18 +71,7 @@ function Summary({ f, internal }) {
           <span className="breakeven-mark" style={{ insetInlineStart: `${f.breakEvenPct}%` }} title={tr('نقطة التعادل: {0} موقع', [f.breakEven])} />
         )}
       </div>
-
-      {internal && (
-        <>
-      <div className="section-label">{tr('المالية')}</div>
-      <div className="grid-4 mb-24">
-        <StatCard flat label={tr('إجمالي العقود')} icon="📋" accent="var(--ink)" value={formatOMR(f.contract)} sub={internal && f.sponsorship ? tr('+ رعايات {0}', [formatOMR(f.sponsorship)]) : undefined} />
-        <StatCard flat label={tr('المحصّل')} icon="💵" accent="var(--suc)" value={formatOMR(f.collected)} sub={tr('المتبقي للتحصيل {0}', [formatOMR(f.outstanding)])} />
-        {internal && <StatCard flat label={tr('الصافي حسب العقود الحالية')} icon="📈" accent={tone(f.netOnContracts)} value={formatOMR(f.netOnContracts)} sub={tr('العقود + الرعايات − المصروفات')} />}
-        {internal && <StatCard flat label={tr('الصافي عند البيع الكامل')} icon="🏆" accent={tone(f.netAtFull)} value={formatOMR(f.netAtFull)} sub={tr('الرصيد النقدي الآن {0}', [formatOMR(f.cashPosition)])} />}
-      </div>
-        </>
-      )}
+      {internal && f.capacity > 0 && f.expensesTotal > 0 && <div className="muted tiny mb-16">{tr('الخط العمودي على الشريط = نقطة التعادل ({0} موقع)', [f.breakEven])}</div>}
     </>
   )
 }
