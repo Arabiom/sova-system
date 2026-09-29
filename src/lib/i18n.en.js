@@ -1413,4 +1413,5 @@ export default {
   "📅 فترة الدفع — يتوجب الدفع": "📅 Payment window — to be paid",
   "مستحق الآن": "Due now",
   "نهاية فترة الدفع قبل بدايتها": "payment window ends before it starts",
+  "اختياري — بعده يظهر «متأخر» في المتابعة إذا لم يُدفع": "Optional — after it, an unpaid expense shows as «late»",
 }
