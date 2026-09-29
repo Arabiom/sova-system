@@ -3223,3 +3223,33 @@ a.ex-card-head {
 .choice-grid-3 {
   grid-template-columns: repeat(3, 1fr);
 }
+.choice-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+.plan-toolbar {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.plan-lengths {
+  flex: 1 1 380px;
+  max-width: 520px;
+}
+.plan-dates {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.plan-dates .input {
+  width: auto;
+}
+.plan-period {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--gold-p);
+  font-weight: 700;
+}
+@media (max-width: 560px) {
+  .choice-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

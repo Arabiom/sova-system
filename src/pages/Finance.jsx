@@ -17,6 +17,7 @@ import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
 import { CHEQUE_KIND, deleteObligation, listObligations, OBLIGATION_KINDS, obligationState, payObligation, postponeObligation, REFUND_KIND, reopenObligation, saveObligation, validateObligation } from '../api/obligations.js'
+import { listContracts } from '../api/contracts.js'
 import { listStaff } from '../api/staff.js'
 import { listStaffExpenses, openReceipt } from '../api/staffExpenses.js'
 import { checkFile } from '../api/storage.js'
@@ -43,6 +44,8 @@ import Expenses, { ExpenseForm as StaffExpenseForm } from './Expenses.jsx'
 import { ExpenseForm as ExhibitionExpenseForm } from './exhibition/ExpensesTab.jsx'
 import Reports from './Reports.jsx'
 import Sales from './Sales.jsx'
+import CompanyPlan from './finance/CompanyPlan.jsx'
+import TeamContracts from './finance/TeamContracts.jsx'
 import { omanDay } from '../lib/team.js'
 
 const TABS = [
@@ -52,6 +55,8 @@ const TABS = [
   { id: 'expenses', label: tr('🧾 كل المصروفات') },
   { id: 'claims', label: tr('👥 مطالبات الموظفين') },
   { id: 'exhibitions', label: tr('🏛️ حسب المعرض') },
+  { id: 'team', label: tr('👔 عقود الفريق') },
+  { id: 'company-plan', label: tr('🗓️ خطة الشركة') },
   { id: 'ledger', label: tr('📒 سجل الحركات') },
   { id: 'reports', label: tr('📈 التقارير') },
 ]
@@ -69,8 +74,8 @@ const load = async () => {
     listCompanyExpenses(),
     listStaffExpenses().catch(() => []),
   ])
-  const [staff, obligations] = await Promise.all([listStaff().catch(() => []), listObligations().catch(() => [])])
-  return { exhibitions, exhibitors, payments, sites, expenses, sponsors, companyExpenses, staffExpenses, staff, obligations }
+  const [staff, obligations, contracts] = await Promise.all([listStaff().catch(() => []), listObligations().catch(() => []), listContracts().catch(() => [])])
+  return { exhibitions, exhibitors, payments, sites, expenses, sponsors, companyExpenses, staffExpenses, staff, obligations, contracts }
 }
 
 
@@ -1256,6 +1261,8 @@ export default function Finance() {
       {tab === 'claims' && <Expenses embedded onChanged={reload} />}
       {tab === 'exhibitions' && <Plan data={data} />}
       {tab === 'ledger' && <Ledger data={data} />}
+      {tab === 'team' && <TeamContracts data={data} canManage={canManage} reload={reload} />}
+      {tab === 'company-plan' && <CompanyPlan data={data} />}
       {tab === 'reports' && <Reports embedded />}
     </>
   )
