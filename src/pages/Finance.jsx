@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import {
+  addDueMonthlyExpenses,
   COMPANY_EXPENSE_CATEGORIES,
   deleteCompanyExpense,
+  monthlyFixedTotal,
   listCompanyExpenses,
   openCompanyReceipt,
   saveCompanyExpense,
@@ -53,6 +55,8 @@ const TABS = [
 ]
 
 const load = async () => {
+  // Fixed monthly company expenses: add this month's (and any missed) before reading.
+  await addDueMonthlyExpenses()
   const [exhibitions, exhibitors, payments, sites, expenses, sponsors, companyExpenses, staffExpenses] = await Promise.all([
     listExhibitions(),
     listExhibitors(),
@@ -70,7 +74,7 @@ const load = async () => {
 const today = () => todayISO()
 
 // ── 1. Overview ─────────────────────────────────────────────────────────────
-function Overview({ o, flow, go }) {
+function Overview({ o, flow, go, fixed = 0 }) {
   const rows = [
     ['مصروفات المعارض', o.exhibitionExpenses, o.exhibitionExpensesPaid, 'exhibition'],
     ['مصروفات الشركة', o.company, o.companyPaid, 'company'],
@@ -89,10 +93,16 @@ function Overview({ o, flow, go }) {
       <div className="section-label">{tr('المصروفات والنتيجة')}</div>
       <div className="grid-4 mb-16">
         <StatCard flat label={tr('إجمالي المصروفات')} value={formatOMR(o.expensesAll)} sub={tr('مدفوع {0}', [formatOMR(o.expensesPaidAll)])} accent="var(--dng)" icon="🧾" onClick={() => go('expenses')} />
-        <StatCard flat label={tr('مستحق الدفع')} value={formatOMR(o.payable)} sub={o.staffOwed ? tr('منها للموظفين {0}', [formatOMR(o.staffOwed)]) : tr('مصروفات لم تُدفع بعد')} accent="var(--wrn)" icon="📌" />
+        <StatCard flat label={tr('مستحق الدفع')} value={formatOMR(o.payable)} sub={o.staffOwed ? tr('منها للموظفين {0}', [formatOMR(o.staffOwed)]) : tr('مصروفات لم تُدفع بعد')} accent="var(--wrn)" icon="📌" onClick={() => go('expenses')} />
         <StatCard flat label={tr('الصافي حسب العقود')} value={formatOMR(o.net)} sub={tr('العقود + الرعايات − كل المصروفات')} accent={o.net >= 0 ? 'var(--suc)' : 'var(--dng)'} icon="📈" />
         <StatCard flat label={tr('الرصيد النقدي')} value={formatOMR(o.cash)} sub={tr('المحصّل − المدفوع فعلاً')} accent={o.cash >= 0 ? 'var(--suc)' : 'var(--dng)'} icon="🏦" onClick={() => go('ledger')} />
       </div>
+
+      {fixed > 0 && (
+        <button type="button" className="alert alert-info alert-link" onClick={() => go('expenses', { kind: 'company' })}>
+          🔁 {tr('مصروفات الشركة الثابتة: {0} شهرياً — تُضاف تلقائياً كل شهر', [formatOMR(fixed)])}
+        </button>
+      )}
 
       <div className="grid-2 mb-16">
         <Panel icon="🧾" title={tr('المصروفات حسب النوع')}>
@@ -353,7 +363,12 @@ function Plan({ data }) {
 function CompanyExpenseForm({ expense, onClose, onSaved }) {
   const toast = useToast()
   const editing = Boolean(expense?.id)
-  const [form, setForm] = useState(expense || { date: todayISO(), category: COMPANY_EXPENSE_CATEGORIES[0], paid: true })
+  const [form, setForm] = useState(() =>
+    expense
+      ? { ...expense, wasRecurring: Boolean(expense.recurring), recurring_end: expense.recurring_end ? String(expense.recurring_end).slice(0, 7) : '' }
+      : { date: todayISO(), category: COMPANY_EXPENSE_CATEGORIES[0], paid: true },
+  )
+  const monthOfSeries = Boolean(expense?.series_id) // a month added automatically from a fixed expense
   const [file, setFile] = useState(null)
   const [saving, setSaving] = useState(false)
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -428,6 +443,26 @@ function CompanyExpenseForm({ expense, onClose, onSaved }) {
           </Field>
         )}
       </div>
+      {monthOfSeries ? (
+        <div className="alert alert-info">{tr('🔁 هذا شهر {0} من مصروف شهري ثابت، أُضيف تلقائياً. تعديله يغيّر هذا الشهر فقط؛ لتغيير المبلغ لكل الأشهر القادمة أو إيقافه عدّل التسجيل الأصلي.', [expense.period])}</div>
+      ) : (
+        <div className="recurring-box">
+          <label className="check-row">
+            <input type="checkbox" checked={Boolean(form.recurring)} onChange={(e) => setForm((f) => ({ ...f, recurring: e.target.checked }))} />
+            <span className="strong">{tr('🔁 مصروف ثابت شهري')}</span>
+          </label>
+          <div className="muted tiny">
+            {form.recurring
+              ? tr('يُضاف تلقائياً كل شهر بنفس المبلغ في يوم {0}، «غير مدفوع» حتى تؤشّر عليه. تغيير المبلغ هنا يسري على الأشهر القادمة.', [String(form.date || '').slice(8, 10) || '—'])
+              : tr('مثل الإيجار والرواتب والاشتراكات — سجّله مرة واحدة ويُضاف كل شهر.')}
+          </div>
+          {form.recurring && (
+            <Field label={tr('يتوقف بعد شهر (اختياري)')} hint={tr('اتركه فارغاً ليستمر حتى تلغي العلامة')}>
+              <input className="input" type="month" value={form.recurring_end || ''} onChange={set('recurring_end')} />
+            </Field>
+          )}
+        </div>
+      )}
       <Field label={tr('ملاحظات')}>
         <input className="input" value={form.notes || ''} onChange={set('notes')} />
       </Field>
@@ -591,7 +626,11 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
                 <tr key={x.key} className={x.counted ? '' : 'row-muted'}>
                   <td className="small nowrap">{x.date || '—'}</td>
                   <td>
-                    <div className="strong">{tr(x.description)}</div>
+                    <div className="strong">
+                      {tr(x.description)}
+                      {x.recurring && <span className="badge badge-info mis-6" title={tr('يُضاف تلقائياً كل شهر')}>{tr('🔁 شهري ثابت')}</span>}
+                      {x.series_id && <span className="badge badge-neutral mis-6">{tr('🔁 شهر {0}', [x.period])}</span>}
+                    </div>
                     {(x.user_id || x.notes) && <div className="muted tiny">{[x.user_id && nameOf(x.user_id), x.notes].filter(Boolean).join(' • ')}</div>}
                   </td>
                   <td className="small nowrap">
@@ -858,7 +897,7 @@ export default function Finance() {
       {tab === 'overview' && (
         <>
           <Attention data={data} o={o} go={go} today={omanDay()} />
-          <Overview o={o} flow={flow} go={go} />
+          <Overview o={o} flow={flow} go={go} fixed={monthlyFixedTotal(data.companyExpenses)} />
         </>
       )}
       {tab === 'income' && <Sales embedded onChanged={reload} />}

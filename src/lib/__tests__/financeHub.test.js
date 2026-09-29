@@ -71,3 +71,23 @@ describe('ledger', () => {
     expect(rows.at(-1).balance).toBe(-150)
   })
 })
+
+describe('fixed monthly company expenses', async () => {
+  const { toCompanyExpenseRow, monthlyFixedTotal } = await import('../../api/companyExpenses.js')
+  it('sends the monthly fields only when set or switched off', () => {
+    const base = { description: 'إيجار', amount: 150, date: '2026-09-30' }
+    expect('recurring' in toCompanyExpenseRow(base)).toBe(false)
+    expect(toCompanyExpenseRow({ ...base, recurring: true, recurring_end: '2027-06' })).toMatchObject({ recurring: true, recurring_end: '2027-06-01' })
+    expect(toCompanyExpenseRow({ ...base, recurring: false, wasRecurring: true })).toMatchObject({ recurring: false, recurring_end: null })
+  })
+  it('adds up what runs every month', () => {
+    expect(monthlyFixedTotal([{ recurring: true, amount: 150 }, { recurring: true, amount: '300' }, { amount: 20 }, { series_id: 'x', amount: 150 }])).toBe(450)
+  })
+  it('marks them in the unified list', () => {
+    const rows = allExpenses({ companyExpenses: [{ id: 'a', date: '2026-09-30', description: 'إيجار', amount: 150, recurring: true }, { id: 'b', date: '2026-10-30', description: 'إيجار', amount: 150, paid: false, series_id: 'a', period: '2026-10' }] })
+    expect(rows.map((r) => [r.recurring, r.series_id, r.period])).toEqual([
+      [false, 'a', '2026-10'],
+      [true, null, ''],
+    ])
+  })
+})

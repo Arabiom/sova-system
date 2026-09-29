@@ -37,15 +37,36 @@ export function validateCompanyExpense(form) {
   return errors
 }
 
-export const toCompanyExpenseRow = (form) => ({
-  date: form.date || todayISO(),
-  category: form.category?.trim() || 'أخرى',
-  description: form.description.trim(),
-  amount: num(form.amount),
-  paid: form.paid !== false,
-  due_date: form.paid === false ? form.due_date || null : null,
-  notes: form.notes?.trim() || '',
-})
+export function toCompanyExpenseRow(form) {
+  const row = {
+    date: form.date || todayISO(),
+    category: form.category?.trim() || 'أخرى',
+    description: form.description.trim(),
+    amount: num(form.amount),
+    paid: form.paid !== false,
+    due_date: form.paid === false ? form.due_date || null : null,
+    notes: form.notes?.trim() || '',
+  }
+  // Fixed monthly (migration 019): only sent when set or being switched off, so a database
+  // without the update still saves ordinary expenses.
+  if (form.recurring || form.wasRecurring) {
+    row.recurring = Boolean(form.recurring)
+    row.recurring_end = form.recurring && form.recurring_end ? `${form.recurring_end}-01` : null
+  }
+  return row
+}
+
+/**
+ * Add the months due for every fixed monthly expense (a database function, migration 019).
+ * Only admin / finance add anything; before the update is run nothing happens.
+ */
+export async function addDueMonthlyExpenses() {
+  const { data, error } = await supabase.rpc('generate_recurring_company_expenses')
+  return error ? 0 : data || 0
+}
+
+/** Monthly total of the fixed expenses still running. */
+export const monthlyFixedTotal = (rows) => rows.filter((x) => x.recurring).reduce((t, x) => t + num(x.amount), 0)
 
 export async function saveCompanyExpense(form, { id, receiptFile, oldReceipt } = {}) {
   let receipt_path = oldReceipt || null
