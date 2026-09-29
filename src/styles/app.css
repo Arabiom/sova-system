@@ -3118,3 +3118,29 @@ a.ex-card-head {
   flex-wrap: wrap;
   justify-content: flex-start;
 }
+.package-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 3fr auto;
+  gap: 10px;
+  align-items: end;
+}
+.package-row .field {
+  margin-bottom: 12px;
+}
+@media (max-width: 760px) {
+  .package-row {
+    grid-template-columns: 1fr 1fr;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--border-l);
+    margin-bottom: 8px;
+  }
+  .package-row .package-includes {
+    grid-column: 1 / -1;
+  }
+}
+.discount-box {
+  padding: 12px 14px 2px;
+  border: 1px dashed var(--gold);
+  border-radius: 12px;
+  background: var(--gold-p);
+}

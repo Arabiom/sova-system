@@ -4,7 +4,8 @@
 // (which the browser shapes correctly, right-to-left), rasterised with html2canvas and
 // placed onto A4 pages. Both libraries are loaded on demand to keep the app bundle small.
 
-import { BOOTH_NOTE, BOOTH_PACKAGES, COMPANY, PARTICIPATION_TERMS } from './constants.js'
+import { COMPANY, participationTerms } from './constants.js'
+import { boothNoteOf, packageOf } from './packages.js'
 import { isConfirmed, occupancyOf, PAYMENT_DEADLINE_DAYS, paymentDeadline, registrationTotals, summarize, vatEnabled, vatOf, withVat } from './finance.js'
 import { fixed3, monthOf, num } from './format.js'
 import { tiersFromSites } from './sites.js'
@@ -144,7 +145,7 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
   const e = exhibitor
   const contract = num(e.contract)
   const paid = num(e.paid)
-  const pkg = BOOTH_PACKAGES.find((p) => p.name === e.booth_type)
+  const pkg = packageOf(exhibition, e.booth_type)
   const exName = exhibition ? escapeHtml(exhibition.name?.trim() || `SOVA ${exhibition.city}`) : '—'
   const money = (v) => bdi(omr(v))
   const box = (label, value) => `<div style="padding:4px 0;border-bottom:1px solid #EFE7D6">
@@ -207,7 +208,7 @@ export function contractHtml(exhibitor, exhibition, { contractNo, date = today()
 
     ${section('الشروط والأحكام')}
     <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:22px;row-gap:3px">
-      ${PARTICIPATION_TERMS.map(
+      ${participationTerms(e.booth_size).map(
         (t, i) => `<div style="font-size:10.5px;line-height:1.55">
           <strong style="color:${INK}">${bdi(i + 1)}. ${t.title}:</strong> <span style="color:#3A2E22">${t.text}</span>
         </div>`,
@@ -425,7 +426,7 @@ function boothItem(e, pkg) {
 
 export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment }, { date = today() } = {}) {
   const c = participantCharges(e)
-  const pkg = BOOTH_PACKAGES.find((p) => p.name === e.booth_type)
+  const pkg = packageOf(ex, e.booth_type)
   const pending = payment && !isConfirmed(payment)
   // Paid so far (before VAT): the confirmed total, plus this payment while it awaits confirmation.
   const paidNet = num(e.paid) + (pending ? num(payment.amount) : 0)
@@ -475,7 +476,7 @@ export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment 
       ${cell('نظام البوث', `${escapeHtml(e.booth_type || '—')}${pkg ? `<div style="font-size:10px;font-weight:400;color:#6B5A40">${escapeHtml(pkg.includes)}</div>` : ''}`)}
       ${cell('رقم الموقع', bdi(e.booth || '—'))}
     </div>
-    <div style="font-size:10px;color:#8A7A60;margin-top:4px">${BOOTH_NOTE}</div>
+    ${boothNoteOf(ex) ? `<div style="font-size:10px;color:#8A7A60;margin-top:4px">${escapeHtml(boothNoteOf(ex))}</div>` : ''}
 
     ${heading('تفاصيل الفاتورة')}
     <table style="width:100%;border-collapse:collapse">
@@ -521,7 +522,7 @@ export function registrationInvoiceHtml({ exhibitor: e, exhibition: ex, payment 
     <div style="font-size:11px;color:#6B5A40;text-align:center;margin-top:-8px;margin-bottom:10px">
       تُعدّ هذه الشروط جزءاً لا يتجزأ من استمارة التسجيل، ويُقرّ المشارك بالاطلاع عليها والموافقة عليها بتوقيعه في الصفحة الأولى.
     </div>
-    ${PARTICIPATION_TERMS.map(
+    ${participationTerms(e.booth_size).map(
       (t, i) => `<div style="display:flex;gap:14px;padding:9px 0;border-bottom:1px solid #EFE7D6">
         <div style="color:#EC3013;font-weight:900;font-size:14px;width:18px">${bdi(i + 1)}</div>
         <div><div style="font-weight:800;font-size:13px">${t.title}</div><div style="font-size:12px;line-height:1.7">${t.text}</div></div>
