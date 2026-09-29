@@ -32,6 +32,11 @@ export async function acceptBooking(booking) {
   await unwrap(table().update({ status: 'مقبول' }).eq('id', booking.id))
 }
 
+/** An inquiry from the public link: answered, nothing to add as an exhibitor. */
+export const INQUIRY = 'استفسار'
+export const isInquiry = (booking) => booking?.kind === INQUIRY
+export const markInquiryAnswered = (id) => unwrap(table().update({ status: 'مقبول' }).eq('id', id))
+
 export const rejectBooking = (id) => unwrap(table().update({ status: 'مرفوض' }).eq('id', id))
 
 /** Call `onChange` whenever any booking row changes. Returns an unsubscribe function. */

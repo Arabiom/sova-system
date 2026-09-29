@@ -1,4 +1,4 @@
-import { lazy } from 'react'
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Splash } from './components/Feedback.jsx'
 import Layout from './components/Layout.jsx'
@@ -19,6 +19,7 @@ const Finance = lazy(() => import('./pages/Finance.jsx'))
 const WhatsApp = lazy(() => import('./pages/WhatsApp.jsx'))
 const Team = lazy(() => import('./pages/Team.jsx'))
 const Staff = lazy(() => import('./pages/Staff.jsx'))
+const PublicBooking = lazy(() => import('./pages/PublicBooking.jsx'))
 
 /** Internal system: every page requires a signed-in staff member. */
 function Protected() {
@@ -61,6 +62,15 @@ function Allow({ permission, children }) {
 export default function App() {
   return (
     <Routes>
+      {/* The only page open without an account: the public booking / contact link. */}
+      <Route
+        path="/book"
+        element={
+          <Suspense fallback={<Splash />}>
+            <PublicBooking />
+          </Suspense>
+        }
+      />
       <Route element={<Protected />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/team" element={<Team />} />
