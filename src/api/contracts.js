@@ -11,7 +11,9 @@ export const PAY_COMMISSION = 'عمولة فقط'
 export const PAY_TYPES = [PAY_MONTHLY, PAY_LUMP, PAY_COMMISSION]
 export const COMMISSION_BASES = ['المحصّل', 'قيمة العقود']
 export const CONTRACT_TITLES = ['مصمم', 'مسوق', 'منسق معارض', 'مصور', 'محاسب', 'مندوب مبيعات', 'مساعد إداري']
-export const DURATIONS = [1, 3, 6] // months; anything else = an end date chosen by hand
+export const DURATIONS = [1, 3, 6] // months; or an end date chosen by hand, or open-ended
+/** Open-ended contract (permanent staff): no end date (migration 024). */
+export const isOpen = (c) => !c?.end_date
 export const SALARY_CATEGORY = 'رواتب وأجور'
 
 const table = () => supabase.from('staff_contracts')
@@ -57,9 +59,10 @@ export function monthsOf(start, end) {
   return Math.max(1, n)
 }
 
-/** Fixed pay over the whole contract: months × salary, or the lump sum (commission apart). */
+/** Fixed pay over the whole contract: months × salary, or the lump sum (commission apart).
+ *  An open-ended salary has no total (null). */
 export const contractTotal = (c) =>
-  c.pay_type === PAY_COMMISSION ? 0 : c.pay_type === PAY_LUMP ? num(c.amount) : num(c.amount) * monthsOf(c.start_date, c.end_date)
+  c.pay_type === PAY_COMMISSION ? 0 : c.pay_type === PAY_LUMP ? num(c.amount) : isOpen(c) ? null : num(c.amount) * monthsOf(c.start_date, c.end_date)
 
 const day = (v) => String(v || '').slice(0, 10)
 const baisa = (v) => Math.round(num(v) * 1000) / 1000
@@ -73,7 +76,7 @@ const baisa = (v) => Math.round(num(v) * 1000) / 1000
 export function commissionOf(c, exhibitors = [], payments = []) {
   const pct = num(c.commission_pct)
   if (!pct || !c.user_id) return { participants: [], base: 0, earned: 0, recorded: num(c.commission_recorded), due: 0 }
-  const participants = exhibitors.filter((e) => e.created_by === c.user_id && day(e.created_at) >= c.start_date && day(e.created_at) <= c.end_date)
+  const participants = exhibitors.filter((e) => e.created_by === c.user_id && day(e.created_at) >= c.start_date && (isOpen(c) || day(e.created_at) <= c.end_date))
   const ids = new Set(participants.map((e) => e.id))
   const base =
     c.commission_base === 'قيمة العقود'
@@ -105,7 +108,7 @@ export async function recordCommission(c, amount, today) {
 /** Where a contract stands today. */
 export function contractStatus(c, today) {
   if (today < c.start_date) return 'قادم'
-  if (today > c.end_date) return 'منتهي'
+  if (!isOpen(c) && today > c.end_date) return 'منتهي'
   return 'ساري'
 }
 
@@ -113,7 +116,8 @@ export function validateContract(form) {
   const errors = []
   if (!form.name?.trim()) errors.push('الاسم')
   if (!form.start_date) errors.push('بداية العقد')
-  if (!form.end_date) errors.push('نهاية العقد')
+  if (!form.end_date && !form.open) errors.push('نهاية العقد')
+  if (form.open && form.pay_type === PAY_LUMP) errors.push('المبلغ المقطوع يحتاج تاريخ نهاية للعقد')
   if (form.start_date && form.end_date && form.end_date < form.start_date) errors.push('نهاية العقد قبل بدايته')
   if (form.pay_type === PAY_COMMISSION) {
     if (!(num(form.commission_pct) > 0)) errors.push('نسبة العمولة')
@@ -133,6 +137,7 @@ export function contractExpenseRow(c) {
     return iso(y, m, lastDay(y, m))
   }
   if (c.pay_type === PAY_LUMP) {
+    if (isOpen(c)) return null
     return {
       date: c.start_date,
       category: SALARY_CATEGORY,
@@ -147,9 +152,9 @@ export function contractExpenseRow(c) {
       notes: 'من عقود الفريق',
     }
   }
-  const n = monthsOf(c.start_date, c.end_date)
-  const lastPay = addMonths(c.start_date, n - 1)
-  const [ly, lm] = parts(lastPay)
+  const open = isOpen(c)
+  const n = open ? 0 : monthsOf(c.start_date, c.end_date)
+  const [ly, lm] = open ? [0, 0] : parts(addMonths(c.start_date, n - 1))
   return {
     date: c.start_date,
     category: SALARY_CATEGORY,
@@ -159,11 +164,38 @@ export function contractExpenseRow(c) {
     due_date: monthEnd(c.start_date),
     pay_from: c.start_date,
     pay_to: monthEnd(c.start_date),
-    // one salary a month, the last one in the contract's last month
-    recurring: n > 1,
-    recurring_end: n > 1 ? iso(ly, lm, 1) : null,
+    // one salary a month, the last one in the contract's last month (open-ended: no last one)
+    recurring: open || n > 1,
+    recurring_end: !open && n > 1 ? iso(ly, lm, 1) : null,
     notes: 'من عقود الفريق',
   }
+}
+
+/** The contract a company expense belongs to (its salary / lump sum, or a month added from it). */
+export const contractOfExpense = (contracts, x) =>
+  x ? contracts.find((c) => c.expense_id && (c.expense_id === x.id || c.expense_id === x.series_id)) || null : null
+
+/**
+ * Salaries entered by hand for someone who also has a contract — counted twice. A company
+ * expense in «رواتب وأجور», not the contract's own, whose description has the person's name,
+ * dated while the contract runs (or a fixed monthly one still running).
+ */
+export function duplicateSalaries(contracts, companyExpenses) {
+  const out = []
+  for (const c of contracts) {
+    const name = c.name?.trim()
+    if (!name || name.length < 2 || c.pay_type === PAY_COMMISSION) continue
+    const hits = companyExpenses.filter(
+      (x) =>
+        x.category === SALARY_CATEGORY &&
+        !contractOfExpense([c], x) &&
+        !String(x.notes || '').includes('عقود الفريق') &&
+        String(x.description || '').includes(name) &&
+        (x.recurring || (day(x.date) >= c.start_date && (isOpen(c) || day(x.date) <= c.end_date))),
+    )
+    if (hits.length) out.push({ contract: c, expenses: hits })
+  }
+  return out
 }
 
 export function toContractRow(form) {
@@ -171,7 +203,7 @@ export function toContractRow(form) {
     name: form.name.trim(),
     title: form.title?.trim() || '',
     start_date: form.start_date,
-    end_date: form.end_date,
+    end_date: form.open ? null : form.end_date,
     pay_type: PAY_TYPES.includes(form.pay_type) ? form.pay_type : PAY_MONTHLY,
     amount: form.pay_type === PAY_COMMISSION ? 0 : num(form.amount),
     commission_pct: num(form.commission_pct),

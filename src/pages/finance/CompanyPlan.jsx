@@ -202,7 +202,7 @@ export default function CompanyPlan({ data }) {
                             <div className="strong">{c.name}</div>
                             <div className="muted tiny">{c.title}</div>
                           </td>
-                          <td className="small nowrap">{formatDate(c.start_date)} ← {formatDate(c.end_date)}</td>
+                          <td className="small nowrap">{formatDate(c.start_date)} ← {c.end_date ? formatDate(c.end_date) : tr('مفتوح')}</td>
                           <td className="num">{formatOMR(fixed)}</td>
                           <td className="num">{commission.earned ? formatOMR(commission.earned) : '—'}</td>
                         </tr>

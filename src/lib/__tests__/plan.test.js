@@ -110,3 +110,40 @@ describe('company plan', () => {
     ])
   })
 })
+
+describe('one place for salaries', async () => {
+  const { contractOfExpense, duplicateSalaries } = await import('../../api/contracts.js')
+  const c = { id: 'k', name: 'عرابي القاسمي', start_date: '2026-10-01', end_date: '2026-12-31', pay_type: 'شهري', amount: 325, expense_id: 'e1' }
+  it('finds the contract behind a salary (the first one or a month added from it)', () => {
+    expect(contractOfExpense([c], { id: 'e1' })).toBe(c)
+    expect(contractOfExpense([c], { id: 'e7', series_id: 'e1' })).toBe(c)
+    expect(contractOfExpense([c], { id: 'e9' })).toBe(null)
+  })
+  it('flags a salary entered by hand for someone with a contract', () => {
+    const manual = { id: 'm', category: 'رواتب وأجور', description: 'راتب عرابي القاسمي', date: '2026-09-25', recurring: true }
+    const own = { id: 'e1', category: 'رواتب وأجور', description: 'راتب عرابي القاسمي (عقد)', date: '2026-10-01', recurring: true, notes: 'من عقود الفريق' }
+    const other = { id: 'o', category: 'رواتب وأجور', description: 'راتب سارة', date: '2026-10-05' }
+    const [d] = duplicateSalaries([c], [manual, own, other])
+    expect(d.expenses.map((x) => x.id)).toEqual(['m'])
+    expect(duplicateSalaries([c], [own, other])).toEqual([])
+  })
+})
+
+describe('open-ended contracts', async () => {
+  const { contractExpenseRow, contractStatus, contractTotal, toContractRow, validateContract } = await import('../../api/contracts.js')
+  const { contractsInPeriod } = await import('../plan.js')
+  const open = { name: 'عرابي', start_date: '2026-10-01', end_date: null, pay_type: 'شهري', amount: 325 }
+  it('salary keeps recurring with no last month; no total; always running once started', () => {
+    expect(contractExpenseRow(open)).toMatchObject({ recurring: true, recurring_end: null, amount: 325 })
+    expect(contractTotal(open)).toBe(null)
+    expect(contractStatus(open, '2030-01-01')).toBe('ساري')
+  })
+  it('saved without an end date; a lump sum needs one', () => {
+    expect(toContractRow({ ...open, open: true, end_date: '2026-12-31' }).end_date).toBe(null)
+    expect(validateContract({ ...open, open: true })).toEqual([])
+    expect(validateContract({ ...open, open: true, pay_type: 'مبلغ مقطوع' })).toContain('المبلغ المقطوع يحتاج تاريخ نهاية للعقد')
+  })
+  it('counts every month of the plan', () => {
+    expect(contractsInPeriod([open], '2026-10-01', '2027-03-31')[0].fixed).toBe(1950)
+  })
+})

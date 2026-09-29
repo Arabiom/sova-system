@@ -17,7 +17,7 @@ import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
 import { CHEQUE_KIND, deleteObligation, listObligations, OBLIGATION_KINDS, obligationState, payObligation, postponeObligation, REFUND_KIND, reopenObligation, saveObligation, validateObligation } from '../api/obligations.js'
-import { listContracts } from '../api/contracts.js'
+import { contractOfExpense, duplicateSalaries, listContracts, SALARY_CATEGORY } from '../api/contracts.js'
 import { listStaff } from '../api/staff.js'
 import { listStaffExpenses, openReceipt } from '../api/staffExpenses.js'
 import { checkFile } from '../api/storage.js'
@@ -389,7 +389,7 @@ function repeatText(from, to, every) {
 
 const OTHER_CATEGORY = '__other__'
 
-function CompanyExpenseForm({ expense, used = [], onClose, onSaved }) {
+function CompanyExpenseForm({ expense, used = [], onClose, onSaved, onTeam }) {
   const toast = useToast()
   const editing = Boolean(expense?.id)
   const [form, setForm] = useState(() =>
@@ -481,6 +481,14 @@ function CompanyExpenseForm({ expense, used = [], onClose, onSaved }) {
           </select>
           {customCategory && <input className="input mt-8" autoFocus placeholder={tr('اكتب التصنيف')} value={form.category || ''} onChange={set('category')} />}
         </Field>
+        {form.category === SALARY_CATEGORY && !expense?.id && onTeam && (
+          <div className="alert alert-warning span-2">
+            {tr('👔 لرواتب الموظفين استخدم «عقود الفريق» — يُسجَّل الراتب هنا تلقائياً كل شهر ويتوقف مع نهاية العقد. تسجيله هنا وهناك يحسبه مرتين.')}{' '}
+            <Button size="sm" variant="outline" onClick={onTeam}>
+              {tr('فتح عقود الفريق')}
+            </Button>
+          </div>
+        )}
         <Field label={tr('الحالة')}>
           <select className="input" value={form.paid === false ? 'no' : 'yes'} onChange={(e) => setForm((f) => ({ ...f, paid: e.target.value === 'yes' }))}>
             <option value="yes">{tr('مدفوع')}</option>
@@ -764,6 +772,8 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
 
   const all = allExpenses(data)
   const exhibitionOf = (id) => data.exhibitions.find((x) => x.id === id)
+  // Salaries created by a team contract are changed from the contract, not here.
+  const contractOf = (x) => (x.kind === 'company' ? contractOfExpense(data.contracts || [], x.source) : null)
   const nameOf = (id) => {
     const s = data.staff.find((x) => x.user_id === id)
     return s?.name || s?.email || ''
@@ -919,6 +929,7 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
                       {tr(x.description)}
                       {x.recurring && <span className="badge badge-info mis-6" title={tr('يُضاف تلقائياً')}>🔁 {tr(everyLabel(x.recurring_every) || 'كل شهر')}</span>}
                       {x.series_id && <span className="badge badge-neutral mis-6">{tr('🔁 شهر {0}', [x.period])}</span>}
+                      {contractOf(x) && <span className="badge badge-success mis-6" title={tr('يُعدَّل من عقود الفريق')}>{tr('👔 من عقد: {0}', [contractOf(x).name])}</span>}
                     </div>
                     {(x.user_id || x.notes) && <div className="muted tiny">{[x.user_id && nameOf(x.user_id), x.notes].filter(Boolean).join(' • ')}</div>}
                   </td>
@@ -983,7 +994,19 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
                         {tr('مراجعة ↗')}
                       </Button>
                     ) : (
-                      canManage && (
+                      canManage &&
+                      (contractOf(x) ? (
+                        <div className="row-actions">
+                          <Button size="sm" variant="outline" onClick={() => go('team', { contract: contractOf(x).id })} title={tr('تعديل الراتب من العقد')}>
+                            {tr('👔 العقد')}
+                          </Button>
+                          {x.source.series_id && (
+                            <Button size="sm" variant="danger" onClick={() => remove(x)} title={tr('حذف راتب هذا الشهر فقط')}>
+                              🗑️
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
                         <div className="row-actions">
                           <Button size="sm" variant="outline" onClick={() => setEditing(x)} title={tr('تعديل')}>
                             ✏️
@@ -992,7 +1015,7 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
                             🗑️
                           </Button>
                         </div>
-                      )
+                      ))
                     )}
                   </td>
                 </tr>
@@ -1015,7 +1038,7 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
           onSaved={saved}
         />
       )}
-      {(adding === 'company' || editing?.kind === 'company') && <CompanyExpenseForm expense={editing?.source || null} used={data.companyExpenses.map((x) => x.category)} onClose={() => (setAdding(null), setEditing(null))} onSaved={saved} />}
+      {(adding === 'company' || editing?.kind === 'company') && <CompanyExpenseForm expense={editing?.source || null} used={data.companyExpenses.map((x) => x.category)} onTeam={() => (setAdding(null), setEditing(null), go('team'))} onClose={() => (setAdding(null), setEditing(null))} onSaved={saved} />}
       {(adding === 'obligation' || editing?.kind === 'obligation') && (
         <ObligationForm obligation={editing?.source || null} exhibitors={data.exhibitors} exhibitions={data.exhibitions} onClose={() => (setAdding(null), setEditing(null))} onSaved={saved} />
       )}
@@ -1152,6 +1175,7 @@ function Attention({ data, o, go, today: day }) {
   const overdue = unpaidList.filter((x) => dueOf(x) && dueOf(x) < day)
   const payNow = unpaidList.filter((x) => x.kind === 'company' && paymentWindowState(x, day) === 'open')
   const obLate = data.obligations.filter((x) => obligationState(x, day) === 'late')
+  const doubled = duplicateSalaries(data.contracts || [], data.companyExpenses)
   const obSoon = data.obligations.filter((x) => obligationState(x, day) === 'soon')
   const items = [
     ...alerts.map((a) => ({
@@ -1178,6 +1202,12 @@ function Attention({ data, o, go, today: day }) {
       text: `💵 ${tr('مطالبات معتمدة لم تُعوَّض للموظفين بعد: {0}', [formatOMR(o.staffOwed)])}`,
       open: () => go('claims'),
     },
+    ...doubled.map((d) => ({
+      key: `dup:${d.contract.id}`,
+      tone: 'danger',
+      text: `⚠️ ${tr('راتب «{0}» مسجّل يدوياً في المصروفات ({1}) وله عقد في «عقود الفريق» — يُحسب مرتين. احذف المسجّل يدوياً', [d.contract.name, d.expenses.map((x) => x.description).join('، ')])}`,
+      open: () => go('expenses', { kind: 'company' }),
+    })),
     obLate.length && {
       key: 'ol',
       tone: 'danger',
@@ -1261,7 +1291,7 @@ export default function Finance() {
       {tab === 'claims' && <Expenses embedded onChanged={reload} />}
       {tab === 'exhibitions' && <Plan data={data} />}
       {tab === 'ledger' && <Ledger data={data} />}
-      {tab === 'team' && <TeamContracts data={data} canManage={canManage} reload={reload} />}
+      {tab === 'team' && <TeamContracts key={focus.contract || ''} data={data} canManage={canManage} reload={reload} openId={focus.contract} />}
       {tab === 'company-plan' && <CompanyPlan data={data} />}
       {tab === 'reports' && <Reports embedded />}
     </>
