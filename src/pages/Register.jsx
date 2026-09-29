@@ -267,21 +267,14 @@ export default function Register() {
 
           <Panel icon="📍" title={tr('نظام البوث والموقع')} subtitle={exhibition ? boothNote : tr('اختر المعرض أولاً لتظهر باقاته وأسعاره')}>
             {exhibition && !hasOwnPackages(exhibition) && (
-              <div className="alert alert-warning">
-                {tr('لم تُحدَّد باقات «{0}» بعد، فتظهر الباقات الافتراضية.', [exhibitionLabel(exhibition)])}
-                {canSetPackages && (
-                  <>
-                    {' '}
-                    <Link to={`/exhibitions/${exhibition.id}`}>{tr('حدّدها من ملف المعرض ← تعديل البيانات')}</Link>
-                  </>
+              <div className="alert alert-danger">
+                {tr('لم تُحدَّد باقات «{0}» ومميزاتها وأسعارها بعد — لا يمكن التسجيل فيه حتى تُحدَّد.', [exhibitionLabel(exhibition)])}{' '}
+                {canSetPackages ? (
+                  <Link to={`/exhibitions/${exhibition.id}`}>{tr('حدّدها من ملف المعرض ← تعديل البيانات')}</Link>
+                ) : (
+                  tr('اطلب من الإدارة تحديدها.')
                 )}
               </div>
-            )}
-            {exhibition?.map_path && (
-              <details className="map-details mb-16">
-                <summary>{tr('🗺️ عرض خارطة المعرض')}</summary>
-                <ExhibitionMap key={exhibition.map_path} path={exhibition.map_path} />
-              </details>
             )}
             <Choices
               options={exhibition ? packages : []}
@@ -342,6 +335,7 @@ export default function Register() {
           </Panel>
 
           <Panel icon="➕" title={pending ? tr('إضافات اختيارية — برسوم إضافية') : tr('إضافات اختيارية وخصم')}>
+            {exhibition && !boothExtras.length && <div className="muted small mb-8">{tr('لا توجد إضافات محددة لهذا المعرض.')}</div>}
             <div className="extras-grid">
               {boothExtras.map((x) => (
                 <div key={x.name} className="extra-row">

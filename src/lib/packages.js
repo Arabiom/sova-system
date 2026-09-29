@@ -1,7 +1,8 @@
 // Booth packages, extras and the booth note of one exhibition. Each exhibition sets its own
-// (migration 018); until it does, the system's default packages are used — and flagged.
+// (migration 018); nothing generic is shown — an exhibition without packages has none until
+// they are set. The defaults only serve as a starting point on the exhibition form.
 
-import { BOOTH_AREA, BOOTH_EXTRAS, BOOTH_NOTE, BOOTH_PACKAGES } from './constants.js'
+import { BOOTH_AREA, BOOTH_EXTRAS, BOOTH_PACKAGES } from './constants.js'
 import { num } from './format.js'
 
 const text = (v) => String(v ?? '').trim()
@@ -18,23 +19,14 @@ export const cleanExtras = (rows = []) => rows.map((x) => ({ name: text(x.name),
 /** Whether this exhibition has its own packages. */
 export const hasOwnPackages = (exhibition) => Array.isArray(exhibition?.booth_packages) && cleanPackages(exhibition.booth_packages).length > 0
 
-/** The exhibition's packages, else the defaults. */
-export function packagesOf(exhibition) {
-  if (hasOwnPackages(exhibition)) return cleanPackages(exhibition.booth_packages)
-  return BOOTH_PACKAGES.map((p) => ({ ...p, area: BOOTH_AREA }))
-}
+/** The exhibition's own packages ([] until they are set). */
+export const packagesOf = (exhibition) => (hasOwnPackages(exhibition) ? cleanPackages(exhibition.booth_packages) : [])
 
-/** The exhibition's extras (an empty list set on purpose = no extras), else the defaults. */
-export function extrasOf(exhibition) {
-  if (Array.isArray(exhibition?.booth_extras)) return cleanExtras(exhibition.booth_extras)
-  return BOOTH_EXTRAS
-}
+/** The exhibition's own extras ([] until they are set). */
+export const extrasOf = (exhibition) => (Array.isArray(exhibition?.booth_extras) ? cleanExtras(exhibition.booth_extras) : [])
 
-/** The note under the booth section: the exhibition's own, else the default one with default packages. */
-export function boothNoteOf(exhibition) {
-  if (text(exhibition?.booth_note)) return text(exhibition.booth_note)
-  return hasOwnPackages(exhibition) ? '' : BOOTH_NOTE
-}
+/** The exhibition's own note under the booth section ('' when none). */
+export const boothNoteOf = (exhibition) => text(exhibition?.booth_note)
 
 /** One package of this exhibition by name (as stored on the exhibitor's booth_type). */
 export const packageOf = (exhibition, name) => (name ? packagesOf(exhibition).find((p) => p.name === name) || null : null)

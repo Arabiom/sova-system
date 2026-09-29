@@ -64,7 +64,7 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
   const extraRows = rowsOf('extras')
   const noPackages = !cleanPackages(form.packages).length
   const startFromDefaults = () =>
-    setForm((f) => ({ ...f, packages: defaultPackages(), extras: f.extrasSet ? f.extras : defaultExtras(), extrasSet: true }))
+    setForm((f) => ({ ...f, packages: defaultPackages(), extras: cleanExtras(f.extras).length ? f.extras : defaultExtras(), extrasSet: true }))
 
   const submit = async () => {
     if (!form.city || !form.mall || !form.date_from || !form.date_to) return toast(tr('أكمل البيانات المطلوبة'), 'error')
@@ -180,9 +180,9 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
         </div>
         {noPackages && (
           <div className="alert alert-warning">
-            {tr('لم تُحدَّد باقات لهذا المعرض بعد — تظهر الباقات الافتراضية في الاستمارة حتى تحددها.')}{' '}
+            {tr('لم تُحدَّد باقات لهذا المعرض بعد — لا يمكن تسجيل مشاركين فيه حتى تحددها.')}{' '}
             <Button size="sm" variant="outline" onClick={startFromDefaults}>
-              {tr('ابدأ من الباقات الافتراضية وعدّلها')}
+              {tr('املأ نموذجاً جاهزاً أعدّله')}
             </Button>
           </div>
         )}
@@ -210,8 +210,7 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
         </Button>
 
         <div className="field-label mt-8">{tr('➕ الإضافات الاختيارية وأسعارها')}</div>
-        {!form.extrasSet && <div className="muted tiny mb-8">{tr('لم تُحدَّد — تظهر الإضافات الافتراضية. أضف إضافة لتحدد قائمة هذا المعرض.')}</div>}
-        {form.extrasSet && !cleanExtras(form.extras).length && <div className="muted tiny mb-8">{tr('بدون إضافات في هذا المعرض.')}</div>}
+        {!cleanExtras(form.extras).length && <div className="muted tiny mb-8">{tr('بدون إضافات في هذا المعرض.')}</div>}
         {form.extras.map((x, index) => (
           <div key={index} className="tier-row">
             <Field label={tr('الإضافة')}>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { toExhibitionRow } from '../../api/exhibitions.js'
-import { BOOTH_PACKAGES, participationTerms } from '../constants.js'
+import { participationTerms } from '../constants.js'
 import { boothNoteOf, cleanPackages, extrasOf, hasOwnPackages, packageOf, packagesOf } from '../packages.js'
 
 const own = {
@@ -25,12 +25,12 @@ describe('packages of an exhibition', () => {
     expect(packageOf(own, 'ركن مدخل')).toBe(null)
   })
 
-  it('falls back to the defaults until the exhibition has its own', () => {
+  it('shows nothing generic until the exhibition has its own', () => {
     expect(hasOwnPackages({})).toBe(false)
-    expect(packagesOf({}).map((p) => p.price)).toEqual(BOOTH_PACKAGES.map((p) => p.price))
-    expect(boothNoteOf({})).not.toBe('')
-    expect(boothNoteOf({ booth_packages: own.booth_packages })).toBe('') // no generic note under its own packages
-    expect(extrasOf({ booth_extras: [] })).toEqual([]) // no extras, on purpose
+    expect(packagesOf({})).toEqual([])
+    expect(extrasOf({})).toEqual([])
+    expect(boothNoteOf({})).toBe('')
+    expect(packageOf({}, 'ركن مدخل')).toBe(null)
   })
 
   it('drops blank rows', () => {

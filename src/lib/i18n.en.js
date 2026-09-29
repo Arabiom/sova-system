@@ -1387,4 +1387,9 @@ export default {
   "يُطبَّق على قيمة الاشتراك والإضافات قبل الضريبة": "Applied to the package and extras before VAT",
   "🏷️ خصم للمشارك (اختياري — للمدير والمالية)": "🏷️ Discount for the participant (optional — manager and finance)",
   "نسبة الخصم أكثر من 100%": "Discount percentage above 100%",
+  "اطلب من الإدارة تحديدها.": "Ask the management to set them.",
+  "املأ نموذجاً جاهزاً أعدّله": "Fill in a ready template to adjust",
+  "لا توجد إضافات محددة لهذا المعرض.": "No extras set for this exhibition.",
+  "لم تُحدَّد باقات «{0}» ومميزاتها وأسعارها بعد — لا يمكن التسجيل فيه حتى تُحدَّد.": "The packages, features and prices of «{0}» are not set yet — registration is closed until they are.",
+  "لم تُحدَّد باقات لهذا المعرض بعد — لا يمكن تسجيل مشاركين فيه حتى تحددها.": "No packages set for this exhibition yet — participants cannot be registered until you set them.",
 }
