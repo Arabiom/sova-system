@@ -91,3 +91,22 @@ describe('fixed monthly company expenses', async () => {
     ])
   })
 })
+
+describe('payment window of a company expense', async () => {
+  const { paymentWindowState, toCompanyExpenseRow } = await import('../../api/companyExpenses.js')
+  const x = { paid: false, pay_from: '2026-10-01', pay_to: '2026-10-05' }
+  it('upcoming, open, late, paid', () => {
+    expect(paymentWindowState(x, '2026-09-29')).toBe('upcoming')
+    expect(paymentWindowState(x, '2026-10-01')).toBe('open')
+    expect(paymentWindowState(x, '2026-10-05')).toBe('open')
+    expect(paymentWindowState(x, '2026-10-06')).toBe('late')
+    expect(paymentWindowState({ ...x, paid: true }, '2026-10-06')).toBe('')
+    expect(paymentWindowState({ paid: false, due_date: '2026-10-05' }, '2026-10-03')).toBe('open')
+    expect(paymentWindowState({ paid: false }, '2026-10-03')).toBe('')
+  })
+  it('the due date is the end of the window; the window is sent only when set', () => {
+    const base = { description: 'إيجار', amount: 150, date: '2026-09-29' }
+    expect(toCompanyExpenseRow({ ...base, paid: false, pay_from: '2026-10-01', pay_to: '2026-10-05' })).toMatchObject({ due_date: '2026-10-05', pay_from: '2026-10-01', pay_to: '2026-10-05' })
+    expect('pay_from' in toCompanyExpenseRow(base)).toBe(false)
+  })
+})

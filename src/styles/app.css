@@ -2649,8 +2649,16 @@ a.ex-card-head {
   align-items: center;
 }
 .date-input .input {
-  padding-inline-end: 44px;
-  text-align: start;
+  /* the field itself is left-to-right (dd/mm/yyyy); the calendar button sits at the page's
+     inline end — the left in Arabic, the right in English — so pad that physical side */
+  padding-left: 44px;
+  padding-right: 12px;
+  text-align: right;
+}
+[dir='ltr'] .date-input .input {
+  padding-left: 12px;
+  padding-right: 44px;
+  text-align: left;
 }
 .date-input-btn {
   position: absolute;
@@ -3201,4 +3209,14 @@ a.ex-card-head {
 }
 .mis-6 {
   margin-inline-start: 6px;
+}
+.window-box {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px dashed var(--gold);
+  border-radius: 12px;
+  background: var(--gold-p);
+}
+.mt-4 {
+  margin-top: 4px;
 }

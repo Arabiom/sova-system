@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import {
   addDueMonthlyExpenses,
+  paymentWindowState,
   COMPANY_EXPENSE_CATEGORIES,
   deleteCompanyExpense,
   monthlyFixedTotal,
@@ -71,7 +72,6 @@ const load = async () => {
   return { exhibitions, exhibitors, payments, sites, expenses, sponsors, companyExpenses, staffExpenses, staff }
 }
 
-const today = () => todayISO()
 
 // ── 1. Overview ─────────────────────────────────────────────────────────────
 function Overview({ o, flow, go, fixed = 0 }) {
@@ -365,7 +365,12 @@ function CompanyExpenseForm({ expense, onClose, onSaved }) {
   const editing = Boolean(expense?.id)
   const [form, setForm] = useState(() =>
     expense
-      ? { ...expense, wasRecurring: Boolean(expense.recurring), recurring_end: expense.recurring_end ? String(expense.recurring_end).slice(0, 7) : '' }
+      ? {
+          ...expense,
+          wasRecurring: Boolean(expense.recurring),
+          hadWindow: Boolean(expense.pay_from || expense.pay_to),
+          recurring_end: expense.recurring_end ? String(expense.recurring_end).slice(0, 7) : '',
+        }
       : { date: todayISO(), category: COMPANY_EXPENSE_CATEGORIES[0], paid: true },
   )
   const monthOfSeries = Boolean(expense?.series_id) // a month added automatically from a fixed expense
@@ -437,12 +442,21 @@ function CompanyExpenseForm({ expense, onClose, onSaved }) {
             <option value="no">{tr('غير مدفوع (مستحق)')}</option>
           </select>
         </Field>
-        {form.paid === false && (
-          <Field label={tr('تاريخ الاستحقاق')}>
-            <DateInput value={form.due_date || ''} onChange={set('due_date')} />
-          </Field>
-        )}
       </div>
+      {(form.paid === false || form.recurring || form.pay_from || form.pay_to) && (
+        <div className="window-box">
+          <div className="field-label">{tr('📅 فترة الدفع — يتوجب الدفع')}</div>
+          <div className="form-grid">
+            <Field label={tr('من تاريخ')}>
+              <DateInput value={form.pay_from || ''} onChange={set('pay_from')} />
+            </Field>
+            <Field label={tr('إلى تاريخ')} hint={tr('بعده يظهر «متأخر» في المتابعة')}>
+              <DateInput value={form.pay_to || form.due_date || ''} onChange={set('pay_to')} />
+            </Field>
+          </div>
+          {form.recurring && !monthOfSeries && <div className="muted tiny">{tr('تتكرر نفس الفترة كل شهر — مثال: من 1 إلى 5 من كل شهر.')}</div>}
+        </div>
+      )}
       {monthOfSeries ? (
         <div className="alert alert-info">{tr('🔁 هذا شهر {0} من مصروف شهري ثابت، أُضيف تلقائياً. تعديله يغيّر هذا الشهر فقط؛ لتغيير المبلغ لكل الأشهر القادمة أو إيقافه عدّل التسجيل الأصلي.', [expense.period])}</div>
       ) : (
@@ -480,6 +494,22 @@ function CompanyExpenseForm({ expense, onClose, onSaved }) {
 }
 
 // ── 4. Every expense in one list ────────────────────────────────────────────
+const WINDOW_LABEL = { upcoming: 'قادم', open: 'مستحق الآن', late: 'متأخر' }
+const WINDOW_CLASS = { upcoming: 'muted', open: 'text-wrn strong', late: 'text-dng strong' }
+
+/** Payment window of an unpaid company expense: «يُدفع من … إلى …» and where it stands today. */
+function PayWindow({ x }) {
+  const state = paymentWindowState(x, omanDay())
+  if (!state) return null
+  const from = x.pay_from ? formatDate(x.pay_from) : ''
+  const to = x.pay_to || x.due_date ? formatDate(x.pay_to || x.due_date) : ''
+  return (
+    <div className={`tiny mt-4 ${WINDOW_CLASS[state]}`}>
+      {tr(WINDOW_LABEL[state])} — {from ? tr('من {0} إلى {1}', [from, to || '—']) : tr('حتى {0}', [to])}
+    </div>
+  )
+}
+
 const KIND_ICON = { exhibition: '🏛️', company: '🏢', claim: '👥' }
 
 function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
@@ -647,7 +677,7 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
                         {x.paid ? tr('✓ مدفوع') : tr('غير مدفوع')}
                       </button>
                     )}
-                    {!x.paid && x.kind === 'company' && x.due_date && x.due_date < today() && <div className="tiny text-dng strong">{tr('متأخر —')}{' '}{x.due_date}</div>}
+                    {x.kind === 'company' && <PayWindow x={x} />}
                   </td>
                   <td>
                     {x.receipt ? (
@@ -814,8 +844,10 @@ function Attention({ data, o, go, today: day }) {
   const alerts = collectionAlerts(data.exhibitions, data.exhibitors, day)
   const pendingPayments = data.payments.filter((p) => !isConfirmed(p))
   const pendingClaims = data.staffExpenses.filter((x) => x.status === 'بانتظار المراجعة')
-  const dueOf = (x) => (x.kind === 'company' ? x.due_date : x.source.due_date) || ''
-  const overdue = allExpenses(data).filter((x) => x.kind !== 'claim' && !x.paid && dueOf(x) && dueOf(x) < day)
+  const dueOf = (x) => (x.kind === 'company' ? x.pay_to || x.due_date : x.source.due_date) || ''
+  const unpaidList = allExpenses(data).filter((x) => x.kind !== 'claim' && !x.paid)
+  const overdue = unpaidList.filter((x) => dueOf(x) && dueOf(x) < day)
+  const payNow = unpaidList.filter((x) => x.kind === 'company' && paymentWindowState(x, day) === 'open')
   const items = [
     ...alerts.map((a) => ({
       key: `d:${a.exhibition.id}`,
@@ -840,6 +872,12 @@ function Attention({ data, o, go, today: day }) {
       tone: 'info',
       text: `💵 ${tr('مطالبات معتمدة لم تُعوَّض للموظفين بعد: {0}', [formatOMR(o.staffOwed)])}`,
       open: () => go('claims'),
+    },
+    payNow.length && {
+      key: 'pn',
+      tone: 'warning',
+      text: `📅 ${tr('{0} مصروف موعد دفعه الآن ({1})', [payNow.length, formatOMR(sumBy(payNow, 'amount'))])}`,
+      open: () => go('expenses', { kind: 'company' }),
     },
     overdue.length && {
       key: 'od',

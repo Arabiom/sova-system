@@ -369,6 +369,8 @@ export function allExpenses({ expenses = [], companyExpenses = [], staffExpenses
       paid: x.paid !== false,
       counted: true,
       due_date: x.due_date || '',
+      pay_from: x.pay_from || '',
+      pay_to: x.pay_to || '',
       receipt: x.receipt_path || '',
       notes: x.notes || '',
       recurring: Boolean(x.recurring),

@@ -34,7 +34,22 @@ export function validateCompanyExpense(form) {
   if (!form.description?.trim()) errors.push('البيان')
   if (!(num(form.amount) > 0)) errors.push('المبلغ')
   if (!form.date) errors.push('التاريخ')
+  if (form.pay_from && form.pay_to && form.pay_to < form.pay_from) errors.push('نهاية فترة الدفع قبل بدايتها')
   return errors
+}
+
+/**
+ * Where an unpaid expense stands against its payment window:
+ * 'upcoming' (window not open yet), 'open' (pay now), 'late' (window over), '' (paid / no dates).
+ */
+export function paymentWindowState(x, today) {
+  if (x.paid !== false) return ''
+  const from = x.pay_from || ''
+  const to = x.pay_to || x.due_date || ''
+  if (to && today > to) return 'late'
+  if (from && today < from) return 'upcoming'
+  if (from || to) return 'open'
+  return ''
 }
 
 export function toCompanyExpenseRow(form) {
@@ -44,8 +59,14 @@ export function toCompanyExpenseRow(form) {
     description: form.description.trim(),
     amount: num(form.amount),
     paid: form.paid !== false,
-    due_date: form.paid === false ? form.due_date || null : null,
+    due_date: form.paid === false ? form.pay_to || form.due_date || null : null,
     notes: form.notes?.trim() || '',
+  }
+  // Payment window "from … to …" (migration 020): only sent when set or cleared, so a database
+  // without the update still saves.
+  if (form.pay_from || form.pay_to || form.hadWindow) {
+    row.pay_from = form.pay_from || null
+    row.pay_to = form.pay_to || null
   }
   // Fixed monthly (migration 019): only sent when set or being switched off, so a database
   // without the update still saves ordinary expenses.
