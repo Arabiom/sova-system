@@ -46,19 +46,29 @@ function ContractForm({ contract, staff, onClose, onSaved }) {
   const editing = Boolean(contract?.id)
   const [form, setForm] = useState(() =>
     contract
-      ? { ...contract, duration: DURATIONS.find((d) => endAfter(contract.start_date, d) === contract.end_date) || 'custom' }
+      ? {
+          ...contract,
+          open: !contract.end_date,
+          duration: !contract.end_date ? 'open' : DURATIONS.find((d) => endAfter(contract.start_date, d) === contract.end_date) || 'custom',
+        }
       : { pay_type: PAY_MONTHLY, start_date: nextMonthStart(), duration: 3, end_date: endAfter(nextMonthStart(), 3), commission_pct: '', commission_base: COMMISSION_BASES[0] },
   )
   const [saving, setSaving] = useState(false)
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const setStart = (e) => {
     const start = e.target.value
-    setForm((f) => ({ ...f, start_date: start, end_date: f.duration !== 'custom' && start ? endAfter(start, f.duration) : f.end_date }))
+    setForm((f) => ({ ...f, start_date: start, end_date: DURATIONS.includes(f.duration) && start ? endAfter(start, f.duration) : f.end_date }))
   }
-  const setDuration = (d) => setForm((f) => ({ ...f, duration: d, end_date: d !== 'custom' && f.start_date ? endAfter(f.start_date, d) : f.end_date }))
+  const setDuration = (d) =>
+    setForm((f) => ({
+      ...f,
+      duration: d,
+      open: d === 'open',
+      end_date: DURATIONS.includes(d) && f.start_date ? endAfter(f.start_date, d) : d === 'open' ? '' : f.end_date || '',
+    }))
   const commissionOnly = form.pay_type === PAY_COMMISSION
-  const months = form.start_date && form.end_date && form.end_date >= form.start_date ? monthsOf(form.start_date, form.end_date) : 0
-  const total = contractTotal({ ...form, amount: num(form.amount) })
+  const months = !form.open && form.start_date && form.end_date && form.end_date >= form.start_date ? monthsOf(form.start_date, form.end_date) : 0
+  const total = contractTotal({ ...form, end_date: form.open ? null : form.end_date, amount: num(form.amount) })
 
   const submit = async () => {
     const errors = validateContract(form)
@@ -108,17 +118,21 @@ function ContractForm({ contract, staff, onClose, onSaved }) {
           <DateInput value={form.start_date || ''} onChange={setStart} />
         </Field>
         <Field label={tr('مدة العقد')} required>
-          <div className="choice-grid choice-grid-4">
-            {[...DURATIONS, 'custom'].map((d) => (
+          <div className="choice-grid choice-grid-5">
+            {['open', ...DURATIONS, 'custom'].map((d) => (
               <button type="button" key={d} className={`choice ${form.duration === d ? 'selected' : ''}`} aria-pressed={form.duration === d} onClick={() => setDuration(d)}>
-                <span className="choice-title">{d === 'custom' ? tr('أحدد النهاية') : monthsLabel(d)}</span>
+                <span className="choice-title">{d === 'open' ? tr('مفتوح') : d === 'custom' ? tr('أحدد النهاية') : monthsLabel(d)}</span>
               </button>
             ))}
           </div>
         </Field>
-        <Field label={tr('نهاية العقد')} required hint={months ? tr('{0} — ينتهي {1}', [monthsLabel(months), formatDate(form.end_date)]) : undefined}>
-          <DateInput value={form.end_date || ''} onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value, duration: 'custom' }))} />
-        </Field>
+        {form.open ? (
+          <div className="alert alert-info span-2">{tr('عقد مفتوح بدون تاريخ نهاية — الراتب يُضاف كل شهر حتى تحدد له نهاية لاحقاً من «تعديل».')}</div>
+        ) : (
+          <Field label={tr('نهاية العقد')} required hint={months ? tr('{0} — ينتهي {1}', [monthsLabel(months), formatDate(form.end_date)]) : undefined}>
+            <DateInput value={form.end_date || ''} onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value, duration: 'custom', open: false }))} />
+          </Field>
+        )}
       </div>
 
       <div className="window-box">
@@ -163,6 +177,9 @@ function ContractForm({ contract, staff, onClose, onSaved }) {
             </>
           )}
         </div>
+        {!commissionOnly && num(form.amount) > 0 && form.open && form.pay_type === PAY_MONTHLY && (
+          <div className="strong small">{tr('التكلفة: {0} شهرياً — مستمر حتى تحدد نهاية للعقد', [formatOMR(num(form.amount))])}</div>
+        )}
         {!commissionOnly && num(form.amount) > 0 && months > 0 && (
           <div className="strong small">
             {form.pay_type === PAY_LUMP
@@ -179,15 +196,16 @@ function ContractForm({ contract, staff, onClose, onSaved }) {
   )
 }
 
-export default function TeamContracts({ data, canManage, reload }) {
+export default function TeamContracts({ data, canManage, reload, openId }) {
   const toast = useToast()
-  const [editing, setEditing] = useState(null)
+  // Opened from a salary in «all expenses»: start on that contract's form.
+  const [editing, setEditing] = useState(() => (openId && canManage ? (data.contracts || []).find((c) => c.id === openId) || null : null))
   const today = omanDay()
   const contracts = data.contracts || []
   const rows = contracts.map((c) => ({ c, status: contractStatus(c, today), commission: commissionOf(c, data.exhibitors, data.payments) }))
   const running = rows.filter((r) => r.status === 'ساري')
   const monthly = running.filter((r) => r.c.pay_type === PAY_MONTHLY).reduce((t, r) => t + num(r.c.amount), 0)
-  const committed = rows.filter((r) => r.status !== 'منتهي').reduce((t, r) => t + contractTotal(r.c), 0)
+  const committed = rows.filter((r) => r.status !== 'منتهي').reduce((t, r) => t + (contractTotal(r.c) ?? 0), 0)
   const commissionDue = rows.reduce((t, r) => t + r.commission.due, 0)
   const nameOf = (id) => {
     const s = data.staff.find((x) => x.user_id === id)
@@ -237,12 +255,12 @@ export default function TeamContracts({ data, canManage, reload }) {
                     <div className="muted tiny">{[c.title, c.user_id && nameOf(c.user_id) && `@${nameOf(c.user_id)}`].filter(Boolean).join(' • ')}</div>
                   </td>
                   <td className="small nowrap">
-                    {formatDate(c.start_date)} ← {formatDate(c.end_date)}
-                    <div className="muted tiny">{monthsLabel(monthsOf(c.start_date, c.end_date))}</div>
+                    {formatDate(c.start_date)} ← {c.end_date ? formatDate(c.end_date) : tr('مفتوح')}
+                    <div className="muted tiny">{c.end_date ? monthsLabel(monthsOf(c.start_date, c.end_date)) : tr('عقد مفتوح')}</div>
                   </td>
                   <td>
                     <span className={`badge ${STATUS_CLASS[status]}`}>{tr(status)}</span>
-                    {status === 'ساري' && <div className="muted tiny">{tr('ينتهي بعد {0} يوم', [Math.round((Date.parse(c.end_date) - Date.parse(today)) / 86_400_000)])}</div>}
+                    {status === 'ساري' && c.end_date && <div className="muted tiny">{tr('ينتهي بعد {0} يوم', [Math.round((Date.parse(c.end_date) - Date.parse(today)) / 86_400_000)])}</div>}
                   </td>
                   <td className="small">
                     {c.pay_type === PAY_COMMISSION ? tr('عمولة فقط') : c.pay_type === PAY_LUMP ? tr('مقطوع {0}', [formatOMR(c.amount)]) : tr('{0} شهرياً', [formatOMR(c.amount)])}
@@ -250,7 +268,7 @@ export default function TeamContracts({ data, canManage, reload }) {
                       <div className="muted tiny">{tr(c.pay_type === PAY_COMMISSION ? '{0}% على {1}' : '+ عمولة {0}% على {1}', [num(c.commission_pct), tr(c.commission_base)])}</div>
                     )}
                   </td>
-                  <td className="num strong">{formatOMR(contractTotal(c))}</td>
+                  <td className="num strong">{contractTotal(c) === null ? <span className="small">{tr('{0} شهرياً — مستمر', [formatOMR(c.amount)])}</span> : formatOMR(contractTotal(c))}</td>
                   <td className="small">
                     {num(c.commission_pct) > 0 ? (
                       <>

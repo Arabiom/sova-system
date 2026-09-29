@@ -2,7 +2,7 @@
 // go out (their expenses, company expenses, team contracts, fixed expenses still to be added,
 // staff claims, obligations due), month by month. Amounts before VAT.
 
-import { addMonths, commissionOf, contractTotal, monthsOf, PAY_COMMISSION, PAY_LUMP } from '../api/contracts.js'
+import { addMonths, commissionOf, contractTotal, isOpen, monthsOf, PAY_COMMISSION, PAY_LUMP } from '../api/contracts.js'
 import { claimsOf, exhibitionFinancials, isConfirmed } from './finance.js'
 import { num } from './format.js'
 
@@ -49,13 +49,17 @@ export function upcomingFixed(companyExpenses, from, to) {
 /** Pay of each contract falling in the period (salary months / lump sum) and its commission. */
 export function contractsInPeriod(contracts, from, to, { exhibitors = [], payments = [] } = {}) {
   return contracts
-    .filter((c) => c.start_date <= to && c.end_date >= from)
+    .filter((c) => c.start_date <= to && (isOpen(c) || c.end_date >= from))
     .map((c) => {
       let fixed = 0
       if (c.pay_type === PAY_LUMP) fixed = inRange(c.start_date, from, to) ? num(c.amount) : 0
       else if (c.pay_type !== PAY_COMMISSION) {
-        const n = monthsOf(c.start_date, c.end_date)
-        for (let i = 0; i < n; i++) if (inRange(addMonths(c.start_date, i), from, to)) fixed += num(c.amount)
+        const n = isOpen(c) ? 240 : monthsOf(c.start_date, c.end_date)
+        for (let i = 0; i < n; i++) {
+          const d = addMonths(c.start_date, i)
+          if (d > to) break
+          if (inRange(d, from, to)) fixed += num(c.amount)
+        }
       }
       return { contract: c, fixed: baisa(fixed), total: contractTotal(c), commission: commissionOf(c, exhibitors, payments) }
     })
