@@ -1414,4 +1414,9 @@ export default {
   "مستحق الآن": "Due now",
   "نهاية فترة الدفع قبل بدايتها": "payment window ends before it starts",
   "اختياري — بعده يظهر «متأخر» في المتابعة إذا لم يُدفع": "Optional — after it, an unpaid expense shows as «late»",
+  "تتكرر نفس الفترة كل شهر — اختر «من» و«إلى» أعلاه.": "The same window repeats every month — choose «from» and «to» above.",
+  "تتكرر كل شهر: حتى يوم {0} من كل شهر.": "Repeats every month: by day {0} of each month.",
+  "تتكرر كل شهر: من يوم {0} من كل شهر.": "Repeats every month: from day {0} of each month.",
+  "تتكرر كل شهر: من يوم {0} إلى يوم {1} من الشهر الذي يليه.": "Repeats every month: from day {0} to day {1} of the following month.",
+  "تتكرر كل شهر: من يوم {0} إلى يوم {1} من كل شهر.": "Repeats every month: from day {0} to day {1} of each month.",
 }

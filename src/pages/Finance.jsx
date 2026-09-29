@@ -360,6 +360,20 @@ function Plan({ data }) {
 }
 
 // ── 5. Company expenses ─────────────────────────────────────────────────────
+/** «تتكرر كل شهر: من 20 إلى 28 من كل شهر» from the chosen window (days only). */
+function repeatText(from, to) {
+  const day = (iso) => +String(iso || '').slice(8, 10) || 0
+  const a = day(from)
+  const b = day(to)
+  if (!a && !b) return tr('تتكرر نفس الفترة كل شهر — اختر «من» و«إلى» أعلاه.')
+  if (!a) return tr('تتكرر كل شهر: حتى يوم {0} من كل شهر.', [b])
+  if (!b) return tr('تتكرر كل شهر: من يوم {0} من كل شهر.', [a])
+  const nextMonth = String(to).slice(0, 7) > String(from).slice(0, 7)
+  return nextMonth
+    ? tr('تتكرر كل شهر: من يوم {0} إلى يوم {1} من الشهر الذي يليه.', [a, b])
+    : tr('تتكرر كل شهر: من يوم {0} إلى يوم {1} من كل شهر.', [a, b])
+}
+
 function CompanyExpenseForm({ expense, onClose, onSaved }) {
   const toast = useToast()
   const editing = Boolean(expense?.id)
@@ -453,7 +467,7 @@ function CompanyExpenseForm({ expense, onClose, onSaved }) {
             <DateInput value={form.pay_to || form.due_date || ''} onChange={set('pay_to')} />
           </Field>
         </div>
-        {form.recurring && !monthOfSeries && <div className="muted tiny">{tr('تتكرر نفس الفترة كل شهر — مثال: من 1 إلى 5 من كل شهر.')}</div>}
+        {form.recurring && !monthOfSeries && <div className="muted tiny strong">{repeatText(form.pay_from, form.pay_to || form.due_date)}</div>}
       </div>
       {monthOfSeries ? (
         <div className="alert alert-info">{tr('🔁 هذا شهر {0} من مصروف شهري ثابت، أُضيف تلقائياً. تعديله يغيّر هذا الشهر فقط؛ لتغيير المبلغ لكل الأشهر القادمة أو إيقافه عدّل التسجيل الأصلي.', [expense.period])}</div>
