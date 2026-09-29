@@ -16,6 +16,7 @@ import { deleteExpense, listExpenses, listSites, listSponsors, setExpensePaid } 
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
+import { CHEQUE_KIND, deleteObligation, listObligations, OBLIGATION_KINDS, obligationState, payObligation, postponeObligation, REFUND_KIND, reopenObligation, saveObligation, validateObligation } from '../api/obligations.js'
 import { listStaff } from '../api/staff.js'
 import { listStaffExpenses, openReceipt } from '../api/staffExpenses.js'
 import { checkFile } from '../api/storage.js'
@@ -68,8 +69,8 @@ const load = async () => {
     listCompanyExpenses(),
     listStaffExpenses().catch(() => []),
   ])
-  const staff = await listStaff().catch(() => [])
-  return { exhibitions, exhibitors, payments, sites, expenses, sponsors, companyExpenses, staffExpenses, staff }
+  const [staff, obligations] = await Promise.all([listStaff().catch(() => []), listObligations().catch(() => [])])
+  return { exhibitions, exhibitors, payments, sites, expenses, sponsors, companyExpenses, staffExpenses, staff, obligations }
 }
 
 
@@ -538,13 +539,191 @@ function PayWindow({ x }) {
   )
 }
 
-const KIND_ICON = { exhibition: '🏛️', company: '🏢', claim: '👥' }
+const KIND_ICON = { exhibition: '🏛️', company: '🏢', claim: '👥', obligation: '📌' }
+
+// ── Obligations: refunds owed, postponed cheques, debts… ─────────────────────
+const OB_STATE = { late: ['متأخر', 'text-dng strong'], soon: ['يستحق قريباً', 'text-wrn strong'], later: ['قائم', 'muted'] }
+
+function ObligationStatus({ ob }) {
+  const state = obligationState(ob, omanDay())
+  const history = Array.isArray(ob.postponements) ? ob.postponements : []
+  if (!state) {
+    return (
+      <div className="tiny text-suc strong">
+        {tr('✓ سُدِّد')} {ob.paid_at ? formatDate(ob.paid_at) : ''}
+        {ob.refund_invoice && <div className="muted">{tr('إرجاع {0}', [ob.refund_invoice])}</div>}
+      </div>
+    )
+  }
+  const [label, cls] = OB_STATE[state]
+  return (
+    <div className={`tiny ${cls}`}>
+      {tr(label)} — {tr('يستحق {0}', [formatDate(ob.due_date)])}
+      {history.length > 0 && (
+        <div className="muted" title={history.map((h) => `${formatDate(h.from)} → ${formatDate(h.to)}${h.reason ? ` (${h.reason})` : ''}`).join('\n')}>
+          ⏭ {tr('أُجِّل {0} مرة — كان {1}', [history.length, formatDate(ob.original_due)])}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ObligationForm({ obligation, exhibitors, exhibitions, onClose, onSaved }) {
+  const toast = useToast()
+  const editing = Boolean(obligation?.id)
+  const [form, setForm] = useState(obligation ? { ...obligation } : { kind: REFUND_KIND, due_date: todayISO() })
+  const [saving, setSaving] = useState(false)
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  const exhibitionOf = (id) => exhibitions.find((x) => x.id === id)
+  const refund = form.kind === REFUND_KIND
+
+  const pickExhibitor = (e) => {
+    const ex = exhibitors.find((x) => x.id === e.target.value)
+    setForm((f) => ({ ...f, exhibitor_id: ex?.id || '', party: ex?.brand || '', exhibition_id: ex?.exhibition_id || '' }))
+  }
+
+  const submit = async () => {
+    const errors = validateObligation(form)
+    if (errors.length) return toast(tr('أكمل: {0}', [errors.map((x) => tr(x)).join(tr('، '))]), 'error')
+    setSaving(true)
+    try {
+      await saveObligation(form, obligation?.id)
+      toast(editing ? tr('✅ تم التعديل') : tr('✅ تم تسجيل الالتزام'))
+      onSaved()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      title={editing ? tr('تعديل التزام') : tr('تسجيل التزام مستحق')}
+      subtitle={tr('مبلغ على الشركة أن تدفعه لاحقاً: إرجاع لمشارك، شيك مؤجل، دفعة مؤجلة…')}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            {tr('إلغاء')}
+          </Button>
+          <Button onClick={submit} disabled={saving}>
+            {saving ? tr('جاري...') : tr('حفظ')}
+          </Button>
+        </>
+      }
+    >
+      <div className="form-grid">
+        <Field label={tr('النوع')}>
+          <select className="input" value={form.kind} onChange={set('kind')}>
+            {OBLIGATION_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {tr(k)}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {refund ? (
+          <Field label={tr('المشارك')} required hint={tr('عند السداد يُسجَّل إرجاعاً على حسابه تلقائياً')}>
+            <select className="input" value={form.exhibitor_id || ''} onChange={pickExhibitor}>
+              <option value="">{tr('اختر...')}</option>
+              {exhibitors.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.brand} — {exhibitionLabel(exhibitionOf(x.exhibition_id))}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <Field label={tr('لمن (الجهة / الشخص)')} required>
+            <input className="input" placeholder={tr('مثال: مطبعة النهضة')} value={form.party || ''} onChange={set('party')} />
+          </Field>
+        )}
+        <Field label={tr('المبلغ (ر.ع)')} required>
+          <input className="input" type="number" min="0" step="0.001" placeholder="0.000" value={form.amount ?? ''} onChange={set('amount')} />
+        </Field>
+        <Field label={editing ? tr('تاريخ الاستحقاق الحالي') : tr('تاريخ الاستحقاق')} required hint={editing ? tr('لتأجيله مع حفظ السبب استخدم زر «تأجيل»') : undefined}>
+          <DateInput value={form.due_date || ''} onChange={set('due_date')} />
+        </Field>
+        {form.kind === CHEQUE_KIND && (
+          <Field label={tr('رقم الشيك')}>
+            <input className="input" dir="ltr" value={form.cheque_no || ''} onChange={set('cheque_no')} />
+          </Field>
+        )}
+        {!refund && (
+          <Field label={tr('المعرض (إن وجد)')}>
+            <select className="input" value={form.exhibition_id || ''} onChange={set('exhibition_id')}>
+              <option value="">{tr('— عام —')}</option>
+              {exhibitions.map((ex) => (
+                <option key={ex.id} value={ex.id}>
+                  {exhibitionLabel(ex)}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+      </div>
+      <Field label={tr('السبب / الوصف')}>
+        <input className="input" placeholder={refund ? tr('مثال: إلغاء المشاركة بسبب تأجيل المعرض') : tr('مثال: شيك حجز المساحة — تأجل بطلب المول')} value={form.description || ''} onChange={set('description')} />
+      </Field>
+      <Field label={tr('ملاحظات')}>
+        <input className="input" value={form.notes || ''} onChange={set('notes')} />
+      </Field>
+    </Modal>
+  )
+}
+
+function PostponeForm({ obligation, onClose, onSaved }) {
+  const toast = useToast()
+  const [to, setTo] = useState('')
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  const submit = async () => {
+    if (!to) return toast(tr('اختر الموعد الجديد'), 'error')
+    setSaving(true)
+    try {
+      await postponeObligation(obligation, to, reason)
+      toast(tr('⏭ تم التأجيل إلى {0}', [formatDate(to)]))
+      onSaved()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <Modal
+      title={tr('⏭ تأجيل الالتزام')}
+      subtitle={`${obligation.party || obligation.kind} — ${formatOMR(obligation.amount)} • ${tr('يستحق {0}', [formatDate(obligation.due_date)])}`}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            {tr('إلغاء')}
+          </Button>
+          <Button onClick={submit} disabled={saving}>
+            {saving ? tr('جاري...') : tr('تأجيل')}
+          </Button>
+        </>
+      }
+    >
+      <Field label={tr('الموعد الجديد')} required>
+        <DateInput value={to} onChange={(e) => setTo(e.target.value)} />
+      </Field>
+      <Field label={tr('سبب التأجيل')}>
+        <input className="input" placeholder={tr('مثال: طلب المورد التأجيل لنهاية الشهر')} value={reason} onChange={(e) => setReason(e.target.value)} />
+      </Field>
+      <div className="muted tiny">{tr('يُحفظ الموعد السابق والسبب في سجل التأجيلات.')}</div>
+    </Modal>
+  )
+}
 
 function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
   const toast = useToast()
   const userId = useAuth().session?.user?.id
   const [filters, setFilters] = useState({ kind: initialKind, exhibition: 'all', month: '', state: '', category: '' })
-  const [adding, setAdding] = useState(null) // 'exhibition' | 'company' | 'claim'
+  const [adding, setAdding] = useState(null) // 'exhibition' | 'company' | 'claim' | 'obligation'
+  const [postponing, setPostponing] = useState(null)
   const [editing, setEditing] = useState(null) // an allExpenses() row
   const setFilter = (key) => (e) => setFilters((f) => ({ ...f, [key]: e?.target ? e.target.value : e }))
 
@@ -559,15 +738,18 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
     (x) =>
       (filters.exhibition === 'all' || (filters.exhibition === 'general' ? !x.exhibition_id : x.exhibition_id === filters.exhibition)) &&
       (!filters.month || String(x.date || '').startsWith(filters.month)) &&
-      (!filters.state || (filters.state === 'review' ? !x.counted : x.counted && (filters.state === 'paid') === x.paid)) &&
+      (!filters.state ||
+        (filters.state === 'review' ? x.kind === 'claim' && !x.counted : (x.counted || x.kind === 'obligation') && (filters.state === 'paid') === x.paid)) &&
       (!filters.category || x.category === filters.category),
   )
   const rows = base.filter((x) => !filters.kind || x.kind === filters.kind)
   const counted = rows.filter((x) => x.counted)
   const total = sumBy(counted, 'amount')
   const unpaid = sumBy(counted.filter((x) => !x.paid), 'amount')
-  const review = rows.filter((x) => !x.counted)
-  const kindTotal = (kind) => sumBy(base.filter((x) => x.kind === kind && x.counted), 'amount')
+  const review = rows.filter((x) => x.kind === 'claim' && !x.counted)
+  const openObligations = rows.filter((x) => x.kind === 'obligation' && !x.paid)
+  // Obligations are not expenses: their chip shows what is still owed.
+  const kindTotal = (kind) => sumBy(base.filter((x) => x.kind === kind && (kind === 'obligation' ? !x.paid : x.counted)), 'amount')
   const byCategory = Object.entries(counted.reduce((acc, x) => ({ ...acc, [x.category || 'أخرى']: (acc[x.category || 'أخرى'] || 0) + x.amount }), {})).sort((a, b) => b[1] - a[1])
 
   const act = async (fn, ok) => {
@@ -583,6 +765,14 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
   const remove = (x) =>
     confirm(tr('حذف "{0}"؟', [x.description])) &&
     act(() => (x.kind === 'exhibition' ? deleteExpense(x.source.id) : deleteCompanyExpense(x.source)), tr('🗑️ تم الحذف'))
+  const pay = (ob) => {
+    const refund = ob.kind === REFUND_KIND && ob.exhibitor_id
+    const question = refund
+      ? tr('تأكيد إرجاع {0} إلى {1}؟ يُسجَّل إرجاعاً على حسابه في المدفوعات.', [formatOMR(ob.amount), ob.party])
+      : tr('تأكيد سداد {0} إلى {1}؟', [formatOMR(ob.amount), ob.party || ob.kind])
+    if (!confirm(question)) return
+    act(() => payObligation(ob), tr('✅ تم تسجيل السداد'))
+  }
   const viewReceipt = (x) => (x.kind === 'company' ? openCompanyReceipt(x.receipt) : openReceipt(x.receipt)).catch((err) => toast(err.message, 'error'))
 
   const exportCsv = () =>
@@ -594,6 +784,7 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
       { label: tr('التصنيف'), value: (x) => x.category },
       { label: tr('المبلغ'), value: (x) => x.amount.toFixed(3) },
       { label: tr('الحالة'), value: (x) => (x.kind === 'claim' ? x.status : x.paid ? 'مدفوع' : 'غير مدفوع') },
+      { label: tr('الاستحقاق'), value: (x) => (x.kind === 'obligation' ? x.source.due_date || '' : x.kind === 'company' ? x.pay_to || x.due_date || '' : '') },
       { label: tr('الموظف'), value: (x) => (x.user_id ? nameOf(x.user_id) : '') },
       { label: tr('فاتورة مرفقة'), value: (x) => (x.receipt ? 'نعم' : x.kind === 'exhibition' ? '' : 'لا') },
     ])
@@ -650,6 +841,7 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
           <Button onClick={() => setAdding('exhibition')}>{tr('+ مصروف معرض')}</Button>
           <Button onClick={() => setAdding('company')}>{tr('+ مصروف شركة')}</Button>
           <Button variant="outline" onClick={() => setAdding('claim')}>{tr('+ مطالبة موظف (دفعتها من جيبك)')}</Button>
+          <Button variant="outline" onClick={() => setAdding('obligation')}>{tr('+ التزام مستحق (مؤجّل / إرجاع)')}</Button>
         </div>
       )}
 
@@ -668,7 +860,11 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
       <Panel
         icon="🧾"
         title={tr('المصروفات: {0}', [formatOMR(total)])}
-        subtitle={tr('غير مدفوع {0}', [formatOMR(unpaid)]) + (review.length ? tr(' • {0} مطالبة بانتظار المراجعة ({1}) — لا تُحسب حتى تُعتمد', [review.length, formatOMR(sumBy(review, 'amount'))]) : '')}
+        subtitle={
+          tr('غير مدفوع {0}', [formatOMR(unpaid)]) +
+          (review.length ? tr(' • {0} مطالبة بانتظار المراجعة ({1}) — لا تُحسب حتى تُعتمد', [review.length, formatOMR(sumBy(review, 'amount'))]) : '') +
+          (openObligations.length ? tr(' • التزامات قائمة {0}', [formatOMR(sumBy(openObligations, 'amount'))]) : '')
+        }
       >
         <div className="table-wrap">
           <table className="table" style={{ minWidth: 980 }}>
@@ -681,7 +877,7 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
             </thead>
             <tbody>
               {rows.map((x) => (
-                <tr key={x.key} className={x.counted ? '' : 'row-muted'}>
+                <tr key={x.key} className={x.counted || x.kind === 'obligation' ? '' : 'row-muted'}>
                   <td className="small nowrap">{x.date || '—'}</td>
                   <td>
                     <div className="strong">
@@ -698,7 +894,9 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
                   <td>{x.category ? <Chip>{tr(x.category)}</Chip> : '—'}</td>
                   <td className="num strong">{formatOMR(x.amount)}</td>
                   <td>
-                    {x.kind === 'claim' ? (
+                    {x.kind === 'obligation' ? (
+                      <ObligationStatus ob={x.source} />
+                    ) : x.kind === 'claim' ? (
                       <StatusBadge status={x.status} />
                     ) : (
                       <button className={`paid-toggle ${x.paid ? 'on' : ''}`} onClick={() => canManage && togglePaid(x)} disabled={!canManage}>
@@ -717,7 +915,35 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
                     )}
                   </td>
                   <td>
-                    {x.kind === 'claim' ? (
+                    {x.kind === 'obligation' ? (
+                      canManage && (
+                        <div className="row-actions">
+                          {!x.paid && (
+                            <>
+                              <Button size="sm" onClick={() => pay(x.source)} title={tr('تم السداد')}>
+                                {tr('✓ سُدِّد')}
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setPostponing(x.source)} title={tr('تأجيل')}>
+                                {tr('⏭ تأجيل')}
+                              </Button>
+                            </>
+                          )}
+                          {x.paid && !x.source.refund_invoice && (
+                            <Button size="sm" variant="ghost" onClick={() => act(() => reopenObligation(x.source))} title={tr('إلغاء السداد')}>
+                              ↩️
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" onClick={() => setEditing(x)} title={tr('تعديل')}>
+                            ✏️
+                          </Button>
+                          {!x.source.refund_invoice && (
+                            <Button size="sm" variant="danger" onClick={() => confirm(tr('حذف "{0}"؟', [x.description])) && act(() => deleteObligation(x.source.id), tr('🗑️ تم الحذف'))} title={tr('حذف')}>
+                              🗑️
+                            </Button>
+                          )}
+                        </div>
+                      )
+                    ) : x.kind === 'claim' ? (
                       <Button size="sm" variant="ghost" onClick={() => go('claims')} title={tr('الاعتماد والتعويض من تبويب المطالبات')}>
                         {tr('مراجعة ↗')}
                       </Button>
@@ -755,6 +981,19 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
         />
       )}
       {(adding === 'company' || editing?.kind === 'company') && <CompanyExpenseForm expense={editing?.source || null} used={data.companyExpenses.map((x) => x.category)} onClose={() => (setAdding(null), setEditing(null))} onSaved={saved} />}
+      {(adding === 'obligation' || editing?.kind === 'obligation') && (
+        <ObligationForm obligation={editing?.source || null} exhibitors={data.exhibitors} exhibitions={data.exhibitions} onClose={() => (setAdding(null), setEditing(null))} onSaved={saved} />
+      )}
+      {postponing && (
+        <PostponeForm
+          obligation={postponing}
+          onClose={() => setPostponing(null)}
+          onSaved={() => {
+            setPostponing(null)
+            reload()
+          }}
+        />
+      )}
       {adding === 'claim' && <StaffExpenseForm exhibitions={data.exhibitions} userId={userId} onClose={() => setAdding(null)} onSaved={saved} />}
     </>
   )
@@ -768,6 +1007,7 @@ const MOVE_LABELS = {
   exhibition: '🏛️ مصروف معرض',
   company: '🏢 مصروف شركة',
   claim: '👥 تعويض موظف',
+  obligation: '📌 سداد التزام',
 }
 
 function Ledger({ data }) {
@@ -873,9 +1113,11 @@ function Attention({ data, o, go, today: day }) {
   const pendingPayments = data.payments.filter((p) => !isConfirmed(p))
   const pendingClaims = data.staffExpenses.filter((x) => x.status === 'بانتظار المراجعة')
   const dueOf = (x) => (x.kind === 'company' ? x.pay_to || x.due_date : x.source.due_date) || ''
-  const unpaidList = allExpenses(data).filter((x) => x.kind !== 'claim' && !x.paid)
+  const unpaidList = allExpenses(data).filter((x) => (x.kind === 'exhibition' || x.kind === 'company') && !x.paid)
   const overdue = unpaidList.filter((x) => dueOf(x) && dueOf(x) < day)
   const payNow = unpaidList.filter((x) => x.kind === 'company' && paymentWindowState(x, day) === 'open')
+  const obLate = data.obligations.filter((x) => obligationState(x, day) === 'late')
+  const obSoon = data.obligations.filter((x) => obligationState(x, day) === 'soon')
   const items = [
     ...alerts.map((a) => ({
       key: `d:${a.exhibition.id}`,
@@ -900,6 +1142,18 @@ function Attention({ data, o, go, today: day }) {
       tone: 'info',
       text: `💵 ${tr('مطالبات معتمدة لم تُعوَّض للموظفين بعد: {0}', [formatOMR(o.staffOwed)])}`,
       open: () => go('claims'),
+    },
+    obLate.length && {
+      key: 'ol',
+      tone: 'danger',
+      text: `📌 ${tr('{0} التزام تجاوز موعده ({1})', [obLate.length, formatOMR(sumBy(obLate, 'amount'))])}`,
+      open: () => go('expenses', { kind: 'obligation' }),
+    },
+    obSoon.length && {
+      key: 'os',
+      tone: 'warning',
+      text: `📌 ${tr('{0} التزام يستحق خلال 7 أيام ({1})', [obSoon.length, formatOMR(sumBy(obSoon, 'amount'))])}`,
+      open: () => go('expenses', { kind: 'obligation' }),
     },
     payNow.length && {
       key: 'pn',
