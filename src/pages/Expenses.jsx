@@ -45,7 +45,7 @@ const load = async (reviewer) => {
   return { expenses, exhibitions, staff }
 }
 
-function ExpenseForm({ expense, exhibitions, userId, onClose, onSaved }) {
+export function ExpenseForm({ expense, exhibitions, userId, onClose, onSaved }) {
   const toast = useToast()
   const editing = Boolean(expense?.id)
   const [form, setForm] = useState(expense || { date: todayISO(), payment_method: 'نقد' })
@@ -143,14 +143,19 @@ function ExpenseForm({ expense, exhibitions, userId, onClose, onSaved }) {
   )
 }
 
-export default function Expenses() {
+export default function Expenses({ embedded = false, onChanged } = {}) {
   const toast = useToast()
   const { session } = useAuth()
   const userId = session?.user?.id
   const reviewer = useCan('expenses.review') // admin + finance (the accountant) approve / reject / reimburse
   const seeAll = useCan('records.viewAll') // …and, with the viewer, see everyone's expenses
   const canWrite = useCan('data.write') // the viewer only looks
-  const { data, loading, reload } = useData(() => load(seeAll), null)
+  const { data, loading, reload: reloadOwn } = useData(() => load(seeAll), null)
+  // Inside the finance centre, the centre's own totals are refreshed too.
+  const reload = () => {
+    reloadOwn()
+    onChanged?.()
+  }
   const [editing, setEditing] = useState(null)
   const [filters, setFilters] = useState({ person: '', status: '', month: '', exhibition: 'all' })
   const [busy, setBusy] = useState(null)
@@ -227,7 +232,7 @@ export default function Expenses() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader embedded={embedded}
         title={seeAll ? tr('مصروفات الموظفين') : tr('مصروفاتي')}
         subtitle={seeAll ? tr('كل ما صرفه الموظفون من أجل الشركة مع فواتيره — للمراجعة والاعتماد') : tr('سجّل كل مبلغ تصرفه من أجل الشركة وأرفق فاتورته')}
       >

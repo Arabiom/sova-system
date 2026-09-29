@@ -6,6 +6,7 @@ import ExhibitionMap from './ExhibitionMap.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { CITIES, EXHIBITION_STATUSES } from '../lib/constants.js'
 import { num } from '../lib/format.js'
+import { cleanExtras, cleanPackages, defaultExtras, defaultPackages, formExtras, formPackages } from '../lib/packages.js'
 import Button from './Button.jsx'
 import Field, { SelectOptions } from './Field.jsx'
 import Modal from './Modal.jsx'
@@ -15,7 +16,14 @@ const TIER_PLACEHOLDERS = ['مثال: ركن مدخل', 'مثال: كورنر ه
 
 export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
   const toast = useToast()
-  const [form, setForm] = useState(() => ({ ...initial, tiers: formTiers(initial) }))
+  const [form, setForm] = useState(() => ({
+    ...initial,
+    tiers: formTiers(initial),
+    packages: formPackages(initial),
+    extras: formExtras(initial),
+    extrasSet: Array.isArray(initial.booth_extras),
+    booth_note: initial.booth_note || '',
+  }))
   const [saving, setSaving] = useState(false)
   // Map: a newly chosen file (uploaded on save), or the saved one being removed.
   const [mapFile, setMapFile] = useState(null)
@@ -47,10 +55,24 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
   const addTier = () => setForm((f) => ({ ...f, tiers: [...f.tiers, { name: '', price: '', count: '' }] }))
   const removeTier = (index) => setForm((f) => ({ ...f, tiers: f.tiers.filter((_, i) => i !== index) }))
   const totalBooths = num(form.booths) || tierBooths
+  const rowsOf = (list) => ({
+    set: (index, key) => (e) => setForm((f) => ({ ...f, [list]: f[list].map((r, i) => (i === index ? { ...r, [key]: e.target.value } : r)), ...(list === 'extras' ? { extrasSet: true } : {}) })),
+    add: (blank) => setForm((f) => ({ ...f, [list]: [...f[list], blank], ...(list === 'extras' ? { extrasSet: true } : {}) })),
+    remove: (index) => setForm((f) => ({ ...f, [list]: f[list].filter((_, i) => i !== index), ...(list === 'extras' ? { extrasSet: true } : {}) })),
+  })
+  const pkgRows = rowsOf('packages')
+  const extraRows = rowsOf('extras')
+  const noPackages = !cleanPackages(form.packages).length
+  const startFromDefaults = () =>
+    setForm((f) => ({ ...f, packages: defaultPackages(), extras: cleanExtras(f.extras).length ? f.extras : defaultExtras(), extrasSet: true }))
 
   const submit = async () => {
     if (!form.city || !form.mall || !form.date_from || !form.date_to) return toast(tr('أكمل البيانات المطلوبة'), 'error')
     if (form.date_to < form.date_from) return toast(tr('تاريخ النهاية قبل تاريخ البداية'), 'error')
+    const unnamed = form.packages.find((p) => !String(p.name || '').trim() && (num(p.price) || String(p.includes || '').trim() || String(p.area || '').trim()))
+    if (unnamed) return toast(tr('اكتب اسم كل باقة'), 'error')
+    const names = cleanPackages(form.packages).map((p) => p.name)
+    if (new Set(names).size !== names.length) return toast(tr('اسم الباقة مكرر — لكل باقة اسم مختلف'), 'error')
     setSaving(true)
     try {
       let map_path = savedMap
@@ -149,6 +171,67 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
         <div className="tier-total">
           {tr('مجموع الفئات:')}{' '}<strong>{tr(tierBooths)}{' '}{tr('بوث')}</strong>{' '}{tr('— إجمالي المعرض:')}{' '}<strong>{tr(totalBooths)}{' '}{tr('بوث')}</strong>
         </div>
+      </div>
+
+      <div className="tier-box mt-14">
+        <div className="tier-box-title">{tr('📦 باقات البوث ومميزاتها وأسعارها — لهذا المعرض')}</div>
+        <div className="muted tiny mb-10">
+          {tr('تظهر كما هي في استمارة تسجيل المشاركين عند اختيار هذا المعرض، وفي الفاتورة والعقد. السعر قبل الضريبة. إذا كان للمعرض خارطة مواقع، يُربط كل موقع بالباقة التي لها نفس سعره.')}
+        </div>
+        {noPackages && (
+          <div className="alert alert-warning">
+            {tr('لم تُحدَّد باقات لهذا المعرض بعد — لا يمكن تسجيل مشاركين فيه حتى تحددها.')}{' '}
+            <Button size="sm" variant="outline" onClick={startFromDefaults}>
+              {tr('املأ نموذجاً جاهزاً أعدّله')}
+            </Button>
+          </div>
+        )}
+        {form.packages.map((p, index) => (
+          <div key={index} className="package-row">
+            <Field label={tr('اسم الباقة')}>
+              <input className="input" placeholder={tr(TIER_PLACEHOLDERS[index] || 'اسم الباقة')} value={p.name ?? ''} onChange={pkgRows.set(index, 'name')} />
+            </Field>
+            <Field label={tr('المساحة')}>
+              <input className="input" placeholder={tr('مثال: 3×2 متر')} value={p.area ?? ''} onChange={pkgRows.set(index, 'area')} />
+            </Field>
+            <Field label={tr('السعر (ر.ع)')}>
+              <input className="input" type="number" min="0" step="0.001" placeholder="0.000" value={p.price ?? ''} onChange={pkgRows.set(index, 'price')} />
+            </Field>
+            <Field label={tr('المميزات — ماذا تشمل')} className="package-includes">
+              <input className="input" placeholder={tr('مثال: طاولة + مفرش + كرسيان + بوستر ترويجي')} value={p.includes ?? ''} onChange={pkgRows.set(index, 'includes')} />
+            </Field>
+            <button type="button" className="tier-remove" title={tr('حذف الباقة')} onClick={() => pkgRows.remove(index)}>
+              ✕
+            </button>
+          </div>
+        ))}
+        <Button variant="outline" size="sm" onClick={() => pkgRows.add({ name: '', area: '', price: '', includes: '' })} className="mb-10">
+          {tr('+ إضافة باقة')}
+        </Button>
+
+        <div className="field-label mt-8">{tr('➕ الإضافات الاختيارية وأسعارها')}</div>
+        {!cleanExtras(form.extras).length && <div className="muted tiny mb-8">{tr('بدون إضافات في هذا المعرض.')}</div>}
+        {form.extras.map((x, index) => (
+          <div key={index} className="tier-row">
+            <Field label={tr('الإضافة')}>
+              <input className="input" placeholder={tr('مثال: طاولة إضافية')} value={x.name ?? ''} onChange={extraRows.set(index, 'name')} />
+            </Field>
+            <Field label={tr('السعر (ر.ع)')}>
+              <input className="input" type="number" min="0" step="0.001" placeholder="0.000" value={x.price ?? ''} onChange={extraRows.set(index, 'price')} />
+            </Field>
+            <div />
+            <button type="button" className="tier-remove" title={tr('حذف')} onClick={() => extraRows.remove(index)}>
+              ✕
+            </button>
+          </div>
+        ))}
+        <Button variant="outline" size="sm" onClick={() => extraRows.add({ name: '', price: '' })} className="mb-10">
+          {tr('+ إضافة')}
+        </Button>
+
+        <Field label={tr('ملاحظة تظهر تحت الباقات (اختياري)')}>
+          <input className="input" placeholder={tr('مثال: كل المواقع تشمل نقطة كهرباء وتنظيفاً يومياً')} value={form.booth_note} onChange={set('booth_note')} />
+        </Field>
       </div>
 
       <div className="tier-box mt-14">

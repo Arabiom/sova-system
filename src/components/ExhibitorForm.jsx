@@ -3,10 +3,11 @@ import { saveExhibitor } from '../api/exhibitors.js'
 import { recordPayment } from '../api/payments.js'
 import { confirmIfPaid } from '../api/registration.js'
 import { useToast } from '../context/ToastContext.jsx'
-import { BOOTH_PACKAGES, BOOTH_SIZES, CATEGORIES, EXHIBITOR_STATUSES, PAYMENT_METHODS } from '../lib/constants.js'
+import { BOOTH_SIZES, CATEGORIES, EXHIBITOR_STATUSES, PAYMENT_METHODS } from '../lib/constants.js'
 import { daysBetween, paymentDeadline, PAYMENT_DEADLINE_DAYS, vatEnabled, withVat } from '../lib/finance.js'
 import { exhibitionLabel, formatDate, formatOMR, num } from '../lib/format.js'
 import { omanDay } from '../lib/team.js'
+import { packagesOf } from '../lib/packages.js'
 import Button from './Button.jsx'
 import Field, { SelectOptions } from './Field.jsx'
 import Modal from './Modal.jsx'
@@ -28,24 +29,32 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
   const [payment, setPayment] = useState({ amount: '', method: PAYMENT_METHODS[0] })
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const linked = clients.find((c) => c.id === form.client_id)
-  const pkg = BOOTH_PACKAGES.find((p) => p.name === form.booth_type)
+  const exhibitionOfForm = exhibitions.find((ex) => ex.id === form.exhibition_id)
+  const packages = packagesOf(exhibitionOfForm) // this exhibition's own packages (or the defaults)
+  const pkg = packages.find((p) => p.name === form.booth_type)
 
   // Paid so far comes from the payment records (never typed), so the books always agree.
   const paid = num(initial.paid)
   const newPayment = canPay ? Math.max(0, num(payment.amount)) : 0
   const contract = num(form.contract)
   const remaining = Math.round((contract - paid - newPayment) * 1000) / 1000
-  const exhibition = exhibitions.find((ex) => ex.id === form.exhibition_id)
+  const exhibition = exhibitionOfForm
   const deadline = paymentDeadline(exhibition)
   const daysLeft = deadline ? daysBetween(omanDay(), deadline) : null
 
   // Picking a package fills its price in — unless a different contract value was already agreed.
   const onPackage = (e) => {
-    const next = BOOTH_PACKAGES.find((p) => p.name === e.target.value)
+    const next = packages.find((p) => p.name === e.target.value)
     setForm((f) => {
-      const before = BOOTH_PACKAGES.find((p) => p.name === f.booth_type)
+      const before = packages.find((p) => p.name === f.booth_type)
       const keepPrice = f.contract !== '' && f.contract != null && num(f.contract) !== (before?.price ?? 0)
-      return { ...f, booth_type: e.target.value, contract: next && !keepPrice ? next.price : f.contract }
+      const keepSize = f.booth_size && f.booth_size !== (before?.area || '')
+      return {
+        ...f,
+        booth_type: e.target.value,
+        contract: next && !keepPrice ? next.price : f.contract,
+        booth_size: next?.area && !keepSize ? next.area : f.booth_size,
+      }
     })
   }
 
@@ -156,12 +165,12 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
           )}
         </Field>
         <Field label={tr('حجم البوث')}>
-          <SelectOptions options={BOOTH_SIZES} value={form.booth_size || ''} onChange={set('booth_size')} />
+          <SelectOptions options={[...new Set([...BOOTH_SIZES, form.booth_size].filter(Boolean))]} value={form.booth_size || ''} onChange={set('booth_size')} />
         </Field>
         <Field label={tr('نظام البوث (الباقة)')}>
           <select className="input" value={form.booth_type || ''} onChange={onPackage}>
             <option value="">{tr('— بدون باقة —')}</option>
-            {BOOTH_PACKAGES.map((p) => (
+            {packages.map((p) => (
               <option key={p.name} value={p.name}>
                 {tr(p.name)}{money ? ` — ${formatOMR(p.price)}` : ''}
               </option>
@@ -175,7 +184,8 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
       </div>
       {pkg && (
         <div className="summary-box mb-12 small">
-          <strong>{tr('يشمل «{0}»:', [tr(pkg.name)])}</strong> {tr(pkg.includes)}
+          <strong>{tr('يشمل «{0}»:', [tr(pkg.name)])}</strong> {tr(pkg.includes) || '—'}
+          {pkg.area && <span className="muted"> • 📐 {tr(pkg.area)}</span>}
         </div>
       )}
 
@@ -186,12 +196,17 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
             <Field label={tr('قيمة العقد الإجمالية (ر.ع)')}>
               <input className="input" type="number" min="0" step="0.001" placeholder="450.000" value={form.contract ?? ''} onChange={set('contract')} />
             </Field>
-            <Field label={tr('المدفوع حتى الآن')} hint={tr('من سجل الدفعات المؤكدة — يتغير بتسجيل دفعة')}>
-              <div className="input input-readonly num text-suc">{formatOMR(paid)}</div>
-            </Field>
+            {id && (
+              <Field label={tr('المدفوع حتى الآن')} hint={tr('من سجل الدفعات المؤكدة — يتغير بتسجيل دفعة')}>
+                <div className="input input-readonly num text-suc">{formatOMR(paid)}</div>
+              </Field>
+            )}
             {canPay && (
               <>
-                <Field label={tr('دفعة جديدة الآن (ر.ع)')} hint={tr('اتركها فارغة إذا لم يُدفع شيء — تُسجَّل في المبيعات والمدفوعات بإيصال')}>
+                <Field
+                  label={id ? tr('دفعة جديدة الآن (ر.ع)') : tr('المبلغ المدفوع (ر.ع)')}
+                  hint={id ? tr('اتركها فارغة إذا لم يُدفع شيء — تُسجَّل في المبيعات والمدفوعات بإيصال') : tr('ما دفعه العارض عند التسجيل — اتركه فارغاً إذا لم يدفع. يُسجَّل دفعةً بإيصال في المالية')}
+                >
                   <input className="input" type="number" min="0" step="0.001" placeholder="0.000" value={payment.amount} onChange={(e) => setPayment((p) => ({ ...p, amount: e.target.value }))} />
                 </Field>
                 <Field label={tr('طريقة الدفع')}>

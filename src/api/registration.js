@@ -1,7 +1,7 @@
 // Participant registration (استمارة تسجيل المشاركين): one step from the filled-in form to a
 // client record, an exhibitor with their site, the payment received and the tax invoice.
 
-import { BOOTH_AREA, EXHIBITOR_STATUSES } from '../lib/constants.js'
+import { EXHIBITOR_STATUSES } from '../lib/constants.js'
 import { DISCOUNT_ITEM, registrationTotals, withoutVat } from '../lib/finance.js'
 import { num, todayISO } from '../lib/format.js'
 import { supabase, unwrap } from './client.js'
@@ -52,7 +52,7 @@ export function validateRegistration(form) {
  * Returns { exhibitor, payment, totals, siteLost } for the invoice; siteLost = the chosen site was
  * booked by someone else in the same moment, so the participant was saved without a site.
  */
-export async function registerParticipant(form, { pending, boothPrice }) {
+export async function registerParticipant(form, { pending, boothPrice, boothArea }) {
   const extras = chosenExtras(form)
   const totals = registrationTotals({ boothPrice, extras })
   // The form takes what the participant actually paid, VAT included; payments are kept before VAT.
@@ -82,7 +82,7 @@ export async function registerParticipant(form, { pending, boothPrice }) {
     extras,
     terms_accepted: true,
     booth: site ? String(site.number) : form.booth_number?.trim() || '—',
-    booth_size: BOOTH_AREA,
+    booth_size: boothArea || '',
     contract: totals.subtotal,
     paid: 0,
     status: fullyPaid && !pending ? EXHIBITOR_STATUSES[2] : EXHIBITOR_STATUSES[0],

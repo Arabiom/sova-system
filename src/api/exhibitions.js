@@ -1,5 +1,6 @@
 import { DEFAULT_TIERS } from '../lib/constants.js'
 import { num } from '../lib/format.js'
+import { cleanExtras, cleanPackages } from '../lib/packages.js'
 import { supabase, unwrap } from './client.js'
 import { countPayments } from './exhibitors.js'
 import { tr } from '../lib/i18n.js'
@@ -49,6 +50,13 @@ export function toExhibitionRow(form) {
     row[`booth_tier${i}_price`] = t?.price || tier.price
     row[`booth_tier${i}_count`] = t?.count || 0
   })
+  // Its own packages, extras and note (only when the form carries them — migration 018).
+  if (Array.isArray(form.packages)) {
+    const packages = cleanPackages(form.packages)
+    row.booth_packages = packages.length ? packages : null
+    row.booth_extras = form.extrasSet ? cleanExtras(form.extras) : null
+    row.booth_note = form.booth_note?.trim() || ''
+  }
   // Attached map image (only sent when the form has the field, so older databases still save).
   if ('map_path' in form) row.map_path = form.map_path || null
   // The total typed on the form wins; otherwise the tiers add up to it.
@@ -90,6 +98,9 @@ export async function saveExhibition(form, id) {
       if (!column || attempt > 20 || !(column in row)) throw err
       if (column === 'tiers' && row.tiers.length > 3) {
         throw new Error(tr('لحفظ أكثر من 3 فئات شغّل تحديث قاعدة البيانات 005 في Supabase أولاً.'), { cause: err })
+      }
+      if (['booth_packages', 'booth_extras', 'booth_note'].includes(column) && (row.booth_packages || row.booth_extras || row.booth_note)) {
+        throw new Error(tr('لحفظ باقات المعرض ومميزاته شغّل تحديث قاعدة البيانات 018 في Supabase أولاً.'), { cause: err })
       }
       if (column === 'map_path' && row.map_path) {
         throw new Error(tr('لحفظ الخارطة شغّل تحديث قاعدة البيانات 006 في Supabase أولاً.'), { cause: err })

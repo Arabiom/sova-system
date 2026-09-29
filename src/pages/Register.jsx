@@ -13,7 +13,9 @@ import PageHeader from '../components/PageHeader.jsx'
 import Panel from '../components/Panel.jsx'
 import { useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
-import { BOOTH_EXTRAS, BOOTH_NOTE, BOOTH_PACKAGES, FORM_PAYMENT_METHODS, FORM_SECTORS } from '../lib/constants.js'
+import { FORM_PAYMENT_METHODS, FORM_SECTORS } from '../lib/constants.js'
+import { boothNoteOf, extrasOf, hasOwnPackages, packagesOf } from '../lib/packages.js'
+import { Link } from 'react-router-dom'
 import { registrationTotals, vatEnabled, vatOf, withoutVat, withVat } from '../lib/finance.js'
 import { exhibitionLabel, formatDate, formatOMR, num, phoneKey, todayISO } from '../lib/format.js'
 import { downloadRegistrationInvoice } from '../lib/pdf.js'
@@ -31,8 +33,6 @@ const load = async () => {
   return { exhibitions: exhibitions.filter((ex) => !['منتهي', 'ملغى'].includes(ex.status)), sites, exhibitors }
 }
 
-const extraPrices = Object.fromEntries(BOOTH_EXTRAS.map((x) => [x.name, x.price]))
-
 const blankForm = (exhibitionId = '') => ({
   exhibition_id: exhibitionId,
   manager: '',
@@ -45,10 +45,10 @@ const blankForm = (exhibitionId = '') => ({
   site_id: '',
   booth_number: '',
   extras: {},
-  extraPrices,
   otherExtras: '',
   otherAmount: '',
   discount: '',
+  discountType: 'amount',
   amount: '',
   method: '',
   transfer_ref: '',
@@ -78,6 +78,7 @@ export default function Register() {
   const toast = useToast()
   const { data, loading, reload } = useData(load, null)
   const pending = !useCan('payments.write') // marketing: the payment waits for finance to confirm it
+  const canSetPackages = useCan('exhibitions.manage')
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(null)
@@ -92,15 +93,28 @@ export default function Register() {
   if (loading || !data) return <Loading />
 
   const exhibition = exhibitions.find((ex) => ex.id === f.exhibition_id)
-  const pkg = BOOTH_PACKAGES.find((p) => p.name === f.package)
+  // Each exhibition has its own packages, extras and note (set when editing the exhibition).
+  const packages = packagesOf(exhibition)
+  const boothExtras = extrasOf(exhibition)
+  const boothNote = boothNoteOf(exhibition)
+  const extraPrices = Object.fromEntries(boothExtras.map((x) => [x.name, x.price]))
+  const pkg = packages.find((p) => p.name === f.package)
   const ownSites = data.sites.filter((s) => s.exhibition_id === f.exhibition_id)
   const freeSites = pkg ? ownSites.filter((s) => !s.exhibitor_id && num(s.price) === pkg.price) : []
   const chosenSite = ownSites.find((s) => s.id === f.site_id)
-  const extras = chosenExtras(f)
+  // The discount is typed as an amount or a percentage of the package + extras (before VAT).
+  const beforeDiscount = (pkg?.price || 0) + registrationTotals({ extras: chosenExtras({ ...f, extraPrices, discount: 0 }) }).extrasTotal
+  const discountValue = pending
+    ? 0
+    : f.discountType === 'percent'
+      ? Math.round(beforeDiscount * Math.min(100, Math.max(0, num(f.discount))) * 10) / 1000
+      : num(f.discount)
+  const extras = chosenExtras({ ...f, extraPrices, discount: discountValue })
   const totals = registrationTotals({ boothPrice: pkg?.price || 0, extras })
   const amount = num(f.amount) // paid (VAT included when the company charges VAT)
   const withTax = vatEnabled() ? tr(' شامل الضريبة') : ''
   const amountNet = withoutVat(amount)
+  const remainingDue = Math.round((totals.total - amount) * 1000) / 1000 // live, as the amount is typed
   const toggleSector = (name) => {
     const list = f.categories.includes(name) ? f.categories.filter((c) => c !== name) : [...f.categories, name]
     if (list.length > MAX_SECTORS) return toast(tr('يمكن اختيار {0} قطاعات كحد أقصى', [MAX_SECTORS]), 'error')
@@ -118,7 +132,8 @@ export default function Register() {
     if (savingRef.current) return
     const errors = validateRegistration(f)
     if (ownSites.length && pkg && !f.site_id) errors.push(tr('رقم الموقع'))
-    if (num(f.discount) > totals.boothPrice + totals.extrasTotal + 0.0005) errors.push('الخصم أكبر من قيمة الاشتراك والإضافات')
+    if (discountValue > beforeDiscount + 0.0005) errors.push('الخصم أكبر من قيمة الاشتراك والإضافات')
+    if (f.discountType === 'percent' && num(f.discount) > 100) errors.push('نسبة الخصم أكثر من 100%')
     if (errors.length) return toast(tr('أكمل: {0}', [errors.map((x) => tr(x)).join(tr('، '))]), 'error')
     if (takenBooth) return toast(tr('الموقع {0} محجوز مسبقاً لـ «{1}» في هذا المعرض', [takenBooth.numbers.join(tr('، ')), takenBooth.exhibitor.brand]), 'error')
     if (duplicate && !confirm(tr('{0} مسجّل بنفس رقم الهاتف في هذا المعرض. تسجيل مشاركة جديدة؟', [duplicate.brand]))) return
@@ -127,7 +142,7 @@ export default function Register() {
     savingRef.current = true
     setSaving(true)
     try {
-      const result = await registerParticipant(f, { pending, boothPrice: pkg.price })
+      const result = await registerParticipant({ ...f, extraPrices, discount: discountValue }, { pending, boothPrice: pkg.price, boothArea: pkg.area })
       const invoice = { exhibitor: result.exhibitor, exhibition, payment: result.payment }
       setDone({ ...invoice, totals: result.totals, siteLost: result.siteLost })
       toast(tr('✅ تم تسجيل المشارك'))
@@ -201,7 +216,7 @@ export default function Register() {
       {exhibitions.length > 0 && (
         <div className="register-form">
           <Panel icon="🏛️" title={tr('المعرض')}>
-            <select className="input" value={f.exhibition_id} onChange={(e) => setForm({ ...f, exhibition_id: e.target.value, site_id: '' })}>
+            <select className="input" value={f.exhibition_id} onChange={(e) => setForm({ ...f, exhibition_id: e.target.value, site_id: '', package: '', extras: {} })}>
               <option value="">{tr('اختر المعرض...')}</option>
               {exhibitions.map((ex) => (
                 <option key={ex.id} value={ex.id}>
@@ -251,15 +266,19 @@ export default function Register() {
             </Field>
           </Panel>
 
-          <Panel icon="📍" title={tr('نظام البوث والموقع')} subtitle={BOOTH_NOTE}>
-            {exhibition?.map_path && (
-              <details className="map-details mb-16">
-                <summary>{tr('🗺️ عرض خارطة المعرض')}</summary>
-                <ExhibitionMap key={exhibition.map_path} path={exhibition.map_path} />
-              </details>
+          <Panel icon="📍" title={tr('نظام البوث والموقع')} subtitle={exhibition ? boothNote : tr('اختر المعرض أولاً لتظهر باقاته وأسعاره')}>
+            {exhibition && !hasOwnPackages(exhibition) && (
+              <div className="alert alert-danger">
+                {tr('لم تُحدَّد باقات «{0}» ومميزاتها وأسعارها بعد — لا يمكن التسجيل فيه حتى تُحدَّد.', [exhibitionLabel(exhibition)])}{' '}
+                {canSetPackages ? (
+                  <Link to={`/exhibitions/${exhibition.id}`}>{tr('حدّدها من ملف المعرض ← تعديل البيانات')}</Link>
+                ) : (
+                  tr('اطلب من الإدارة تحديدها.')
+                )}
+              </div>
             )}
             <Choices
-              options={BOOTH_PACKAGES}
+              options={exhibition ? packages : []}
               keyOf={(p) => p.name}
               value={f.package}
               onChange={(name) => setForm({ ...f, package: name, site_id: '' })}
@@ -269,6 +288,7 @@ export default function Register() {
                   <>
                     <span className="choice-title">{tr(p.name)}</span>
                     <span className="choice-price">{formatOMR(p.price)}</span>
+                    {p.area && <span className="choice-sub strong">📐 {tr(p.area)}</span>}
                     <span className="choice-sub">{tr(p.includes)}</span>
                     {ownSites.length > 0 && <span className={`choice-sub ${free ? 'text-suc' : 'text-dng'}`}>{free ? tr('{0} موقع متاح', [free]) : tr('لا توجد مواقع متاحة')}</span>}
                   </>
@@ -308,15 +328,17 @@ export default function Register() {
                   {chosenSite ? tr('رقم {0}', [chosenSite.number]) : f.booth_number?.trim() ? tr('رقم {0}', [f.booth_number.trim()]) : tr('لم يُحدد بعد')}
                   {' — '}{tr(pkg.name)}{' — '}{formatOMR(pkg.price)}
                 </div>
-                <div className="small">{tr('يشمل:')}{' '}{tr(pkg.includes)}</div>
-                <div className="muted tiny">{tr(BOOTH_NOTE)}</div>
+                {pkg.area && <div className="small">{tr('المساحة:')}{' '}{tr(pkg.area)}</div>}
+                {pkg.includes && <div className="small">{tr('يشمل:')}{' '}{tr(pkg.includes)}</div>}
+                {boothNote && <div className="muted tiny">{tr(boothNote)}</div>}
               </div>
             )}
           </Panel>
 
-          <Panel icon="➕" title={tr('إضافات اختيارية — برسوم إضافية')}>
+          <Panel icon="➕" title={pending ? tr('إضافات اختيارية — برسوم إضافية') : tr('إضافات اختيارية وخصم')}>
+            {exhibition && !boothExtras.length && <div className="muted small mb-8">{tr('لا توجد إضافات محددة لهذا المعرض.')}</div>}
             <div className="extras-grid">
-              {BOOTH_EXTRAS.map((x) => (
+              {boothExtras.map((x) => (
                 <div key={x.name} className="extra-row">
                   <label className="check-row">
                     <input type="checkbox" checked={num(f.extras[x.name]) > 0} onChange={(e) => setExtra(x.name, e.target.checked ? 1 : 0)} />
@@ -337,15 +359,27 @@ export default function Register() {
               </Field>
             </div>
             <div className="muted small">{tr('إجمالي الرسوم الإضافية:')}{' '}{formatOMR(totals.extrasTotal)}</div>
-          </Panel>
 
-          {!pending && (
-            <Panel icon="🏷️" title={tr('خصم (اختياري)')} subtitle={tr('للمدير والمالية فقط — يظهر في الفاتورة سطراً مستقلاً، وتُحسب قيمة العقد بعده')}>
-              <Field label={tr('مبلغ الخصم (ر.ع)')}>
-                <input className="input" type="number" min="0" step="0.001" placeholder="0.000" value={f.discount} onChange={set('discount')} />
-              </Field>
-            </Panel>
-          )}
+            {!pending && (
+              <div className="discount-box mt-12">
+                <div className="field-label">{tr('🏷️ خصم للمشارك (اختياري — للمدير والمالية)')}</div>
+                <div className="form-grid">
+                  <Field label={tr('نوع الخصم')}>
+                    <select className="input" value={f.discountType} onChange={set('discountType')}>
+                      <option value="amount">{tr('مبلغ (ر.ع)')}</option>
+                      <option value="percent">{tr('نسبة %')}</option>
+                    </select>
+                  </Field>
+                  <Field
+                    label={f.discountType === 'percent' ? tr('نسبة الخصم %') : tr('مبلغ الخصم (ر.ع)')}
+                    hint={discountValue > 0 ? tr('الخصم: {0} من {1} — يظهر في الفاتورة سطراً مستقلاً', [formatOMR(discountValue), formatOMR(beforeDiscount)]) : tr('يُطبَّق على قيمة الاشتراك والإضافات قبل الضريبة')}
+                  >
+                    <input className="input" type="number" min="0" step={f.discountType === 'percent' ? '1' : '0.001'} max={f.discountType === 'percent' ? '100' : undefined} placeholder={f.discountType === 'percent' ? '10' : '0.000'} value={f.discount} onChange={set('discount')} />
+                  </Field>
+                </div>
+              </div>
+            )}
+          </Panel>
 
           <Panel icon="💳" title={tr('السداد')}>
             <div className="summary-box mb-16">
@@ -395,6 +429,21 @@ export default function Register() {
               <Field label={tr('التاريخ')}>
                 <DateInput value={f.date} onChange={set('date')} />
               </Field>
+            </div>
+            <div className="money-trio mb-16">
+              <div>
+                <span>{tr('قيمة العقد')}{tr(withTax)}</span>
+                <strong>{formatOMR(totals.total)}</strong>
+              </div>
+              <div className="is-paid">
+                <span>{tr('المبلغ المدفوع')}</span>
+                <strong>{formatOMR(amount)}</strong>
+              </div>
+              <div className={remainingDue > 0.0005 ? 'is-due' : amount > totals.total + 0.0005 ? 'is-over' : 'is-paid'}>
+                <span>{amount > totals.total + 0.0005 ? tr('زيادة عن العقد') : tr('المتبقي')}</span>
+                <strong>{formatOMR(Math.abs(totals.total - amount))}</strong>
+                {totals.total > 0 && remainingDue <= 0.0005 && amount <= totals.total + 0.0005 && <em>{tr('✅ مدفوع بالكامل')}</em>}
+              </div>
             </div>
             <Field label={tr('طريقة السداد')} required={amount > 0}>
               <Choices options={FORM_PAYMENT_METHODS} keyOf={(m) => m.value} render={(m) => tr(m.label)} value={f.method} onChange={set('method')} />

@@ -21,10 +21,8 @@ const NAV = [
   { path: '/clients', icon: '◍', label: tr('العملاء'), desc: tr('قاعدة بيانات العملاء'), sub: tr('كل عملاء الشركة وسجل مشاركاتهم') },
   { path: '/exhibitors', icon: '◉', label: tr('العارضون والعقود'), desc: tr('إدارة العارضين'), sub: tr('قاعدة بيانات العارضين والعقود') },
   { section: tr('المالية') },
-  { path: '/finance', icon: '💼', label: tr('المالية'), desc: tr('التحصيل والمصروفات والخطة'), sub: tr('الإيرادات والتحصيل، المتبقي، خطة المعارض، ومصروفات المعارض والشركة'), perm: 'money.view' },
-  { path: '/sales', icon: '◆', label: tr('المبيعات والمدفوعات'), desc: tr('تسجيل وتأكيد الدفعات'), sub: tr('التتبع المالي الشامل'), perm: 'money.view' },
-  { path: '/expenses', icon: '🧾', label: tr('المصروفات والفواتير'), desc: tr('فواتير ما يصرفه الموظفون'), sub: tr('كل ما يصرفه الموظفون من أجل الشركة مع فواتيره') },
-  { path: '/reports', icon: '◈', label: tr('التقارير المالية'), desc: tr('تحليل الأداء'), sub: tr('تحليل الأداء والإيرادات'), perm: 'reports.view' },
+  { path: '/finance', icon: '💼', label: tr('المالية'), desc: tr('الإيرادات والمصروفات والفواتير'), sub: tr('كل أموال الشركة في مكان واحد: الدفعات، المتبقي، المصروفات، مطالبات الموظفين، والتقارير'), perm: 'money.view' },
+  { path: '/expenses', icon: '🧾', label: tr('مصروفاتي'), desc: tr('فواتير ما تصرفه للشركة'), sub: tr('سجّل كل مبلغ تصرفه من أجل الشركة وأرفق فاتورته'), hideFor: 'money.view' },
   { section: tr('التواصل') },
   { path: '/whatsapp', icon: '◎', label: tr('واتساب'), desc: tr('إرسال الإشعارات'), sub: tr('إرسال الإشعارات للعارضين'), perm: 'data.write' },
   { section: tr('الإدارة'), perm: 'staff.manage' },
@@ -63,7 +61,7 @@ function Sidebar({ open, onNavigate, pendingCount }) {
       </div>
 
       <div className="sidebar-nav">
-        {NAV.filter((item) => !item.perm || can(role, item.perm)).map((item) =>
+        {NAV.filter((item) => (!item.perm || can(role, item.perm)) && !(item.hideFor && can(role, item.hideFor))).map((item) =>
           item.section ? (
             <div key={item.section} className="nav-section">
               {tr(item.section)}

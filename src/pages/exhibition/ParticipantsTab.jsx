@@ -39,7 +39,7 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
       action={
         <div className="row-actions">
           {canPay && (
-            <Link to="/sales" className="btn btn-outline btn-sm">
+            <Link to="/finance?tab=income" className="btn btn-outline btn-sm">
               {tr('💳 تسجيل دفعة')}
             </Link>
           )}

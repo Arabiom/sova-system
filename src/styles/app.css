@@ -3103,3 +3103,90 @@ a.ex-card-head {
 .stat-flat.clickable:hover {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
 }
+
+/* ─── Finance centre ─────────────────────────────────────────── */
+.tabs-scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.tabs-scroll .tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.page-actions-bar {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+.package-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 3fr auto;
+  gap: 10px;
+  align-items: end;
+}
+.package-row .field {
+  margin-bottom: 12px;
+}
+@media (max-width: 760px) {
+  .package-row {
+    grid-template-columns: 1fr 1fr;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--border-l);
+    margin-bottom: 8px;
+  }
+  .package-row .package-includes {
+    grid-column: 1 / -1;
+  }
+}
+.discount-box {
+  padding: 12px 14px 2px;
+  border: 1px dashed var(--gold);
+  border-radius: 12px;
+  background: var(--gold-p);
+}
+.money-trio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.money-trio > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surf, #fafafa);
+  border: 1px solid var(--border-l);
+}
+.money-trio span {
+  font-size: 12px;
+  color: var(--ink-60);
+}
+.money-trio strong {
+  font-size: 19px;
+}
+.money-trio em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+}
+.money-trio .is-paid {
+  color: var(--suc);
+  background: color-mix(in srgb, var(--suc) 8%, #fff);
+}
+.money-trio .is-due {
+  color: var(--dng);
+  background: color-mix(in srgb, var(--dng) 8%, #fff);
+}
+.money-trio .is-over {
+  color: var(--wrn);
+  background: color-mix(in srgb, var(--wrn) 10%, #fff);
+}
+@media (max-width: 560px) {
+  .money-trio strong {
+    font-size: 15px;
+  }
+  .money-trio > div {
+    padding: 10px;
+  }
+}
