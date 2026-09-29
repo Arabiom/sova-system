@@ -1,10 +1,15 @@
 import { COMPANY } from '../lib/constants.js'
 import { tr } from '../lib/i18n.js'
+import { Glyph } from './Glyph.jsx'
 
 export function EmptyState({ icon, text }) {
   return (
     <div className="empty">
-      {icon && <div className="empty-icon">{icon}</div>}
+      {icon && (
+        <div className="empty-icon">
+          <Glyph e={icon} size={28} />
+        </div>
+      )}
       <div>{tr(text)}</div>
     </div>
   )

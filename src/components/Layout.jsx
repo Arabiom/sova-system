@@ -6,8 +6,25 @@ import { COMPANY } from '../lib/constants.js'
 import { can, ROLES } from '../lib/permissions.js'
 import { Loading } from './Feedback.jsx'
 import LanguageSwitch from './LanguageSwitch.jsx'
+import { Glyph } from './Glyph.jsx'
+import Icon from './Icon.jsx'
 import { useActivityTracker } from '../lib/useActivityTracker.js'
 import { tr, uiLocale } from '../lib/i18n.js'
+
+/** The line icon of each page (menu and top bar). */
+const NAV_ICONS = {
+  '/dashboard': 'dashboard',
+  '/team': 'checkSquare',
+  '/register': 'userPlus',
+  '/exhibitions': 'landmark',
+  '/bookings': 'inbox',
+  '/clients': 'contact',
+  '/exhibitors': 'store',
+  '/finance': 'briefcase',
+  '/expenses': 'receipt',
+  '/whatsapp': 'message',
+  '/staff': 'shield',
+}
 
 const NAV = [
   { section: tr('الرئيسية') },
@@ -68,7 +85,9 @@ function Sidebar({ open, onNavigate, pendingCount }) {
             </div>
           ) : (
             <NavLink key={item.path} to={item.path} onClick={onNavigate} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-              <div className="nav-icon">{item.icon}</div>
+              <div className="nav-icon">
+                <Glyph e={NAV_ICONS[item.path] || item.icon} size={18} />
+              </div>
               <div className="nav-text">
                 <div className="nav-label">{tr(item.label)}</div>
                 <div className="nav-desc">{tr(item.desc)}</div>
@@ -93,7 +112,7 @@ function Sidebar({ open, onNavigate, pendingCount }) {
           <div className="online-dot" title={tr('متصل')} />
         </div>
         <button className="logout-btn" onClick={signOut}>
-          {tr('تسجيل الخروج')}
+          <Icon name="logout" size={16} /> {tr('تسجيل الخروج')}
         </button>
       </div>
     </nav>
@@ -111,9 +130,11 @@ function Topbar({ page, onMenu }) {
     <header className="topbar">
       <div className="topbar-title-wrap">
         <button className="menu-btn" onClick={onMenu} aria-label={tr('القائمة')}>
-          ☰
+          <Icon name="menu" size={20} />
         </button>
-        <div className="topbar-icon">{page.icon}</div>
+        <div className="topbar-icon">
+          <Glyph e={NAV_ICONS[page.path] || page.icon} size={20} />
+        </div>
         <div>
           <div className="topbar-title">{tr(page.label)}</div>
           <div className="topbar-sub">{tr(page.sub)}</div>

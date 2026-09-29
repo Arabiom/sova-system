@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { IconText } from '../components/Glyph.jsx'
 import { Link } from 'react-router-dom'
 import { deleteExhibition, listExhibitions, newExhibitionForm } from '../api/exhibitions.js'
 import { listSites } from '../api/exhibitionFile.js'
@@ -60,10 +61,10 @@ export default function Exhibitions() {
       <PageHeader title={tr('المعارض والمواعيد')} subtitle={tr('{0} معرض مسجل', [exhibitions.length])}>
         <div className="tabs">
           <button className={`tab ${view === 'cards' ? 'active' : ''}`} onClick={() => setView('cards')}>
-            {tr('🏛️ المعارض')}
+            <IconText text={tr('🏛️ المعارض')} />
           </button>
           <button className={`tab ${view === 'calendar' ? 'active' : ''}`} onClick={() => setView('calendar')}>
-            {tr('📅 التقويم السنوي')}
+            <IconText text={tr('📅 التقويم السنوي')} />
           </button>
         </div>
         {canManage && <Button onClick={openNew}>{tr('🏛️ + إضافة معرض')}</Button>}

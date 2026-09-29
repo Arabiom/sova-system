@@ -1,12 +1,13 @@
 import { planHealth, THIN_MARGIN_PCT } from '../lib/finance.js'
 import { formatOMR } from '../lib/format.js'
 import { tr } from '../lib/i18n.js'
+import Icon from './Icon.jsx'
 
 const LEVEL = {
-  good: { cls: 'health-good', icon: '✅', title: 'الخطة سليمة' },
-  watch: { cls: 'health-watch', icon: '⚠️', title: 'الخطة تحتاج انتباه' },
-  risk: { cls: 'health-risk', icon: '⛔', title: 'الخطة خاسرة' },
-  missing: { cls: 'health-missing', icon: 'ℹ️', title: 'لا يمكن التقييم بعد' },
+  good: { cls: 'health-good', icon: 'checkCircle', title: 'الخطة سليمة' },
+  watch: { cls: 'health-watch', icon: 'warning', title: 'الخطة تحتاج انتباه' },
+  risk: { cls: 'health-risk', icon: 'stop', title: 'الخطة خاسرة' },
+  missing: { cls: 'health-missing', icon: 'info', title: 'لا يمكن التقييم بعد' },
 }
 
 /** One-line verdict (for tables). */
@@ -15,7 +16,7 @@ export function HealthBadge({ f }) {
   const l = LEVEL[h.level]
   return (
     <span className={`health-badge ${l.cls}`} title={verdictText(h, f)}>
-      {l.icon} {tr(l.title)}
+      <Icon name={l.icon} size={13} /> {tr(l.title)}
     </span>
   )
 }
@@ -40,7 +41,9 @@ export default function PlanHealth({ f, title = 'تقييم الخطة' }) {
   return (
     <div className={`health-card ${l.cls}`}>
       <div className="health-head">
-        <span className="health-icon">{l.icon}</span>
+        <span className="health-icon">
+          <Icon name={l.icon} size={24} />
+        </span>
         <div>
           <div className="health-title">
             {tr(title)} — {tr(l.title)}
@@ -50,21 +53,27 @@ export default function PlanHealth({ f, title = 'تقييم الخطة' }) {
       </div>
       <div className="health-cols">
         <div className="health-col">
-          <div className="health-col-title">🎯 {tr('لو بيعت كل المواقع')}</div>
+          <div className="health-col-title">
+            <Icon name="target" size={15} /> {tr('لو بيعت كل المواقع')}
+          </div>
           <div className="kv-row"><span>{tr('الدخل الممكن')}</span><strong>{formatOMR(h.potential)}</strong></div>
           <div className="kv-row"><span>{tr('المصروفات')}</span><strong>{formatOMR(h.expenses)}</strong></div>
           <div className="kv-row kv-total"><span>{tr('الصافي')}</span><strong className={tone(h.netFull)}>{formatOMR(h.netFull)}</strong></div>
           <div className="muted tiny">{h.netFull >= 0 ? tr('هامش الربح {0}%', [h.margin]) : tr('خسارة حتى مع البيع الكامل')}</div>
         </div>
         <div className="health-col">
-          <div className="health-col-title">📋 {tr('حسب العقود الموقعة الآن')}</div>
+          <div className="health-col-title">
+            <Icon name="clipboard" size={15} /> {tr('حسب العقود الموقعة الآن')}
+          </div>
           <div className="kv-row"><span>{tr('العقود والرعايات')}</span><strong>{formatOMR(h.current)}</strong></div>
           <div className="kv-row"><span>{tr('المصروفات')}</span><strong>{formatOMR(h.expenses)}</strong></div>
           <div className="kv-row kv-total"><span>{tr('الصافي')}</span><strong className={tone(h.netNow)}>{formatOMR(h.netNow)}</strong></div>
           {f.collected !== undefined && <div className="muted tiny">{tr('المحصّل منها {0}', [formatOMR(f.collected)])}</div>}
         </div>
         <div className="health-col">
-          <div className="health-col-title">⚖️ {tr('نقطة التعادل')}</div>
+          <div className="health-col-title">
+            <Icon name="scale" size={15} /> {tr('نقطة التعادل')}
+          </div>
           {h.level === 'missing' ? (
             <div className="muted small">{tr('تُحسب بعد إضافة المواقع والمصروفات')}</div>
           ) : f.breakEven > f.capacity ? (

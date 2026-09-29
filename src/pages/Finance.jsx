@@ -22,6 +22,7 @@ import { listStaff } from '../api/staff.js'
 import { listStaffExpenses, openReceipt } from '../api/staffExpenses.js'
 import { checkFile } from '../api/storage.js'
 import Button from '../components/Button.jsx'
+import { IconText } from '../components/Glyph.jsx'
 import PlanHealth, { HealthBadge } from '../components/PlanHealth.jsx'
 import DateInput from '../components/DateInput.jsx'
 import ExhibitionFilter from '../components/ExhibitionFilter.jsx'
@@ -853,7 +854,9 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
       <div className="category-strip mb-12">
         {[['', '🧾 الكل', sumBy(base.filter((x) => x.counted), 'amount')], ...Object.entries(EXPENSE_KINDS).map(([k, label]) => [k, `${KIND_ICON[k]} ${label}`, kindTotal(k)])].map(([k, label, amount]) => (
           <button key={k || 'all'} type="button" className={`category-chip ${filters.kind === k ? 'selected' : ''}`} onClick={() => setFilters((f) => ({ ...f, kind: k }))}>
-            <span>{tr(label)}</span>
+            <span>
+              <IconText text={tr(label)} size={15} />
+            </span>
             <strong>{formatOMR(amount)}</strong>
           </button>
         ))}
@@ -942,7 +945,7 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
                     {(x.user_id || x.notes) && <div className="muted tiny">{[x.user_id && nameOf(x.user_id), x.notes].filter(Boolean).join(' • ')}</div>}
                   </td>
                   <td className="small nowrap">
-                    {KIND_ICON[x.kind]} {tr(EXPENSE_KINDS[x.kind])}
+                    <IconText text={`${KIND_ICON[x.kind]} ${tr(EXPENSE_KINDS[x.kind])}`} size={15} />
                   </td>
                   <td className="small">{x.exhibition_id ? <Link to={`/exhibitions/${x.exhibition_id}`}>{exhibitionLabel(exhibitionOf(x.exhibition_id))}</Link> : <span className="muted">{tr('عام')}</span>}</td>
                   <td>{x.category ? <Chip>{tr(x.category)}</Chip> : '—'}</td>
@@ -1246,7 +1249,7 @@ function Attention({ data, o, go, today: day }) {
     <div className="mb-16">
       {items.map((x) => (
         <button key={x.key} type="button" className={`alert alert-${x.tone} alert-link`} onClick={x.open}>
-          {x.text} — {tr('اضغط للعرض')}
+          <IconText text={x.text} size={17} /> <span className="alert-more">{tr('اضغط للعرض')}</span>
         </button>
       ))}
     </div>
@@ -1282,7 +1285,7 @@ export default function Finance() {
       <div className="tabs tabs-underline tabs-scroll mb-16">
         {TABS.map((t) => (
           <button key={t.id} className={`tab ${tab === t.id ? 'active' : ''}`} onClick={() => go(t.id)}>
-            {tr(t.label)}
+            <IconText text={tr(t.label)} size={16} />
           </button>
         ))}
       </div>

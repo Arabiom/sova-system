@@ -1,4 +1,6 @@
 import { tr } from '../lib/i18n.js'
+import { Glyph } from './Glyph.jsx'
+import Icon from './Icon.jsx'
 
 /** Dashboard metric tile. `flat` renders the compact variant used on the finance pages. */
 export default function StatCard({ label, value, sub, accent = 'var(--gold)', icon, onClick, flat }) {
@@ -13,7 +15,12 @@ export default function StatCard({ label, value, sub, accent = 'var(--gold)', ic
         onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
       >
         <div className="stat-flat-label">
-          {icon} {tr(label)}
+          {icon && (
+            <span className="stat-flat-icon">
+              <Glyph e={icon} size={15} />
+            </span>
+          )}
+          {tr(label)}
         </div>
         <div className="stat-flat-value num">{tr(value)}</div>
         {sub && <div className="stat-sub">{tr(sub)}</div>}
@@ -31,11 +38,17 @@ export default function StatCard({ label, value, sub, accent = 'var(--gold)', ic
     >
       <div className="stat-card-head">
         <div className="stat-card-label">{tr(label)}</div>
-        <div className="stat-card-icon">{icon}</div>
+        <div className="stat-card-icon">
+          <Glyph e={icon} size={20} />
+        </div>
       </div>
       <div className="stat-card-value num">{tr(value)}</div>
       {sub && <div className="stat-sub">{tr(sub)}</div>}
-      {onClick && <div className="stat-card-hint">{tr('اضغط للتفاصيل ↗')}</div>}
+      {onClick && (
+        <div className="stat-card-hint">
+          {tr('التفاصيل')} <Icon name="arrowOut" size={12} />
+        </div>
+      )}
     </div>
   )
 }

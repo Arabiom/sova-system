@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { IconText } from '../components/Glyph.jsx'
 import { Link, useParams } from 'react-router-dom'
 import { listClients } from '../api/clients.js'
 import { listExpenses, listSites, listSponsors } from '../api/exhibitionFile.js'
@@ -181,7 +182,7 @@ export default function ExhibitionFile() {
       <div className="tabs tabs-underline mb-16">
         {TABS.filter((t) => internal || !['expenses', 'sponsors'].includes(t.id)).map((t) => (
           <button key={t.id} className={`tab ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>
-            {tr(t.label)}
+            <IconText text={tr(t.label)} size={16} />
             {t.id === 'participants' && <span className="tab-count">{own.length}</span>}
             {t.id === 'expenses' && <span className="tab-count">{expenses.length}</span>}
             {t.id === 'sponsors' && <span className="tab-count">{sponsors.length}</span>}
