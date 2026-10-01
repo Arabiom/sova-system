@@ -1756,4 +1756,8 @@ export default {
   "الموقع {0} محجوز. تغيير سعره لا يغيّر قيمة عقد صاحبه. متابعة؟": "Site {0} is booked. Changing its price does not change its holder's contract. Continue?",
   "✅ الموقع {0} أصبح «{1}» بسعر {2}": "✅ Site {0} is now “{1}” at {2}",
   "تغيير السعر لا يغيّر قيمة عقد صاحب الموقع.": "Changing the price does not change the site holder's contract.",
+  "اكتب اسم وسعر كل فئة جديدة": "Enter the name and price of each new tier",
+  "اسم الفئة الجديدة": "New tier name",
+  "أرقام مواقعها": "Its site numbers",
+  "+ فئة جديدة": "+ New tier",
 }

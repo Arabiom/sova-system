@@ -92,17 +92,21 @@ function TierForm({ exhibitionId, tier, takenNumbers, onClose, onSaved }) {
 function NumbersModal({ exhibitionId, sites, tiers, onClose, onSaved }) {
   const toast = useToast()
   const [texts, setTexts] = useState(tiers.map((t) => t.ranges.replace(/،/g, ',')))
+  const [added, setAdded] = useState([]) // new tiers: { name, price, text }
   const [saving, setSaving] = useState(false)
-  const check = splitNumbers(sites.map((s) => s.number), texts)
+  const check = splitNumbers(sites.map((s) => s.number), [...texts, ...added.map((a) => a.text)])
+  const setAdd = (i, key) => (e) => setAdded(added.map((a, j) => (j === i ? { ...a, [key]: e.target.value } : a)))
   const bookedMoves = check.numbers
     ? sites.filter((s) => s.exhibitor_id && check.numbers.findIndex((list) => list.includes(s.number)) !== tiers.findIndex((t) => t.name === s.tier && t.price === Number(s.price)))
     : []
 
   const submit = async () => {
     if (check.error) return toast(check.error, 'error')
+    if (added.some((a) => !a.name.trim() || !(Number(a.price) > 0))) return toast(tr('اكتب اسم وسعر كل فئة جديدة'), 'error')
     setSaving(true)
     try {
-      await setTierNumbers(exhibitionId, tiers.map((t, i) => ({ name: t.name, price: t.price, numbers: check.numbers[i] })))
+      const all = [...tiers.map((t) => ({ name: t.name, price: t.price })), ...added.map((a) => ({ name: a.name.trim(), price: Number(a.price) }))]
+      await setTierNumbers(exhibitionId, all.map((t, i) => ({ ...t, numbers: check.numbers[i] })))
       toast(tr('✅ تم تحديث أرقام الفئات'))
       onSaved()
     } catch (err) {
@@ -142,6 +146,22 @@ function NumbersModal({ exhibitionId, sites, tiers, onClose, onSaved }) {
           <input className="input" dir="ltr" value={texts[i]} onChange={(e) => setTexts(texts.map((x, j) => (j === i ? e.target.value : x)))} placeholder="7-20, 23-30, 33-40" />
         </Field>
       ))}
+      {added.map((a, i) => (
+        <div key={i} className="form-grid new-tier">
+          <Field label={tr('اسم الفئة الجديدة')}>
+            <input className="input" value={a.name} onChange={setAdd(i, 'name')} />
+          </Field>
+          <Field label={tr('السعر (ر.ع)')}>
+            <input className="input" type="number" min="0" dir="ltr" value={a.price} onChange={setAdd(i, 'price')} />
+          </Field>
+          <Field label={tr('أرقام مواقعها')} hint={check.numbers ? tr('{0} موقع', [check.numbers[tiers.length + i].length]) : undefined}>
+            <input className="input" dir="ltr" value={a.text} onChange={setAdd(i, 'text')} placeholder="21, 22, 31, 32" />
+          </Field>
+        </div>
+      ))}
+      <Button size="sm" variant="outline" className="mb-16" onClick={() => setAdded([...added, { name: '', price: '', text: '' }])}>
+        {tr('+ فئة جديدة')}
+      </Button>
       {check.error && <div className="alert alert-danger">⚠️ {check.error}</div>}
       {bookedMoves.length > 0 && (
         <div className="alert alert-warning">
@@ -540,11 +560,9 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
             <Button size="sm" onClick={() => setTierForm({ tier: null })}>
               {tr('+ إضافة مواقع')}
             </Button>
-            {tiers.length > 1 && (
-              <Button size="sm" variant="outline" onClick={() => setRenumbering(true)}>
-                {tr('🔢 توزيع الأرقام على الفئات')}
-              </Button>
-            )}
+            <Button size="sm" variant="outline" onClick={() => setRenumbering(true)}>
+              {tr('🔢 توزيع الأرقام على الفئات')}
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setImporting(true)}>
               {tr('📥 استيراد / تحديث من Excel')}
             </Button>
