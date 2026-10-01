@@ -1752,4 +1752,8 @@ export default {
   "اكتب أرقام كل فئة كما في الخارطة المطبوعة — كل رقم في فئة واحدة": "Type each tier's numbers as on the printed map — each number in one tier only",
   "مواقع محجوزة سيتغيّر سعرها: {0}. قيمة عقود أصحابها لا تتغيّر — عدّلها من المشاركين إن لزم.": "Booked sites whose price will change: {0}. Their holders' contracts do not change — adjust them from the participants if needed.",
   "🔢 توزيع الأرقام على الفئات": "🔢 Split numbers between tiers",
+  "فئة الموقع وسعره": "Site tier and price",
+  "الموقع {0} محجوز. تغيير سعره لا يغيّر قيمة عقد صاحبه. متابعة؟": "Site {0} is booked. Changing its price does not change its holder's contract. Continue?",
+  "✅ الموقع {0} أصبح «{1}» بسعر {2}": "✅ Site {0} is now “{1}” at {2}",
+  "تغيير السعر لا يغيّر قيمة عقد صاحب الموقع.": "Changing the price does not change the site holder's contract.",
 }

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { placeSite } from '../../api/exhibitionFile.js'
+import { placeSite, setSiteTier } from '../../api/exhibitionFile.js'
 import { mapUrl } from '../../api/maps.js'
 import Button from '../../components/Button.jsx'
 import Panel from '../../components/Panel.jsx'
@@ -9,7 +9,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { COMPANY } from '../../lib/constants.js'
 import { formatOMR, num } from '../../lib/format.js'
 import { tr } from '../../lib/i18n.js'
-import { alignPositions, cellSize, siteStatus } from '../../lib/sites.js'
+import { alignPositions, cellSize, siteStatus, tiersFromSites } from '../../lib/sites.js'
 import { useData } from '../../lib/useData.js'
 import { openWhatsApp } from '../../lib/whatsapp.js'
 
@@ -23,7 +23,7 @@ const ZOOMS = [1, 1.5, 2, 3]
 const cls = (status) => `pin-${status.replace(/\s/g, '-')}`
 
 /** What a pinned site shows on hover / tap: the site, and who booked it. */
-function PinCard({ site, holder, status, money, canBook, onBook, onRegister, onClose }) {
+function PinCard({ site, holder, status, money, canBook, tiers, onTier, onBook, onRegister, onClose }) {
   const flipX = site.map_x > 55
   const flipY = site.map_y > 62
   const remaining = holder ? Math.max(0, num(holder.contract) - num(holder.paid)) : 0
@@ -38,9 +38,22 @@ function PinCard({ site, holder, status, money, canBook, onBook, onRegister, onC
           ✕
         </button>
       </div>
-      <div className="muted small">
-        {tr(site.tier)} • {formatOMR(site.price)}
-      </div>
+      {onTier ? (
+        <label className="pin-tier">
+          <span className="muted small">{tr('فئة الموقع وسعره')}</span>
+          <select className="input input-compact" value={`${site.tier}|${Number(site.price)}`} onChange={(e) => onTier(tiers.find((t) => `${t.name}|${t.price}` === e.target.value))}>
+            {tiers.map((t) => (
+              <option key={`${t.name}|${t.price}`} value={`${t.name}|${t.price}`}>
+                {tr(t.name)} — {formatOMR(t.price)}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <div className="muted small">
+          {tr(site.tier)} • {formatOMR(site.price)}
+        </div>
+      )}
       {holder ? (
         <div className="pin-card-rows">
           <div><span>{tr('المشارك')}</span><strong>{tr(holder.brand)}</strong></div>
@@ -136,6 +149,20 @@ export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, 
         delete next[site.id]
         return next
       })
+      toast(err.message, 'error')
+    }
+  }
+
+  const tiers = tiersFromSites(sites)
+  /** Give one site another tier (its name and price), straight from its card on the map. */
+  const changeTier = async (site, tier) => {
+    if (!tier) return
+    if (site.exhibitor_id && !confirm(tr('الموقع {0} محجوز. تغيير سعره لا يغيّر قيمة عقد صاحبه. متابعة؟', [site.number]))) return
+    try {
+      await setSiteTier(site.id, tier)
+      toast(tr('✅ الموقع {0} أصبح «{1}» بسعر {2}', [site.number, tier.name, formatOMR(tier.price)]))
+      onChanged()
+    } catch (err) {
       toast(err.message, 'error')
     }
   }
@@ -296,6 +323,8 @@ export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, 
               status={current.status}
               money={money}
               canBook={canWrite}
+              tiers={tiers}
+              onTier={canManage && tiers.length > 1 ? (t) => changeTier(current, t) : null}
               onBook={() => {
                 setActive(null)
                 onBook(current)
