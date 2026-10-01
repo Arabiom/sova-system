@@ -10,7 +10,8 @@ import { DEFAULT_TIERS } from '../../lib/constants.js'
 import { tiersOf } from '../../lib/finance.js'
 import { formatOMR } from '../../lib/format.js'
 import { matchPlan, planImport, readFirstSheet } from '../../lib/importSheet.js'
-import { parseRanges, siteStatus, splitNumbers, tierColor, tiersFromSites } from '../../lib/sites.js'
+import { askNewTier, NEW_TIER, parseRanges, siteStatus, splitNumbers, tierChoices, tierColor, tiersFromSites } from '../../lib/sites.js'
+import { packagesOf } from '../../lib/packages.js'
 import { tr } from '../../lib/i18n.js'
 import { isPdfPath } from '../../api/maps.js'
 import SiteMap from './SiteMap.jsx'
@@ -176,12 +177,20 @@ function AssignModal({ site, exhibitors, holder, tiers = [], onClose, onSaved })
   const toast = useToast()
   const tierKey = `${site.tier}|${Number(site.price)}`
   const [tier, setTier] = useState(tierKey) // managers can move the site to another tier (price)
+  const [options, setOptions] = useState(tiers)
+  const pickTier = (value) => {
+    if (value !== NEW_TIER) return setTier(value)
+    const t = askNewTier()
+    if (!t) return
+    setOptions((o) => (o.some((x) => x.key === t.key) ? o : [...o, t]))
+    setTier(t.key)
+  }
   const [exhibitorId, setExhibitorId] = useState(holder?.id || '')
   const [adjust, setAdjust] = useState(true)
   const [saving, setSaving] = useState(false)
   const chosen = exhibitors.find((e) => e.id === exhibitorId) || null
   const changed = (holder?.id || '') !== exhibitorId
-  const newTier = tier !== tierKey ? tiers.find((t) => `${t.name}|${t.price}` === tier) : null
+  const newTier = tier !== tierKey ? options.find((t) => t.key === tier) : null
   const price = newTier ? newTier.price : site.price
 
   const submit = async () => {
@@ -222,14 +231,20 @@ function AssignModal({ site, exhibitors, holder, tiers = [], onClose, onSaved })
         </>
       }
     >
-      {tiers.length > 1 && (
+      {tiers.length > 0 && (
         <Field label={tr('فئة الموقع وسعره')} hint={newTier && holder ? tr('تغيير السعر لا يغيّر قيمة عقد صاحب الموقع.') : undefined}>
-          <select className="input" value={tier} onChange={(e) => setTier(e.target.value)}>
-            {tiers.map((t) => (
-              <option key={`${t.name}|${t.price}`} value={`${t.name}|${t.price}`}>
+          <select className="input" value={tier} onChange={(e) => pickTier(e.target.value)}>
+            {!options.some((t) => t.key === tierKey) && (
+              <option value={tierKey}>
+                {tr(site.tier)} — {formatOMR(site.price)}
+              </option>
+            )}
+            {options.map((t) => (
+              <option key={t.key} value={t.key}>
                 {tr(t.name)} — {formatOMR(t.price)}
               </option>
             ))}
+            <option value={NEW_TIER}>{tr('+ فئة جديدة…')}</option>
           </select>
         </Field>
       )}
@@ -453,6 +468,8 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
   const tiers = tiersFromSites(sites)
   const colorOf = new Map(tiers.map((t, i) => [`${t.name}|${t.price}`, tierColor(t.name, i)]))
   const taken = new Set(sites.map((s) => s.number))
+  // Tiers a site can take: those in use plus the exhibition's packages (even with no site yet).
+  const choices = tierChoices(tiers, packagesOf(exhibition))
 
   /** Open the booking of one site — a marketer only for their own participants. */
   const book = (site) => {
@@ -542,6 +559,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
           path={exhibition.map_path}
           sites={sites}
           exhibitors={exhibitors}
+          tiers={choices}
           canManage={canManage}
           canWrite={canWrite}
           money={money}
@@ -664,7 +682,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
         <NumbersModal
           exhibitionId={exhibition.id}
           sites={sites}
-          tiers={tiers}
+          tiers={choices.map((c) => ({ ...c, ranges: tiers.find((t) => t.name === c.name && t.price === c.price)?.ranges || '' }))}
           onClose={() => setRenumbering(false)}
           onSaved={() => {
             setRenumbering(false)
@@ -689,7 +707,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
           site={assigning}
           exhibitors={exhibitors.filter(canEdit)}
           holder={byId.get(assigning.exhibitor_id) || null}
-          tiers={canManage ? tiers : []}
+          tiers={canManage ? choices : []}
           onClose={() => setAssigning(null)}
           onSaved={() => {
             setAssigning(null)

@@ -195,3 +195,30 @@ export function splitNumbers(existing, texts) {
   if (missing.length) return { error: tr('هذه المواقع لم تُكتب في أي فئة: {0}', [formatRanges(missing)]) }
   return { numbers }
 }
+
+export const NEW_TIER = '__new__'
+
+/**
+ * The tiers a site can be moved to: the ones its sites already use plus the exhibition's own
+ * packages (name and price) — so a tier with no site yet can still be chosen. Highest price first.
+ */
+export function tierChoices(tiers, packages = []) {
+  const seen = new Map()
+  for (const t of [...tiers, ...packages]) {
+    const name = String(t.name || '').trim()
+    if (!name) continue
+    const price = num(t.price)
+    const key = `${name}|${price}`
+    if (!seen.has(key)) seen.set(key, { name, price, key })
+  }
+  return [...seen.values()].sort((a, b) => b.price - a.price || a.name.localeCompare(b.name, 'ar'))
+}
+
+/** Ask for a new tier's name and price (browser prompts). null when cancelled or invalid. */
+export function askNewTier() {
+  const name = (window.prompt(tr('اسم الفئة الجديدة')) || '').trim()
+  if (!name) return null
+  const price = num(String(window.prompt(tr('سعر الموقع في هذه الفئة (ر.ع)')) || '').replace(/[^\d.]/g, ''))
+  if (!(price > 0)) return null
+  return { name, price, key: `${name}|${price}` }
+}
