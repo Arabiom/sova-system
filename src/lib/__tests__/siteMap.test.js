@@ -31,3 +31,19 @@ describe('lining up sites on the map', () => {
     expect(cellSize([{ x: 20, y: 50 }])).toBeNull()
   })
 })
+
+describe('splitting site numbers between tiers', () => {
+  const all = Array.from({ length: 46 }, (_, i) => i + 1)
+  it('accepts a split that covers every site once', async () => {
+    const { splitNumbers } = await import('../sites.js')
+    const r = splitNumbers(all, ['1-6', '41-46', '21, 22, 31, 32', '7-20, 23-30, 33-40'])
+    expect(r.error).toBeUndefined()
+    expect(r.numbers.map((n) => n.length)).toEqual([6, 6, 4, 30])
+  })
+  it('refuses a number in two tiers, a missing one, or one that does not exist', async () => {
+    const { splitNumbers } = await import('../sites.js')
+    expect(splitNumbers(all, ['1-6', '6-46']).error).toMatch('6')
+    expect(splitNumbers(all, ['1-6', '7-45']).error).toMatch('46')
+    expect(splitNumbers(all, ['1-6', '7-47']).error).toMatch('47')
+  })
+})

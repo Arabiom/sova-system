@@ -167,3 +167,31 @@ export function cellSize(points, tol = 2) {
   if (!dx || !dy) return null
   return { w: round2(Math.min(dx * 0.88, 12)), h: round2(Math.min(dy * 0.82, 12)) }
 }
+
+/**
+ * Check a new split of the site numbers between tiers: `texts[i]` is what was typed for tier i
+ * ("41-46" or "7-20, 23-30"). Every existing number must be in exactly one tier, and no new
+ * number may appear. Returns { numbers: [[…], …] } or { error }.
+ */
+export function splitNumbers(existing, texts) {
+  const have = new Set(existing.map(Number))
+  const seen = new Map() // number → tier index
+  const numbers = []
+  for (let i = 0; i < texts.length; i++) {
+    let list
+    try {
+      list = parseRanges(texts[i])
+    } catch (err) {
+      return { error: err.message }
+    }
+    for (const n of list) {
+      if (!have.has(n)) return { error: tr('الموقع {0} غير موجود في هذا المعرض', [n]) }
+      if (seen.has(n)) return { error: tr('الموقع {0} مكتوب في فئتين', [n]) }
+      seen.set(n, i)
+    }
+    numbers.push(list)
+  }
+  const missing = [...have].filter((n) => !seen.has(n)).sort((a, b) => a - b)
+  if (missing.length) return { error: tr('هذه المواقع لم تُكتب في أي فئة: {0}', [formatRanges(missing)]) }
+  return { numbers }
+}
