@@ -1,4 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
+import { listBookings } from '../api/bookings.js'
+import StatCard from '../components/StatCard.jsx'
+import { downloadCsv } from '../lib/csv.js'
 import { IconText } from '../components/Glyph.jsx'
 import { useLocation } from 'react-router-dom'
 import { listClients } from '../api/clients.js'
@@ -13,7 +16,7 @@ import WhatsAppQueue from '../components/WhatsAppQueue.jsx'
 import { WhatsAppText } from '../components/WhatsAppText.jsx'
 import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
-import { CLIENT_STATUSES, EXHIBITOR_STATUSES } from '../lib/constants.js'
+import { BOOKING_STATUSES, CLIENT_STATUSES, EXHIBITOR_STATUSES } from '../lib/constants.js'
 import { balanceOf } from '../lib/finance.js'
 import { formatDayMonthYear } from '../lib/dates.js'
 import { exhibitionLabel, formatDate, phoneKey, todayISO } from '../lib/format.js'
@@ -39,22 +42,64 @@ import {
 import { tr, uiLocale } from '../lib/i18n.js'
 
 const load = async () => {
-  const [exhibitors, exhibitions, clients, templates, contacts, staff] = await Promise.all([
+  const [exhibitors, exhibitions, clients, templates, contacts, staff, bookings, log] = await Promise.all([
     listExhibitors({ orderBy: 'brand', ascending: true }),
     listExhibitions(),
     listClients().catch(() => []),
     listTemplates(),
     lastContacts(),
     listStaff().catch(() => []),
+    listBookings().catch(() => []),
+    listLog().catch(() => null),
   ])
-  return { exhibitors, exhibitions, clients, templates, contacts, staff }
+  return { exhibitors, exhibitions, clients, templates, contacts, staff, bookings, log }
 }
 
 const AUDIENCES = [
   { id: 'exhibitor', label: tr('🏛️ المشاركون في المعارض') },
   { id: 'client', label: tr('👥 قاعدة العملاء') },
+  { id: 'booking', label: tr('📥 طلبات الحجز') },
   { id: 'manual', label: tr('✍️ أرقام أكتبها بنفسي') },
 ]
+
+const COLD_DAYS = 30
+const isOpenExhibition = (ex) => Boolean(ex) && !['منتهي', 'ملغى'].includes(ex.status)
+
+/**
+ * Ready-made lists: one click picks the audience, its filters and selects everyone in it.
+ * `match(r, ctx)` narrows the audience; `exhibition` picks one exhibition.
+ */
+const SMART_LISTS = [
+  { id: 'pending-bookings', icon: '📥', label: 'طلبات حجز لم يُرد عليها', audience: 'booking', match: (r) => r.status === 'معلق' },
+  { id: 'due', icon: '⏳', label: 'عليهم مبالغ متبقية', audience: 'exhibitor', money: true, match: (r, c) => balanceOf(r) > 0 && isOpenExhibition(c.exhibitionOf(r.exhibition_id)) },
+  { id: 'unconfirmed', icon: '📝', label: 'لم يؤكدوا مشاركتهم', audience: 'exhibitor', match: (r, c) => ['مبدئي', 'قيد التوقيع'].includes(r.status) && isOpenExhibition(c.exhibitionOf(r.exhibition_id)) },
+  { id: 'next', icon: '🏛️', label: 'مشاركو أقرب معرض', audience: 'exhibitor', exhibition: (c) => c.nextExhibition?.id || '' },
+  { id: 'cold', icon: '🕓', label: 'عملاء لم نراسلهم منذ 30 يوماً', audience: 'client', match: (r, c) => !c.contacts[phoneKey(r.phone)] || daysAgo(c.contacts[phoneKey(r.phone)].sent_at) >= COLD_DAYS },
+]
+
+/** Everyone a list (audience + exhibition + filters + ready-made list) can reach, before selection. */
+function buildPool({ audience, exhibitionId, filters, smart, manualText }, ctx) {
+  if (audience === 'manual') return parseManualList(manualText)
+  const source = { client: ctx.clients, booking: ctx.bookings, exhibitor: ctx.exhibitors }[audience] || []
+  const rows = source.map((x) => toRecipient(audience, x))
+  const q = filters.q.trim().toLowerCase()
+  const list = SMART_LISTS.find((l) => l.id === smart)
+  return rows.filter((r) => {
+    if (audience !== 'client' && exhibitionId && r.exhibition_id !== exhibitionId) return false
+    if (list?.match && !list.match(r, ctx)) return false
+    if (filters.status && r.status !== filters.status) return false
+    if (filters.sector && !String(r.sector).includes(filters.sector)) return false
+    if (ctx.money && audience === 'exhibitor' && filters.balance) {
+      const due = balanceOf(r) > 0
+      if ((filters.balance === 'due') !== due) return false
+    }
+    if (filters.fresh && ctx.contacts[phoneKey(r.phone)] && daysAgo(ctx.contacts[phoneKey(r.phone)].sent_at) < RECENT_DAYS) return false
+    if (q && ![r.name, r.brand, r.phone, r.sector].some((v) => String(v || '').toLowerCase().includes(q))) return false
+    return true
+  })
+}
+
+const NO_FILTERS = { status: '', sector: '', balance: '', q: '', fresh: false }
 
 const EMOJIS = ['🌟', '✅', '📅', '📍', '🏛️', '🔢', '💰', '📞', '🎉', '🙏', '⏰', '📌', '🎁', '🔥', '❤️', '👋', '🌙', '🇴🇲']
 
@@ -81,15 +126,48 @@ const agoText = (iso) => {
   return d <= 0 ? tr('اليوم') : d === 1 ? tr('أمس') : tr('قبل {0} يوم', [d])
 }
 
+/** This week at a glance: what was sent, how many people were reached, what still waits. */
+function Overview({ data, onPending }) {
+  const log = data.log || []
+  const since = (days) => log.filter((r) => daysAgo(r.sent_at) < days)
+  const today = log.filter((r) => new Date(r.sent_at).toDateString() === new Date().toDateString())
+  const reached = Object.values(data.contacts).filter((c) => daysAgo(c.sent_at) < COLD_DAYS).length
+  const pending = data.bookings.filter((b) => b.status === 'معلق').length
+  return (
+    <div className="grid-4 mb-16 wa-kpis">
+      <StatCard flat icon="📱" label={tr('رسائل اليوم')} value={today.length} sub={tr('أُرسلت من النظام')} accent="var(--whatsapp)" />
+      <StatCard flat icon="📅" label={tr('آخر 7 أيام')} value={since(7).length} sub={tr('{0} عملية إرسال', [groupCampaigns(since(7)).length])} accent="var(--gold)" />
+      <StatCard flat icon="👥" label={tr('وصلناهم خلال 30 يوماً')} value={reached} sub={tr('رقم مختلف')} accent="var(--info)" />
+      <StatCard
+        flat
+        icon="📥"
+        label={tr('طلبات حجز تنتظر رداً')}
+        value={pending}
+        sub={pending ? tr('اضغط لمراسلتهم الآن') : tr('لا يوجد ما ينتظر ✔')}
+        accent={pending ? 'var(--wrn)' : 'var(--suc)'}
+        onClick={pending ? onPending : undefined}
+      />
+    </div>
+  )
+}
+
 export default function WhatsApp() {
   const { data, loading, reload } = useData(load, null)
   const [tab, setTab] = useState('compose')
+  // A message (and maybe its people) brought back from the history, or a ready-made list.
+  const [seed, setSeed] = useState(null)
+  const reuse = (next) => {
+    setSeed({ ...next, id: crypto.randomUUID() })
+    setTab('compose')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   if (loading || !data) return <Loading />
 
   return (
     <>
       <PageHeader title={tr('واتساب 📱')} subtitle={tr('رسائل جماعية مخصّصة لكل شخص باسمه وبياناته، مع قوالب جاهزة وسجل لكل ما أُرسل')} />
+      <Overview data={data} onPending={() => reuse({ smart: 'pending-bookings' })} />
       <div className="tabs tabs-underline mb-16">
         <button className={`tab ${tab === 'compose' ? 'active' : ''}`} onClick={() => setTab('compose')}>
           <IconText text={tr('✉️ رسالة جديدة')} />
@@ -98,31 +176,44 @@ export default function WhatsApp() {
           <IconText text={tr('🕘 سجل الإرسال')} />
         </button>
       </div>
-      {tab === 'compose' ? <Composer data={data} reload={reload} /> : <History staff={data.staff} />}
+      {tab === 'compose' ? <Composer key={seed?.id || 'new'} seed={seed} data={data} reload={reload} /> : <History staff={data.staff} onReuse={reuse} />}
     </>
   )
 }
 
 // ─── Compose ────────────────────────────────────────────────────────────────────────
 
-function Composer({ data, reload }) {
+function Composer({ data, reload, seed }) {
   const toast = useToast()
   const location = useLocation()
   const { session, role } = useAuth()
   const money = useCan('money.view')
   const uid = session?.user?.id
-  const { exhibitors, exhibitions, clients, templates, contacts } = data
-  const preset = location.state || {}
+  const { exhibitors, exhibitions, clients, templates, contacts, bookings } = data
+  const preset = seed || location.state || {}
+
+  const exhibitionOf = (id) => exhibitions.find((e) => e.id === id) || null
+  const nextExhibition = [...exhibitions].filter((e) => isOpenExhibition(e) && e.date_to >= todayISO()).sort((a, b) => (a.date_from < b.date_from ? -1 : 1))[0] || null
+  const ctx = { exhibitors, clients, bookings, contacts, money, exhibitionOf, nextExhibition }
+  const smartLists = SMART_LISTS.filter((l) => money || !l.money)
+  const presetList = smartLists.find((l) => l.id === preset.smart)
 
   // 1. Who
-  const [audience, setAudience] = useState(preset.audience || 'exhibitor')
-  const [exhibitionId, setExhibitionId] = useState(preset.exhibitionId || '')
-  const [filters, setFilters] = useState({ status: '', sector: '', balance: '', q: '', fresh: false })
-  const [selected, setSelected] = useState(() => new Set(preset.keys || []))
-  const [manualText, setManualText] = useState('')
+  const [audience, setAudience] = useState(presetList?.audience || preset.audience || 'exhibitor')
+  const [exhibitionId, setExhibitionId] = useState(presetList?.exhibition ? presetList.exhibition(ctx) : preset.exhibitionId || '')
+  const [filters, setFilters] = useState(NO_FILTERS)
+  const [smart, setSmart] = useState(presetList?.id || '')
+  const [selected, setSelected] = useState(() => {
+    if (!presetList) return new Set(preset.keys || [])
+    const start = { audience: presetList.audience, exhibitionId: presetList.exhibition ? presetList.exhibition(ctx) : '', filters: NO_FILTERS, smart: presetList.id, manualText: '' }
+    return new Set(buildPool(start, ctx).filter((r) => !phoneProblem(r.phone)).map((r) => r.key))
+  })
+  const [manualText, setManualText] = useState(preset.manualText || '')
 
   // 2. What
-  const initialTemplate = BUILTIN_TEMPLATES.find((t) => t.id === preset.template) || BUILTIN_TEMPLATES.find((t) => t.id === 'reminder')
+  const initialTemplate = preset.body != null
+    ? { id: 'custom', body: preset.body }
+    : BUILTIN_TEMPLATES.find((t) => t.id === preset.template) || BUILTIN_TEMPLATES.find((t) => t.id === 'reminder')
   const [templateId, setTemplateId] = useState(initialTemplate.id)
   const [body, setBody] = useState(initialTemplate.body)
   const [savingName, setSavingName] = useState(null) // null | '' | name being typed
@@ -137,32 +228,25 @@ function Composer({ data, reload }) {
   const [queue, setQueue] = useState(null)
   const [previewIndex, setPreviewIndex] = useState(0)
 
-  const exhibitionOf = (id) => exhibitions.find((e) => e.id === id) || null
   const chosenExhibition = exhibitionOf(exhibitionId)
 
   // Everyone who can be picked for the current audience, before selection.
-  const pool = useMemo(() => {
-    if (audience === 'manual') return parseManualList(manualText)
-    const rows = audience === 'client' ? clients.map((c) => toRecipient('client', c)) : exhibitors.map((e) => toRecipient('exhibitor', e))
-    const q = filters.q.trim().toLowerCase()
-    return rows.filter((r) => {
-      if (audience === 'exhibitor' && exhibitionId && r.exhibition_id !== exhibitionId) return false
-      if (filters.status && r.status !== filters.status) return false
-      if (filters.sector && !String(r.sector).includes(filters.sector)) return false
-      if (money && audience === 'exhibitor' && filters.balance) {
-        const due = balanceOf(r) > 0
-        if ((filters.balance === 'due') !== due) return false
-      }
-      if (filters.fresh && contacts[phoneKey(r.phone)] && daysAgo(contacts[phoneKey(r.phone)].sent_at) < RECENT_DAYS) return false
-      if (q && ![r.name, r.brand, r.phone, r.sector].some((v) => String(v || '').toLowerCase().includes(q))) return false
-      return true
-    })
-  }, [audience, manualText, clients, exhibitors, exhibitionId, filters, money, contacts])
+  const pool = buildPool({ audience, exhibitionId, filters, smart, manualText }, ctx)
+  const smartCount = (l) =>
+    buildPool({ audience: l.audience, exhibitionId: l.exhibition ? l.exhibition(ctx) : '', filters: NO_FILTERS, smart: l.id, manualText: '' }, ctx).filter((r) => !phoneProblem(r.phone)).length
+  const pickSmart = (l) => {
+    const ex = l.exhibition ? l.exhibition(ctx) : ''
+    setAudience(l.audience)
+    setExhibitionId(ex)
+    setFilters(NO_FILTERS)
+    setSmart(l.id)
+    setSelected(new Set(buildPool({ audience: l.audience, exhibitionId: ex, filters: NO_FILTERS, smart: l.id, manualText: '' }, ctx).filter((r) => !phoneProblem(r.phone)).map((r) => r.key)))
+  }
 
   const sectors = useMemo(() => {
-    const rows = audience === 'client' ? clients.map((c) => c.sector) : exhibitors.map((e) => e.category)
+    const rows = audience === 'client' ? clients.map((c) => c.sector) : (audience === 'booking' ? bookings : exhibitors).map((e) => e.category)
     return [...new Set(rows.flatMap((s) => String(s || '').split(/[،,]/).map((x) => x.trim())).filter(Boolean))].sort()
-  }, [audience, clients, exhibitors])
+  }, [audience, clients, exhibitors, bookings])
 
   const sendable = (r) => !phoneProblem(r.phone)
   const chosen = audience === 'manual' ? pool : pool.filter((r) => selected.has(r.key))
@@ -283,21 +367,60 @@ function Composer({ data, reload }) {
   }
 
   const setFilter = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
+  const activeList = smartLists.find((l) => l.id === smart)
   const switchAudience = (id) => {
     setAudience(id)
     setSelected(new Set())
-    setFilters({ status: '', sector: '', balance: '', q: '', fresh: false })
+    setSmart('')
+    setFilters(NO_FILTERS)
   }
 
-  const needsExhibition = audience !== 'exhibitor'
-  const statuses = audience === 'client' ? CLIENT_STATUSES : EXHIBITOR_STATUSES
+  const needsExhibition = audience === 'client' || audience === 'manual'
+  const statuses = audience === 'client' ? CLIENT_STATUSES : audience === 'booking' ? BOOKING_STATUSES : EXHIBITOR_STATUSES
+
+  // Where each step stands, for the progress bar at the top.
+  const templateName = [...builtins, ...saved].find((x) => x.id === templateId)
+  const steps = [
+    { title: tr('لمن الرسالة؟'), sub: messages.length ? tr('{0} مستلم', [messages.length]) : tr('لم يُختر أحد بعد'), done: messages.length > 0 },
+    { title: tr('الرسالة'), sub: !body.trim() ? tr('فارغة') : blocked.length ? tr('تحتاج تصحيحاً') : templateName && templateName.id !== 'custom' ? tr(templateName.label || templateName.name) : tr('رسالة مخصّصة'), done: Boolean(body.trim()) && !blocked.length },
+    { title: tr('الإرسال'), sub: messages.length && body.trim() && !blocked.length ? tr('جاهزة للإرسال') : tr('أكمل الخطوتين أولاً'), done: false },
+  ]
+  const ready = messages.length > 0 && Boolean(body.trim()) && !blocked.length
+  const goTo = (i) => document.getElementById(`wa-step-${i + 1}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   return (
     <div className="wa-layout">
       <div>
+        <ol className="wa-steps">
+          {steps.map((st, i) => (
+            <li key={i}>
+              <button type="button" className={`wa-step ${st.done ? 'done' : ''} ${i === 2 && ready ? 'ready' : ''}`} onClick={() => goTo(i)}>
+                <span className="wa-step-num">{st.done ? '✓' : i + 1}</span>
+                <span className="min-w-0">
+                  <span className="wa-step-title">{st.title}</span>
+                  <span className="wa-step-sub ellipsis">{st.sub}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+
         {/* 1 ─ Who */}
-        <section className="panel panel-pad mb-16">
-          <div className="step-title">{tr('1️⃣ لمن الرسالة؟')}</div>
+        <section className="panel panel-pad mb-16" id="wa-step-1">
+          <div className="step-title"><span className="step-num">1</span>{tr('لمن الرسالة؟')}</div>
+          <div className="field-label">{tr('قوائم جاهزة — اضغط لتحديد الجميع فيها:')}</div>
+          <div className="wa-smart mb-12">
+            {smartLists.map((l) => {
+              const n = smartCount(l)
+              return (
+                <button key={l.id} type="button" className={`wa-smart-chip ${smart === l.id ? 'active' : ''}`} onClick={() => pickSmart(l)} disabled={!n}>
+                  <span>{l.icon}</span>
+                  <span>{tr(l.label)}</span>
+                  <strong>{n}</strong>
+                </button>
+              )
+            })}
+          </div>
           <div className="wa-seg mb-12">
             {AUDIENCES.map((a) => (
               <button key={a.id} className={audience === a.id ? 'active' : ''} onClick={() => switchAudience(a.id)}>
@@ -306,6 +429,12 @@ function Composer({ data, reload }) {
             ))}
           </div>
 
+          {activeList && (
+            <div className="wa-active-list">
+              {activeList.icon} {tr('القائمة الجاهزة:')}{' '}<strong>{tr(activeList.label)}</strong>
+              <button type="button" onClick={() => setSmart('')}>{tr('إلغاء')}</button>
+            </div>
+          )}
           <div className="wa-filters">
             <select className="input input-compact" value={exhibitionId} onChange={(e) => setExhibitionId(e.target.value)}>
               <option value="">{needsExhibition ? tr('— المعرض المقصود بالرسالة —') : tr('كل المعارض')}</option>
@@ -410,8 +539,8 @@ function Composer({ data, reload }) {
         </section>
 
         {/* 2 ─ What */}
-        <section className="panel panel-pad mb-16">
-          <div className="step-title">{tr('2️⃣ الرسالة')}</div>
+        <section className="panel panel-pad mb-16" id="wa-step-2">
+          <div className="step-title"><span className="step-num">2</span>{tr('الرسالة')}</div>
           <div className="muted tiny mb-10">{tr('اختر قالباً جاهزاً ثم عدّل عليه كما تريد، أو ابدأ رسالة فارغة')}</div>
           <div className="wa-templates">
             {builtins.map((t) => (
@@ -497,8 +626,8 @@ function Composer({ data, reload }) {
         </section>
 
         {/* 3 ─ Send */}
-        <section className="panel panel-pad">
-          <div className="step-title">{tr('3️⃣ الإرسال')}</div>
+        <section className="panel panel-pad" id="wa-step-3">
+          <div className="step-title"><span className="step-num">3</span>{tr('الإرسال')}</div>
           <div className="wa-summary">
             <div>
               <strong>{messages.length}</strong>{' '}{tr('رقم سيستلم الرسالة')}
@@ -526,9 +655,6 @@ function Composer({ data, reload }) {
             ))}
           </div>
 
-          <Button variant="whatsapp" size="lg" full onClick={start} disabled={!messages.length || !!blocked.length || !body.trim()}>
-            {tr('📱 ابدأ الإرسال لـ')}{' '}{messages.length}{' '}{tr('رقم')}
-          </Button>
           <div className="wa-secondary">
             <Button size="sm" variant="outline" onClick={copyNumbers} disabled={!messages.length}>
               {tr('📋 نسخ الأرقام (لقائمة بث)')}
@@ -538,38 +664,71 @@ function Composer({ data, reload }) {
             {tr('كل رسالة تخرج باسم صاحبها وبياناته. تُفتح المحادثات واحدة تلو الأخرى والرسالة جاهزة — تضغط «إرسال» في واتساب ثم تنتقل للتالي.')}
           </div>
         </section>
+
+        <div className="wa-sendbar">
+          <div className="min-w-0">
+            <div className="strong">{tr('{0} مستلم', [messages.length])}</div>
+            <div className="tiny ellipsis">
+              {!messages.length
+                ? tr('اختر المستلمين من الخطوة 1')
+                : !body.trim()
+                  ? tr('اكتب الرسالة في الخطوة 2')
+                  : blocked.length
+                    ? `⛔ ${tr(blocked[0].problems[0])}`
+                    : gaps.length
+                      ? tr('⚠️ {0} رسالة فيها خانة فارغة — راجع المعاينة', [gaps.length])
+                      : tr('✓ كل شيء جاهز')}
+            </div>
+          </div>
+          <Button variant="whatsapp" size="lg" onClick={start} disabled={!ready}>
+            {tr('📱 ابدأ الإرسال')}
+          </Button>
+        </div>
       </div>
 
       <div className="wa-side">
-        <div className="wa-preview">
-          <div className="wa-preview-head">
-            <div className="wa-preview-title">{tr('📱 المعاينة')}</div>
+        <div className="wa-phone">
+          <div className="wa-phone-head">
+            <span className="wa-avatar">{(preview?.recipient.brand || preview?.recipient.name || '؟').trim().charAt(0)}</span>
+            <div className="min-w-0 flex-1">
+              <div className="wa-phone-name ellipsis">{preview ? preview.recipient.brand || preview.recipient.name || tr('بدون اسم') : tr('المعاينة')}</div>
+              <div className="wa-phone-sub ellipsis" dir={preview ? 'ltr' : undefined}>
+                {preview ? `+${normalizePhone(preview.recipient.phone)}` : tr('هكذا تصل الرسالة لكل شخص')}
+              </div>
+            </div>
             {messages.length > 1 && (
               <div className="wa-nav">
-                <button onClick={() => setPreviewIndex(Math.max(0, previewAt - 1))} disabled={previewAt === 0}>
+                <button onClick={() => setPreviewIndex(Math.max(0, previewAt - 1))} disabled={previewAt === 0} aria-label={tr('السابق')}>
                   ›
                 </button>
                 <span>
                   {previewAt + 1}/{messages.length}
                 </span>
-                <button onClick={() => setPreviewIndex(Math.min(messages.length - 1, previewAt + 1))} disabled={previewAt >= messages.length - 1}>
+                <button onClick={() => setPreviewIndex(Math.min(messages.length - 1, previewAt + 1))} disabled={previewAt >= messages.length - 1} aria-label={tr('التالي')}>
                   ‹
                 </button>
               </div>
             )}
           </div>
-          {preview ? (
-            <>
-              <div className="wa-preview-to">
-                {tr('إلى:')}{' '}<strong>{preview.recipient.brand || preview.recipient.name || tr('بدون اسم')}</strong> <span dir="ltr">+{normalizePhone(preview.recipient.phone)}</span>
-                {exhibitionFor(preview.recipient) && <div>{tr('عن:')}{' '}{exhibitionLabel(exhibitionFor(preview.recipient))}</div>}
-              </div>
-              <div className="wa-chat">
-                <div className="wa-bubble">
+          <div className="wa-phone-body">
+            {preview ? (
+              <>
+                {exhibitionFor(preview.recipient) && <div className="wa-day">{tr('عن:')}{' '}{exhibitionLabel(exhibitionFor(preview.recipient))}</div>}
+                <div className="wa-bubble wa-bubble-out">
                   {preview.text ? <WhatsAppText text={preview.text} /> : <span className="muted">{tr('الرسالة فارغة')}</span>}
+                  <span className="wa-bubble-time">{new Date().toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })} ✓✓</span>
                 </div>
-                <div className="wa-time">✓✓ {new Date().toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })}</div>
+              </>
+            ) : (
+              <div className="wa-empty">
+                <div className="wa-empty-icon">💬</div>
+                <div className="strong">{audience === 'manual' ? tr('اكتب رقماً لمعاينة الرسالة') : tr('اختر شخصاً أو أكثر لمعاينة رسالته')}</div>
+                <div className="tiny mt-10">{tr('أو اضغط قائمة جاهزة في الخطوة 1')}</div>
               </div>
+            )}
+          </div>
+          {preview && (
+            <div className="wa-phone-foot">
               {preview.problems.map((p) => (
                 <div key={p} className="wa-warn">
                   ⛔ {tr(p)}
@@ -583,9 +742,7 @@ function Composer({ data, reload }) {
               <button className="wa-copy" onClick={copyPreview}>
                 {tr('📋 نسخ الرسالة')}
               </button>
-            </>
-          ) : (
-            <div className="wa-empty">{audience === 'manual' ? tr('اكتب رقماً لمعاينة الرسالة') : tr('اختر شخصاً أو أكثر لمعاينة رسالته')}</div>
+            </div>
           )}
         </div>
       </div>
@@ -607,11 +764,12 @@ function Composer({ data, reload }) {
 
 // ─── History ────────────────────────────────────────────────────────────────────────
 
-function History({ staff }) {
+function History({ staff, onReuse }) {
   const { session } = useAuth()
   const { data: rows, loading } = useData(listLog, null)
   const [open, setOpen] = useState(null)
   const [q, setQ] = useState('')
+  const [by, setBy] = useState('')
 
   if (loading) return <Loading />
   if (rows === null) {
@@ -624,7 +782,19 @@ function History({ staff }) {
 
   const who = (id) => (id === session?.user?.id ? tr('أنت') : staff.find((s) => s.user_id === id)?.name || staff.find((s) => s.user_id === id)?.email || '—')
   const needle = q.trim().toLowerCase()
-  const campaigns = groupCampaigns(needle ? rows.filter((r) => [r.name, r.phone, r.body, r.campaign_name].some((v) => String(v || '').toLowerCase().includes(needle))) : rows)
+  const shown = rows.filter((r) => (!by || r.sent_by === by) && (!needle || [r.name, r.phone, r.body, r.campaign_name].some((v) => String(v || '').toLowerCase().includes(needle))))
+  const campaigns = groupCampaigns(shown)
+  const senders = [...new Set(rows.map((r) => r.sent_by).filter(Boolean))]
+  const exportCsv = () =>
+    downloadCsv(`سجل-واتساب-${todayISO()}.csv`, shown, [
+      { label: tr('التاريخ'), value: (r) => formatDate(r.sent_at) },
+      { label: tr('الوقت'), value: (r) => new Date(r.sent_at).toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' }) },
+      { label: tr('عملية الإرسال'), value: (r) => r.campaign_name || '' },
+      { label: tr('الاسم'), value: (r) => r.name || '' },
+      { label: tr('الرقم'), value: (r) => `+${r.phone}` },
+      { label: tr('أرسلها'), value: (r) => who(r.sent_by) },
+      { label: tr('الرسالة'), value: (r) => r.body || '' },
+    ])
 
   return (
     <section className="panel">
@@ -633,7 +803,22 @@ function History({ staff }) {
           <div className="strong">{campaigns.length}{' '}{tr('عملية إرسال')}</div>
           <div className="muted tiny">{rows.length}{' '}{tr('رسالة في السجل (آخر 500)')}</div>
         </div>
-        <input className="input input-compact" placeholder={tr('🔍 بحث باسم أو رقم أو نص…')} value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="wa-history-tools">
+          <input className="input input-compact" placeholder={tr('🔍 بحث باسم أو رقم أو نص…')} value={q} onChange={(e) => setQ(e.target.value)} />
+          {senders.length > 1 && (
+            <select className="input input-compact" value={by} onChange={(e) => setBy(e.target.value)}>
+              <option value="">{tr('كل الفريق')}</option>
+              {senders.map((id) => (
+                <option key={id} value={id}>
+                  {who(id)}
+                </option>
+              ))}
+            </select>
+          )}
+          <Button size="sm" variant="outline" onClick={exportCsv} disabled={!shown.length}>
+            {tr('⬇️ تصدير Excel')}
+          </Button>
+        </div>
       </div>
       {campaigns.map((c) => (
         <div key={c.id} className="wa-campaign">
@@ -653,6 +838,14 @@ function History({ staff }) {
                 <div className="wa-bubble">
                   <WhatsAppText text={c.rows[c.rows.length - 1].body} />
                 </div>
+              </div>
+              <div className="row-actions mb-12">
+                <Button size="sm" variant="outline" onClick={() => onReuse({ body: c.rows[c.rows.length - 1].body })}>
+                  {tr('✏️ استخدم نص هذه الرسالة')}
+                </Button>
+                <Button size="sm" variant="whatsapp" onClick={() => onReuse({ audience: 'manual', manualText: c.rows.map((r) => `${r.name || ''} +${r.phone}`).join('\n'), body: c.rows[c.rows.length - 1].body })}>
+                  {tr('🔁 أرسل لنفس الأشخاص ({0})', [c.rows.length])}
+                </Button>
               </div>
               <div className="table-wrap">
                 <table className="table">
