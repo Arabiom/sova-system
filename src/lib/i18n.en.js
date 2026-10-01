@@ -1735,4 +1735,7 @@ export default {
   "📍 تعديل أماكن المواقع": "📍 Move sites on the map",
   "المتاح فقط": "Available only",
   "المحجوز فقط": "Booked only",
+  "المواقع مرتبة بالفعل ✔": "The sites are already lined up ✔",
+  "✅ تمت محاذاة {0} موقع في صفوف وأعمدة": "✅ {0} sites lined up in rows and columns",
+  "⊞ محاذاة المواقع": "⊞ Line up sites",
 }

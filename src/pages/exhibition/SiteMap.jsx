@@ -8,7 +8,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { COMPANY } from '../../lib/constants.js'
 import { formatOMR, num } from '../../lib/format.js'
 import { tr } from '../../lib/i18n.js'
-import { siteStatus } from '../../lib/sites.js'
+import { alignPositions, cellSize, siteStatus } from '../../lib/sites.js'
 import { useData } from '../../lib/useData.js'
 import { openWhatsApp } from '../../lib/whatsapp.js'
 
@@ -91,6 +91,7 @@ export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, 
   const [zoom, setZoom] = useState(1)
   const [placing, setPlacing] = useState(false)
   const [picked, setPicked] = useState(null)
+  const [aligning, setAligning] = useState(false)
 
   const byId = new Map(exhibitors.map((e) => [e.id, e]))
   const all = sites.map((s) => {
@@ -104,6 +105,8 @@ export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, 
   const free = counts['متاح']
   const shown = (s) => filter === 'all' || (filter === 'free' ? s.status === 'متاح' : s.status !== 'متاح')
   const current = active && all.find((s) => s.id === active.id && s.map_x != null)
+  // Each site covers its cell on the map: sized from the spacing of the placed rows and columns.
+  const cell = cellSize(placed.map((s) => ({ x: s.map_x, y: s.map_y })))
 
   const startPlacing = () => {
     setPlacing(true)
@@ -127,6 +130,24 @@ export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, 
         return next
       })
       toast(err.message, 'error')
+    }
+  }
+
+  /** Snap every placed site to its row and column, so they sit in a neat grid. */
+  const align = async () => {
+    const moves = alignPositions(placed.map((s) => ({ id: s.id, x: s.map_x, y: s.map_y })))
+    if (!moves.length) return toast(tr('المواقع مرتبة بالفعل ✔'))
+    setAligning(true)
+    setMoved((m) => ({ ...m, ...Object.fromEntries(moves.map((p) => [p.id, { x: p.x, y: p.y }])) }))
+    try {
+      await Promise.all(moves.map((p) => placeSite(p.id, { x: p.x, y: p.y })))
+      toast(tr('✅ تمت محاذاة {0} موقع في صفوف وأعمدة', [moves.length]))
+      if (!placing) onChanged()
+    } catch (err) {
+      toast(err.message, 'error')
+      onChanged()
+    } finally {
+      setAligning(false)
     }
   }
 
@@ -167,15 +188,24 @@ export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, 
       className="mb-16"
       action={
         canManage &&
-        (placing ? (
-          <Button size="sm" onClick={stopPlacing}>
-            {tr('✅ تم')}
-          </Button>
-        ) : (
-          <Button size="sm" variant="outline" onClick={startPlacing}>
-            {placed.length ? tr('📍 تعديل أماكن المواقع') : tr('📍 تحديد المواقع على الخارطة')}
-          </Button>
-        ))
+        (
+          <div className="row-actions">
+            {placed.length > 1 && (
+              <Button size="sm" variant="outline" onClick={align} disabled={aligning}>
+                {aligning ? tr('جاري...') : tr('⊞ محاذاة المواقع')}
+              </Button>
+            )}
+            {placing ? (
+              <Button size="sm" onClick={stopPlacing}>
+                {tr('✅ تم')}
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" onClick={startPlacing}>
+                {placed.length ? tr('📍 تعديل أماكن المواقع') : tr('📍 تحديد المواقع على الخارطة')}
+              </Button>
+            )}
+          </div>
+        )
       }
       bodyClass="panel-pad"
     >
@@ -242,7 +272,7 @@ export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, 
               key={s.id}
               type="button"
               className={`pin ${cls(s.status)} ${placing ? 'pin-num' : s.status === 'متاح' ? 'pin-free' : 'pin-logo'} ${shown(s) ? '' : 'dim'} ${picked === s.id ? 'picked' : ''} ${current?.id === s.id ? 'active' : ''}`}
-              style={{ left: `${s.map_x}%`, top: `${s.map_y}%` }}
+              style={{ left: `${s.map_x}%`, top: `${s.map_y}%`, ...(cell && !placing ? { width: `${cell.w}%`, height: `${cell.h}%`, aspectRatio: 'auto' } : {}) }}
               onClick={(e) => clickPin(e, s)}
               onMouseEnter={() => !placing && setActive((a) => (a?.pinned ? a : { id: s.id, pinned: false }))}
               onMouseLeave={() => setActive((a) => (a && !a.pinned ? null : a))}

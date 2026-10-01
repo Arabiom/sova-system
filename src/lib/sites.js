@@ -120,3 +120,50 @@ export function duplicateBooths(exhibitors) {
     .filter(([, list]) => list.length > 1)
     .map(([key, list]) => ({ exhibitionId: key.split('|')[0], number: key.split('|')[1], exhibitors: list }))
 }
+
+/**
+ * Group values that are within `tol` of each other (sorted, chained) and give each group's
+ * average — the rows or columns of sites placed by hand on the map.
+ */
+export function clusterCenters(values, tol = 2) {
+  const sorted = [...values].sort((a, b) => a - b)
+  const groups = []
+  for (const v of sorted) {
+    const last = groups[groups.length - 1]
+    if (last && v - last.values[last.values.length - 1] <= tol) last.values.push(v)
+    else groups.push({ values: [v] })
+  }
+  return groups.map((g) => g.values.reduce((t, v) => t + v, 0) / g.values.length)
+}
+
+const nearest = (centers, v) => centers.reduce((best, c) => (Math.abs(c - v) < Math.abs(best - v) ? c : best), centers[0])
+const round2 = (v) => Math.round(v * 100) / 100
+
+/**
+ * Line up sites placed by hand: every site moves to the average of its column (x) and row (y),
+ * so a slightly-off click snaps into a neat grid. `points`: [{ id, x, y }] in % of the map.
+ * Returns only the sites that move: [{ id, x, y }].
+ */
+export function alignPositions(points, tol = 2) {
+  const cols = clusterCenters(points.map((p) => p.x), tol)
+  const rows = clusterCenters(points.map((p) => p.y), tol)
+  return points
+    .map((p) => ({ id: p.id, x: round2(nearest(cols, p.x)), y: round2(nearest(rows, p.y)) }))
+    .filter((p, i) => p.x !== round2(points[i].x) || p.y !== round2(points[i].y))
+}
+
+/**
+ * Size of one site on the map (in % of its width / height), from the closest neighbouring
+ * columns and rows — so the logo covers the cell drawn on the map. null with too few sites.
+ */
+export function cellSize(points, tol = 2) {
+  const gap = (centers) => {
+    let min = Infinity
+    for (let i = 1; i < centers.length; i++) min = Math.min(min, centers[i] - centers[i - 1])
+    return Number.isFinite(min) ? min : null
+  }
+  const dx = gap(clusterCenters(points.map((p) => p.x), tol))
+  const dy = gap(clusterCenters(points.map((p) => p.y), tol))
+  if (!dx || !dy) return null
+  return { w: round2(Math.min(dx * 0.88, 12)), h: round2(Math.min(dy * 0.82, 12)) }
+}
