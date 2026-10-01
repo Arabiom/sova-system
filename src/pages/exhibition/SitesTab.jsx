@@ -12,6 +12,8 @@ import { formatOMR } from '../../lib/format.js'
 import { matchPlan, planImport, readFirstSheet } from '../../lib/importSheet.js'
 import { parseRanges, siteStatus, tierColor, tiersFromSites } from '../../lib/sites.js'
 import { tr } from '../../lib/i18n.js'
+import { isPdfPath } from '../../api/maps.js'
+import SiteMap from './SiteMap.jsx'
 
 function TierForm({ exhibitionId, tier, takenNumbers, onClose, onSaved }) {
   const toast = useToast()
@@ -334,6 +336,7 @@ function ImportModal({ exhibitionId, existingSites, exhibitors, onClose, onDone 
 export default function SitesTab({ exhibition, sites, exhibitors, canManage = true, onChanged }) {
   const canEdit = useCanEdit() // a marketer books sites only for their own participants
   const canWrite = useCan('data.write') // the viewer only looks
+  const money = useCan('money.view') // contract and paid amounts — not for marketing
   const toast = useToast()
   const [tierForm, setTierForm] = useState(null) // { tier } | { tier: null }
   const [assigning, setAssigning] = useState(null)
@@ -343,6 +346,14 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
   const tiers = tiersFromSites(sites)
   const colorOf = new Map(tiers.map((t, i) => [`${t.name}|${t.price}`, tierColor(t.name, i)]))
   const taken = new Set(sites.map((s) => s.number))
+
+  /** Open the booking of one site — a marketer only for their own participants. */
+  const book = (site) => {
+    if (!canWrite) return
+    const holder = byId.get(site.exhibitor_id)
+    if (holder && !canEdit(holder)) return toast(tr('الموقع {0} محجوز لـ {1} — أدخله مسوق آخر، والتعديل للإدارة أو لمن أدخله', [site.number, holder.brand]), 'error')
+    setAssigning(sites.find((s) => s.id === site.id) || site)
+  }
 
   const fromPlan = async () => {
     const plan = tiersOf(exhibition, DEFAULT_TIERS).filter((t) => t.count > 0)
@@ -418,6 +429,19 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
 
   return (
     <>
+      {exhibition.map_path && !isPdfPath(exhibition.map_path) && (
+        <SiteMap
+          key={exhibition.map_path}
+          path={exhibition.map_path}
+          sites={sites}
+          exhibitors={exhibitors}
+          canManage={canManage}
+          canWrite={canWrite}
+          money={money}
+          onBook={book}
+          onChanged={onChanged}
+        />
+      )}
       <Panel
         icon="🏷️"
         title={tr('الفئات والأسعار')}
@@ -503,13 +527,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
                 key={site.id}
                 className={`site-tile status-${status.replace(/\s/g, '-')}`}
                 style={{ '--tier': colorOf.get(`${site.tier}|${Number(site.price)}`) }}
-                onClick={() =>
-                  !canWrite
-                    ? null
-                    : holder && !canEdit(holder)
-                    ? toast(tr('الموقع {0} محجوز لـ {1} — أدخله مسوق آخر، والتعديل للإدارة أو لمن أدخله', [site.number, holder.brand]), 'error')
-                    : setAssigning(site)
-                }
+                onClick={() => book(site)}
                 title={`${site.number} • ${site.tier} • ${formatOMR(site.price)}${holder ? ` • ${holder.brand}` : ''}`}
               >
                 <span className="site-num">{site.number}</span>
