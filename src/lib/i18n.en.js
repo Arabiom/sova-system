@@ -1744,4 +1744,12 @@ export default {
   "📍 التسجيل للموقع {0} من خارطة المعرض — الباقة والموقع مختاران، أكمل بقية البيانات.": "📍 Registering for site {0} from the exhibition map — the package and site are chosen, fill in the rest.",
   "📍 الموقع {0} من خارطة المعرض: سعره {1} لا يطابق أي باقة في هذا المعرض — اختر الباقة والموقع يدوياً.": "📍 Site {0} from the exhibition map: its price {1} matches no package of this exhibition — choose the package and site yourself.",
   "الموقع المختار من الخارطة لم يعد متاحاً — اختر موقعاً آخر.": "The site chosen on the map is no longer available — choose another one.",
+  "الموقع {0} غير موجود في هذا المعرض": "Site {0} does not exist in this exhibition",
+  "الموقع {0} مكتوب في فئتين": "Site {0} is written in two tiers",
+  "هذه المواقع لم تُكتب في أي فئة: {0}": "These sites are in no tier: {0}",
+  "✅ تم تحديث أرقام الفئات": "✅ Tier numbers updated",
+  "توزيع أرقام المواقع على الفئات": "Split the site numbers between tiers",
+  "اكتب أرقام كل فئة كما في الخارطة المطبوعة — كل رقم في فئة واحدة": "Type each tier's numbers as on the printed map — each number in one tier only",
+  "مواقع محجوزة سيتغيّر سعرها: {0}. قيمة عقود أصحابها لا تتغيّر — عدّلها من المشاركين إن لزم.": "Booked sites whose price will change: {0}. Their holders' contracts do not change — adjust them from the participants if needed.",
+  "🔢 توزيع الأرقام على الفئات": "🔢 Split numbers between tiers",
 }

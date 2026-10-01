@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { addSites, applyImport, assignSite, deleteAllSites, deleteTier, updateTier } from '../../api/exhibitionFile.js'
+import { addSites, applyImport, assignSite, deleteAllSites, deleteTier, setTierNumbers, updateTier } from '../../api/exhibitionFile.js'
 import Button from '../../components/Button.jsx'
 import Field from '../../components/Field.jsx'
 import Modal from '../../components/Modal.jsx'
@@ -10,7 +10,7 @@ import { DEFAULT_TIERS } from '../../lib/constants.js'
 import { tiersOf } from '../../lib/finance.js'
 import { formatOMR } from '../../lib/format.js'
 import { matchPlan, planImport, readFirstSheet } from '../../lib/importSheet.js'
-import { parseRanges, siteStatus, tierColor, tiersFromSites } from '../../lib/sites.js'
+import { parseRanges, siteStatus, splitNumbers, tierColor, tiersFromSites } from '../../lib/sites.js'
 import { tr } from '../../lib/i18n.js'
 import { isPdfPath } from '../../api/maps.js'
 import SiteMap from './SiteMap.jsx'
@@ -84,6 +84,70 @@ function TierForm({ exhibitionId, tier, takenNumbers, onClose, onSaved }) {
         </Field>
       </div>
       {editing && <div className="muted tiny">{tr('تغيير السعر هنا يغيّر سعر الخارطة فقط، ولا يغيّر عقود المشاركين الحالية.')}</div>}
+    </Modal>
+  )
+}
+
+/** Re-split the site numbers between the tiers, so each number has the price printed on the map. */
+function NumbersModal({ exhibitionId, sites, tiers, onClose, onSaved }) {
+  const toast = useToast()
+  const [texts, setTexts] = useState(tiers.map((t) => t.ranges.replace(/،/g, ',')))
+  const [saving, setSaving] = useState(false)
+  const check = splitNumbers(sites.map((s) => s.number), texts)
+  const bookedMoves = check.numbers
+    ? sites.filter((s) => s.exhibitor_id && check.numbers.findIndex((list) => list.includes(s.number)) !== tiers.findIndex((t) => t.name === s.tier && t.price === Number(s.price)))
+    : []
+
+  const submit = async () => {
+    if (check.error) return toast(check.error, 'error')
+    setSaving(true)
+    try {
+      await setTierNumbers(exhibitionId, tiers.map((t, i) => ({ name: t.name, price: t.price, numbers: check.numbers[i] })))
+      toast(tr('✅ تم تحديث أرقام الفئات'))
+      onSaved()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      title={tr('توزيع أرقام المواقع على الفئات')}
+      subtitle={tr('اكتب أرقام كل فئة كما في الخارطة المطبوعة — كل رقم في فئة واحدة')}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            {tr('إلغاء')}
+          </Button>
+          <Button onClick={submit} disabled={saving || Boolean(check.error)}>
+            {saving ? tr('جاري...') : tr('حفظ')}
+          </Button>
+        </>
+      }
+    >
+      {tiers.map((t, i) => (
+        <Field
+          key={t.name + t.price}
+          label={
+            <>
+              <span className="tier-dot" style={{ '--tier': tierColor(t.name, i) }} />
+              {tr(t.name)} — {formatOMR(t.price)}
+            </>
+          }
+          hint={check.numbers ? tr('{0} موقع', [check.numbers[i].length]) : undefined}
+        >
+          <input className="input" dir="ltr" value={texts[i]} onChange={(e) => setTexts(texts.map((x, j) => (j === i ? e.target.value : x)))} placeholder="7-20, 23-30, 33-40" />
+        </Field>
+      ))}
+      {check.error && <div className="alert alert-danger">⚠️ {check.error}</div>}
+      {bookedMoves.length > 0 && (
+        <div className="alert alert-warning">
+          {tr('مواقع محجوزة سيتغيّر سعرها: {0}. قيمة عقود أصحابها لا تتغيّر — عدّلها من المشاركين إن لزم.', [bookedMoves.map((s) => s.number).join(tr('، '))])}
+        </div>
+      )}
     </Modal>
   )
 }
@@ -341,6 +405,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
   const [tierForm, setTierForm] = useState(null) // { tier } | { tier: null }
   const [assigning, setAssigning] = useState(null)
   const [importing, setImporting] = useState(false)
+  const [renumbering, setRenumbering] = useState(false)
 
   const byId = new Map(exhibitors.map((e) => [e.id, e]))
   const tiers = tiersFromSites(sites)
@@ -453,6 +518,11 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
             <Button size="sm" onClick={() => setTierForm({ tier: null })}>
               {tr('+ إضافة مواقع')}
             </Button>
+            {tiers.length > 1 && (
+              <Button size="sm" variant="outline" onClick={() => setRenumbering(true)}>
+                {tr('🔢 توزيع الأرقام على الفئات')}
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={() => setImporting(true)}>
               {tr('📥 استيراد / تحديث من Excel')}
             </Button>
@@ -546,6 +616,18 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
           onClose={() => setTierForm(null)}
           onSaved={() => {
             setTierForm(null)
+            onChanged()
+          }}
+        />
+      )}
+      {renumbering && (
+        <NumbersModal
+          exhibitionId={exhibition.id}
+          sites={sites}
+          tiers={tiers}
+          onClose={() => setRenumbering(false)}
+          onSaved={() => {
+            setRenumbering(false)
             onChanged()
           }}
         />
