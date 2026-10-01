@@ -37,6 +37,9 @@ export async function setTierNumbers(exhibitionId, tiers) {
   }
 }
 
+/** Move one site to another tier: it takes that tier's name and price. */
+export const setSiteTier = (siteId, { name, price }) => unwrap(sites().update({ tier: name, price: num(price) }).eq('id', siteId))
+
 export const deleteTier = (exhibitionId, tier, price) =>
   unwrap(sites().delete().eq('exhibition_id', exhibitionId).eq('tier', tier).eq('price', price))
 

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { addSites, applyImport, assignSite, deleteAllSites, deleteTier, setTierNumbers, updateTier } from '../../api/exhibitionFile.js'
+import { addSites, applyImport, assignSite, deleteAllSites, deleteTier, setSiteTier, setTierNumbers, updateTier } from '../../api/exhibitionFile.js'
 import Button from '../../components/Button.jsx'
 import Field from '../../components/Field.jsx'
 import Modal from '../../components/Modal.jsx'
@@ -152,20 +152,31 @@ function NumbersModal({ exhibitionId, sites, tiers, onClose, onSaved }) {
   )
 }
 
-function AssignModal({ site, exhibitors, holder, onClose, onSaved }) {
+function AssignModal({ site, exhibitors, holder, tiers = [], onClose, onSaved }) {
   const toast = useToast()
+  const tierKey = `${site.tier}|${Number(site.price)}`
+  const [tier, setTier] = useState(tierKey) // managers can move the site to another tier (price)
   const [exhibitorId, setExhibitorId] = useState(holder?.id || '')
   const [adjust, setAdjust] = useState(true)
   const [saving, setSaving] = useState(false)
   const chosen = exhibitors.find((e) => e.id === exhibitorId) || null
   const changed = (holder?.id || '') !== exhibitorId
+  const newTier = tier !== tierKey ? tiers.find((t) => `${t.name}|${t.price}` === tier) : null
+  const price = newTier ? newTier.price : site.price
 
   const submit = async () => {
-    if (!changed) return onClose()
+    if (!changed && !newTier) return onClose()
     setSaving(true)
     try {
-      await assignSite(site, chosen, { adjustContract: adjust, previous: holder })
-      toast(chosen ? tr('✅ الموقع {0} لـ {1}', [site.number, chosen.brand]) : tr('✅ الموقع {0} أصبح متاحاً', [site.number]))
+      if (newTier) await setSiteTier(site.id, newTier)
+      if (changed) await assignSite(newTier ? { ...site, tier: newTier.name, price: newTier.price } : site, chosen, { adjustContract: adjust, previous: holder })
+      toast(
+        changed
+          ? chosen
+            ? tr('✅ الموقع {0} لـ {1}', [site.number, chosen.brand])
+            : tr('✅ الموقع {0} أصبح متاحاً', [site.number])
+          : tr('✅ الموقع {0} أصبح «{1}» بسعر {2}', [site.number, newTier.name, formatOMR(newTier.price)]),
+      )
       onSaved()
     } catch (err) {
       toast(err.message, 'error')
@@ -185,12 +196,23 @@ function AssignModal({ site, exhibitors, holder, onClose, onSaved }) {
           <Button variant="outline" onClick={onClose}>
             {tr('إلغاء')}
           </Button>
-          <Button onClick={submit} disabled={saving || !changed}>
+          <Button onClick={submit} disabled={saving || (!changed && !newTier)}>
             {saving ? tr('جاري...') : tr('حفظ')}
           </Button>
         </>
       }
     >
+      {tiers.length > 1 && (
+        <Field label={tr('فئة الموقع وسعره')} hint={newTier && holder ? tr('تغيير السعر لا يغيّر قيمة عقد صاحب الموقع.') : undefined}>
+          <select className="input" value={tier} onChange={(e) => setTier(e.target.value)}>
+            {tiers.map((t) => (
+              <option key={`${t.name}|${t.price}`} value={`${t.name}|${t.price}`}>
+                {tr(t.name)} — {formatOMR(t.price)}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label={tr('المشارك')} hint={exhibitors.length ? undefined : tr('أضف المشاركين أولاً من تبويب "المشاركون"')}>
         <select className="input" value={exhibitorId} onChange={(e) => setExhibitorId(e.target.value)}>
           <option value="">{tr('— متاح (بدون مشارك) —')}</option>
@@ -207,10 +229,10 @@ function AssignModal({ site, exhibitors, holder, onClose, onSaved }) {
           <input type="checkbox" checked={adjust} onChange={(e) => setAdjust(e.target.checked)} />
           <span>
             {chosen && holder
-              ? tr('نقل سعر الموقع ({0}) من عقد {1} إلى عقد {2}', [formatOMR(site.price), holder.brand, chosen.brand])
+              ? tr('نقل سعر الموقع ({0}) من عقد {1} إلى عقد {2}', [formatOMR(price), holder.brand, chosen.brand])
               : chosen
-                ? tr('إضافة سعر الموقع ({0}) إلى قيمة عقد {1}', [formatOMR(site.price), chosen.brand])
-                : tr('خصم سعر الموقع ({0}) من عقد {1}', [formatOMR(site.price), holder.brand])}
+                ? tr('إضافة سعر الموقع ({0}) إلى قيمة عقد {1}', [formatOMR(price), chosen.brand])
+                : tr('خصم سعر الموقع ({0}) من عقد {1}', [formatOMR(price), holder.brand])}
           </span>
         </label>
       )}
@@ -649,6 +671,7 @@ export default function SitesTab({ exhibition, sites, exhibitors, canManage = tr
           site={assigning}
           exhibitors={exhibitors.filter(canEdit)}
           holder={byId.get(assigning.exhibitor_id) || null}
+          tiers={canManage ? tiers : []}
           onClose={() => setAssigning(null)}
           onSaved={() => {
             setAssigning(null)

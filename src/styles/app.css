@@ -4354,3 +4354,11 @@ body {
     transform: none;
   }
 }
+.pin-tier {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+.pin-tier .input {
+  width: 100%;
+}
