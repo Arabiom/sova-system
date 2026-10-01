@@ -1738,4 +1738,10 @@ export default {
   "المواقع مرتبة بالفعل ✔": "The sites are already lined up ✔",
   "✅ تمت محاذاة {0} موقع في صفوف وأعمدة": "✅ {0} sites lined up in rows and columns",
   "⊞ محاذاة المواقع": "⊞ Line up sites",
+  "تسجيل مشارك جديد هنا": "Register a new participant here",
+  "+ حجز لمشارك مسجّل": "+ Book for a registered participant",
+  "→ العودة لخارطة المعرض": "→ Back to the exhibition map",
+  "📍 التسجيل للموقع {0} من خارطة المعرض — الباقة والموقع مختاران، أكمل بقية البيانات.": "📍 Registering for site {0} from the exhibition map — the package and site are chosen, fill in the rest.",
+  "📍 الموقع {0} من خارطة المعرض: سعره {1} لا يطابق أي باقة في هذا المعرض — اختر الباقة والموقع يدوياً.": "📍 Site {0} from the exhibition map: its price {1} matches no package of this exhibition — choose the package and site yourself.",
+  "الموقع المختار من الخارطة لم يعد متاحاً — اختر موقعاً آخر.": "The site chosen on the map is no longer available — choose another one.",
 }

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { placeSite } from '../../api/exhibitionFile.js'
 import { mapUrl } from '../../api/maps.js'
 import Button from '../../components/Button.jsx'
@@ -22,7 +23,7 @@ const ZOOMS = [1, 1.5, 2, 3]
 const cls = (status) => `pin-${status.replace(/\s/g, '-')}`
 
 /** What a pinned site shows on hover / tap: the site, and who booked it. */
-function PinCard({ site, holder, status, money, canBook, onBook, onClose }) {
+function PinCard({ site, holder, status, money, canBook, onBook, onRegister, onClose }) {
   const flipX = site.map_x > 55
   const flipY = site.map_y > 62
   const remaining = holder ? Math.max(0, num(holder.contract) - num(holder.paid)) : 0
@@ -60,9 +61,14 @@ function PinCard({ site, holder, status, money, canBook, onBook, onClose }) {
         <div className="pin-card-free">{tr('هذا الموقع متاح للحجز')}</div>
       )}
       <div className="pin-card-actions">
+        {canBook && !holder && (
+          <Button size="sm" icon="✚" onClick={onRegister}>
+            {tr('تسجيل مشارك جديد هنا')}
+          </Button>
+        )}
         {canBook && (
-          <Button size="sm" onClick={onBook}>
-            {holder ? tr('✏️ تعديل الحجز') : tr('+ حجز لمشارك')}
+          <Button size="sm" variant={holder ? 'primary' : 'outline'} onClick={onBook}>
+            {holder ? tr('✏️ تعديل الحجز') : tr('+ حجز لمشارك مسجّل')}
           </Button>
         )}
         {holder?.phone && (
@@ -83,6 +89,7 @@ function PinCard({ site, holder, status, money, canBook, onBook, onClose }) {
  */
 export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, money, onBook, onChanged }) {
   const toast = useToast()
+  const navigate = useNavigate()
   const { data: url, loading } = useData(() => mapUrl(path).catch(() => ''), '')
   const imgRef = useRef(null)
   const [moved, setMoved] = useState({}) // siteId → { x, y } | null, saved but not reloaded yet
@@ -293,6 +300,7 @@ export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, 
                 setActive(null)
                 onBook(current)
               }}
+              onRegister={() => navigate(`/register?exhibition=${current.exhibition_id}&site=${current.id}`)}
               onClose={() => setActive(null)}
             />
           )}
