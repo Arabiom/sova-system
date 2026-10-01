@@ -1760,4 +1760,6 @@ export default {
   "اسم الفئة الجديدة": "New tier name",
   "أرقام مواقعها": "Its site numbers",
   "+ فئة جديدة": "+ New tier",
+  "+ فئة جديدة…": "+ New tier…",
+  "سعر الموقع في هذه الفئة (ر.ع)": "Site price in this tier (OMR)",
 }

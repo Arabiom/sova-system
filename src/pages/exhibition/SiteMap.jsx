@@ -9,7 +9,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { COMPANY } from '../../lib/constants.js'
 import { formatOMR, num } from '../../lib/format.js'
 import { tr } from '../../lib/i18n.js'
-import { alignPositions, cellSize, siteStatus, tiersFromSites } from '../../lib/sites.js'
+import { alignPositions, askNewTier, cellSize, NEW_TIER, siteStatus } from '../../lib/sites.js'
 import { useData } from '../../lib/useData.js'
 import { openWhatsApp } from '../../lib/whatsapp.js'
 
@@ -41,12 +41,22 @@ function PinCard({ site, holder, status, money, canBook, tiers, onTier, onBook, 
       {onTier ? (
         <label className="pin-tier">
           <span className="muted small">{tr('فئة الموقع وسعره')}</span>
-          <select className="input input-compact" value={`${site.tier}|${Number(site.price)}`} onChange={(e) => onTier(tiers.find((t) => `${t.name}|${t.price}` === e.target.value))}>
+          <select
+            className="input input-compact"
+            value={`${site.tier}|${Number(site.price)}`}
+            onChange={(e) => onTier(e.target.value === NEW_TIER ? askNewTier() : tiers.find((t) => t.key === e.target.value))}
+          >
+            {!tiers.some((t) => t.key === `${site.tier}|${Number(site.price)}`) && (
+              <option value={`${site.tier}|${Number(site.price)}`}>
+                {tr(site.tier)} — {formatOMR(site.price)}
+              </option>
+            )}
             {tiers.map((t) => (
-              <option key={`${t.name}|${t.price}`} value={`${t.name}|${t.price}`}>
+              <option key={t.key} value={t.key}>
                 {tr(t.name)} — {formatOMR(t.price)}
               </option>
             ))}
+            <option value={NEW_TIER}>{tr('+ فئة جديدة…')}</option>
           </select>
         </label>
       ) : (
@@ -100,7 +110,7 @@ function PinCard({ site, holder, status, money, canBook, tiers, onTier, onBook, 
  * colour says whether it is free or booked, and pointing at a site shows who booked it.
  * Managers pin the sites once ("تحديد المواقع على الخارطة"): pick a site, click its place.
  */
-export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, money, onBook, onChanged }) {
+export default function SiteMap({ path, sites, exhibitors, tiers = [], canManage, canWrite, money, onBook, onChanged }) {
   const toast = useToast()
   const navigate = useNavigate()
   const { data: url, loading } = useData(() => mapUrl(path).catch(() => ''), '')
@@ -153,7 +163,6 @@ export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, 
     }
   }
 
-  const tiers = tiersFromSites(sites)
   /** Give one site another tier (its name and price), straight from its card on the map. */
   const changeTier = async (site, tier) => {
     if (!tier) return
@@ -324,7 +333,7 @@ export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, 
               money={money}
               canBook={canWrite}
               tiers={tiers}
-              onTier={canManage && tiers.length > 1 ? (t) => changeTier(current, t) : null}
+              onTier={canManage ? (t) => changeTier(current, t) : null}
               onBook={() => {
                 setActive(null)
                 onBook(current)
