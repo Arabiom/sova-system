@@ -41,6 +41,10 @@ async function syncBoothLabel(exhibitorId) {
  * Give `site` to `exhibitor` (or free it when exhibitor is null).
  * With adjustContract, the site's price is added to / taken off the exhibitor's contract.
  */
+/** Pin a site on the exhibition map image (x, y as % of its width / height), or clear it (null). */
+export const placeSite = (siteId, pos) =>
+  unwrap(sites().update(pos ? { map_x: Math.round(pos.x * 100) / 100, map_y: Math.round(pos.y * 100) / 100 } : { map_x: null, map_y: null }).eq('id', siteId))
+
 export async function assignSite(site, exhibitor, { adjustContract = true, previous } = {}) {
   await unwrap(sites().update({ exhibitor_id: exhibitor?.id || null }).eq('id', site.id))
   if (previous) {

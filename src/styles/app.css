@@ -4065,3 +4065,256 @@ body {
     font-size: 20px;
   }
 }
+
+/* ─── Interactive exhibition map (sites pinned on the map image) ─── */
+.sitemap-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.sitemap-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12.5px;
+}
+.sitemap-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pin-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--pin-border);
+  background: var(--pin-bg);
+}
+.tabs-sm .tab,
+.sitemap-zoom .tab {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+.sitemap-zoom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.sitemap-scroll {
+  max-height: 78vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+}
+.sitemap-scroll {
+  text-align: center;
+}
+.sitemap {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+  line-height: 0;
+  user-select: none;
+}
+.sitemap > img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 72vh;
+}
+.sitemap.placing {
+  cursor: crosshair;
+}
+/* Statuses: free = green ring, booked = orange, part-paid = blue, paid = dark. */
+.pin-متاح {
+  --pin-bg: #fff;
+  --pin-border: var(--suc-l);
+  --pin-fg: var(--suc);
+}
+.pin-محجوز {
+  --pin-bg: var(--wrn-l);
+  --pin-border: var(--wrn);
+  --pin-fg: #fff;
+}
+.pin-مدفوع-جزئياً {
+  --pin-bg: var(--info);
+  --pin-border: #0f3d5e;
+  --pin-fg: #fff;
+}
+.pin-مدفوع {
+  --pin-bg: var(--ink);
+  --pin-border: var(--gold);
+  --pin-fg: var(--gold-l);
+}
+.pin {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--pin-fg);
+  background: var(--pin-bg);
+  border: 2.5px solid var(--pin-border);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s, box-shadow 0.15s;
+}
+.pin:hover,
+.pin.active {
+  z-index: 3;
+  transform: translate(-50%, -50%) scale(1.3);
+  box-shadow: 0 0 0 4px rgba(201, 168, 76, 0.45), 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+.pin.dim {
+  opacity: 0.18;
+}
+.pin.picked {
+  z-index: 3;
+  box-shadow: 0 0 0 4px var(--gold), 0 0 0 7px rgba(201, 168, 76, 0.35);
+}
+.pin-card {
+  position: absolute;
+  z-index: 5;
+  width: 250px;
+  margin: 18px 0 0 -18px;
+  padding: 12px 14px;
+  line-height: 1.5;
+  text-align: start;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-xl);
+  cursor: default;
+}
+.pin-card.flip-x {
+  transform: translateX(-100%);
+  margin-left: 18px;
+}
+.pin-card.flip-y {
+  margin-top: -18px;
+  transform: translateY(-100%);
+}
+.pin-card.flip-x.flip-y {
+  transform: translate(-100%, -100%);
+}
+.pin-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+  font-size: 15px;
+}
+.pin-card-x {
+  margin-inline-start: auto;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.pin-chip {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pin-fg);
+  background: var(--pin-bg);
+  border: 1.5px solid var(--pin-border);
+  border-radius: 999px;
+}
+.pin-card-rows {
+  margin-top: 8px;
+  font-size: 12.5px;
+}
+.pin-card-rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 0;
+  border-bottom: 1px dashed var(--border-l);
+}
+.pin-card-rows span {
+  color: var(--muted);
+}
+.pin-card-free {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--suc);
+}
+.pin-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.place-bar {
+  margin-bottom: 10px;
+  padding: 12px;
+  background: var(--gold-p);
+  border-radius: 12px;
+}
+.place-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-height: 120px;
+  margin-bottom: 8px;
+  overflow: auto;
+}
+.place-chip {
+  min-width: 34px;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  background: #fff;
+  border: 1.5px dashed var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.place-chip.done {
+  border-style: solid;
+  border-color: var(--suc-l);
+  color: var(--suc);
+}
+.place-chip.active {
+  color: #fff;
+  background: var(--ink);
+  border-color: var(--ink);
+}
+@media (max-width: 600px) {
+  .pin {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
+  }
+  /* On a phone the details open as a sheet at the bottom, never cut off by the map frame. */
+  .pin-card,
+  .pin-card.flip-x,
+  .pin-card.flip-y,
+  .pin-card.flip-x.flip-y {
+    position: fixed;
+    inset: auto 12px 12px 12px;
+    z-index: 60;
+    width: auto;
+    max-height: 60vh;
+    margin: 0;
+    overflow: auto;
+    transform: none;
+  }
+}

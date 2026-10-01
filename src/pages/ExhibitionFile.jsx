@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { IconText } from '../components/Glyph.jsx'
 import { Link, useParams } from 'react-router-dom'
 import { listClients } from '../api/clients.js'
+import { isPdfPath } from '../api/maps.js'
 import { listExpenses, listSites, listSponsors } from '../api/exhibitionFile.js'
 import { getExhibition, listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
@@ -190,7 +191,8 @@ export default function ExhibitionFile() {
         ))}
       </div>
 
-      {tab === 'sites' && ex.map_path && (
+      {/* An image map with sites becomes the interactive map inside the sites tab. */}
+      {tab === 'sites' && ex.map_path && (isPdfPath(ex.map_path) || !sites.length) && (
         <Panel icon="🗺️" title={tr('خارطة المعرض')} className="map-panel">
           <ExhibitionMap key={ex.map_path} path={ex.map_path} />
         </Panel>
