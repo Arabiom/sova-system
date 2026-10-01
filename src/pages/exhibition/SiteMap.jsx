@@ -5,6 +5,7 @@ import { mapUrl } from '../../api/maps.js'
 import Button from '../../components/Button.jsx'
 import Panel from '../../components/Panel.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { COMPANY } from '../../lib/constants.js'
 import { formatOMR, num } from '../../lib/format.js'
 import { tr } from '../../lib/i18n.js'
 import { siteStatus } from '../../lib/sites.js'
@@ -209,7 +210,7 @@ export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, 
           <div className="sitemap-legend">
             {STATUSES.map((st) => (
               <span key={st} className="sitemap-legend-item">
-                <i className={`pin-swatch ${cls(st)}`} />
+                <i className={`pin-swatch ${cls(st)} ${st === 'متاح' ? '' : 'pin-swatch-logo'}`}>{st === 'متاح' ? null : <img src={COMPANY.mark} alt="" />}</i>
                 {tr(st)} <strong>{counts[st]}</strong>
               </span>
             ))}
@@ -240,14 +241,15 @@ export default function SiteMap({ path, sites, exhibitors, canManage, canWrite, 
             <button
               key={s.id}
               type="button"
-              className={`pin ${cls(s.status)} ${shown(s) ? '' : 'dim'} ${picked === s.id ? 'picked' : ''} ${current?.id === s.id ? 'active' : ''}`}
+              className={`pin ${cls(s.status)} ${placing ? 'pin-num' : s.status === 'متاح' ? 'pin-free' : 'pin-logo'} ${shown(s) ? '' : 'dim'} ${picked === s.id ? 'picked' : ''} ${current?.id === s.id ? 'active' : ''}`}
               style={{ left: `${s.map_x}%`, top: `${s.map_y}%` }}
               onClick={(e) => clickPin(e, s)}
               onMouseEnter={() => !placing && setActive((a) => (a?.pinned ? a : { id: s.id, pinned: false }))}
               onMouseLeave={() => setActive((a) => (a && !a.pinned ? null : a))}
               aria-label={tr('الموقع {0} — {1}', [s.number, tr(s.status)])}
             >
-              {s.number}
+              {/* Booked sites show the company logo over their cell; free ones leave the map's number visible. */}
+              {placing ? s.number : s.status === 'متاح' ? null : <img src={COMPANY.mark} alt="" draggable={false} />}
             </button>
           ))}
           {!placing && current && (
