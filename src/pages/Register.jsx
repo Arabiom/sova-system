@@ -17,7 +17,7 @@ import { checkFile, FILE_MAX_MB } from '../api/storage.js'
 import { useToast } from '../context/ToastContext.jsx'
 import { FORM_PAYMENT_METHODS, FORM_SECTORS } from '../lib/constants.js'
 import { boothNoteOf, extrasOf, hasOwnPackages, packagesOf } from '../lib/packages.js'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { registrationTotals, vatEnabled, vatOf, withoutVat, withVat } from '../lib/finance.js'
 import { exhibitionLabel, formatDate, formatOMR, num, phoneKey, todayISO } from '../lib/format.js'
 import { downloadRegistrationInvoice } from '../lib/pdf.js'
@@ -97,10 +97,21 @@ export default function Register() {
   const [done, setDone] = useState(null)
   const [known, setKnown] = useState(null) // the number is already in the client database (anyone's)
   const savingRef = useRef(false)
+  // Opened from the exhibition map: /register?exhibition=…&site=… starts on that free site.
+  const [params, setParams] = useSearchParams()
+  const fromMap = params.get('exhibition') || ''
 
   const exhibitions = useMemo(() => data?.exhibitions || [], [data])
   const defaultExhibition = exhibitions.length === 1 ? exhibitions[0].id : ''
-  const f = form || blankForm(defaultExhibition)
+  const mapSite = data?.sites.find((s) => s.id === params.get('site') && s.exhibition_id === fromMap && !s.exhibitor_id)
+  const mapStart = () => {
+    const ex = exhibitions.find((e) => e.id === fromMap)
+    if (!ex) return blankForm(defaultExhibition)
+    // The site's price tells its package (each package has its own price on this exhibition).
+    const pkgOfSite = mapSite && packagesOf(ex).find((p) => p.price === num(mapSite.price))
+    return { ...blankForm(ex.id), package: pkgOfSite?.name || '', site_id: pkgOfSite ? mapSite.id : '' }
+  }
+  const f = form || (fromMap ? mapStart() : blankForm(defaultExhibition))
   const set = (key) => (e) => setForm({ ...f, [key]: e?.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e })
 
   if (loading || !data) return <Loading />
@@ -206,12 +217,18 @@ export default function Register() {
           </div>
           <div className="row-actions mt-16">
             <Button onClick={() => downloadRegistrationInvoice(done).catch((err) => toast(err.message, 'error'))}>{tr('🧾 تحميل الفاتورة مرة أخرى')}</Button>
+            {fromMap && (
+              <Link className="btn btn-outline" to={`/exhibitions/${fromMap}`}>
+                {tr('→ العودة لخارطة المعرض')}
+              </Link>
+            )}
             <Button
               variant="outline"
               onClick={() => {
                 setDone(null)
                 setReceipt(null)
                 setForm(blankForm(f.exhibition_id))
+                if (fromMap) setParams({}, { replace: true }) // the map's site is taken now
               }}
             >
               {tr('+ تسجيل مشارك جديد')}
@@ -226,6 +243,16 @@ export default function Register() {
     <>
       <PageHeader title={tr('تسجيل مشارك')} subtitle={tr('استمارة تسجيل المشاركين — تُصدر الفاتورة مباشرة بعد الحفظ')} />
 
+      {fromMap && !done && (
+        <div className="alert alert-info mb-16">
+          {mapSite
+            ? f.site_id === mapSite.id
+              ? tr('📍 التسجيل للموقع {0} من خارطة المعرض — الباقة والموقع مختاران، أكمل بقية البيانات.', [mapSite.number])
+              : tr('📍 الموقع {0} من خارطة المعرض: سعره {1} لا يطابق أي باقة في هذا المعرض — اختر الباقة والموقع يدوياً.', [mapSite.number, formatOMR(mapSite.price)])
+            : tr('الموقع المختار من الخارطة لم يعد متاحاً — اختر موقعاً آخر.')}{' '}
+          <Link to={`/exhibitions/${fromMap}`}>{tr('→ العودة لخارطة المعرض')}</Link>
+        </div>
+      )}
       {!exhibitions.length && <EmptyState icon="🏛️" text={tr('لا توجد معارض قادمة. أضف معرضاً أولاً.')} />}
 
       {exhibitions.length > 0 && (
