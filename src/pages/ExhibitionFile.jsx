@@ -63,7 +63,26 @@ function Summary({ f, internal }) {
       <div className="section-label">{tr('المواقع')}</div>
       <div className={internal ? 'grid-4' : 'grid-2'}>
         <StatCard flat label={tr('المواقع المحجوزة')} icon="🗺️" accent="var(--ink)" value={`${f.booked} / ${f.capacity}`} sub={tr('{0} متاح • إشغال {1}%', [f.available, f.occupancy])} />
-        {internal && <StatCard flat label={tr('متوسط سعر الموقع')} icon="🏷️" accent="var(--gold)" value={formatOMR(f.avgPrice)} sub={tr('الدخل الممكن {0}', [formatOMR(f.fullRevenue)])} />}
+        {internal && (
+          <StatCard
+            flat
+            label={tr('الدخل الممكن (بيع كل المواقع)')}
+            icon="🏷️"
+            accent={f.netAtFull >= 0 ? 'var(--gold)' : 'var(--dng)'}
+            value={formatOMR(f.fullRevenue)}
+            sub={
+              <span className="potential-lines">
+                <span>
+                  {tr('المصروفات المتوقعة')} <strong className="text-dng">{formatOMR(f.expensesTotal)}</strong>
+                </span>
+                <span>
+                  {tr('الصافي المتوقع')} <strong className={f.netAtFull >= 0 ? 'text-suc' : 'text-dng'}>{formatOMR(f.netAtFull)}</strong>
+                </span>
+                <span className="muted">{tr('متوسط سعر الموقع {0}', [formatOMR(f.avgPrice)])}</span>
+              </span>
+            }
+          />
+        )}
         {internal && <StatCard flat label={tr('المحصّل')} icon="💵" accent="var(--suc)" value={formatOMR(f.collected)} sub={tr('المتبقي للتحصيل {0}', [formatOMR(f.outstanding)])} />}
         {internal && <StatCard flat label={tr('الرصيد النقدي الآن')} icon="🏦" accent={f.cashPosition >= 0 ? 'var(--suc)' : 'var(--dng)'} value={formatOMR(f.cashPosition)} sub={tr('المحصّل + الرعايات المدفوعة − المصروفات المدفوعة')} />}
       </div>

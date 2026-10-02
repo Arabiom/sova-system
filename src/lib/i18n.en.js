@@ -1866,4 +1866,7 @@ export default {
   "في الملف": "on file",
   "الدفعات": "payments",
   "قيد التخطيط — لا يدخل في الإجمالي": "Planning — not in the total",
+  "الدخل الممكن (بيع كل المواقع)": "Possible income (all sites sold)",
+  "مصروفات متوقعة": "expected expenses",
+  "صافٍ متوقع": "expected net",
 }

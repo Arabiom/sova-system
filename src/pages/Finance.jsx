@@ -519,7 +519,11 @@ function Plan({ data }) {
                 <td className="small nowrap">
                   {f.booked}/{f.capacity} <span className="muted">({tr(f.occupancy)}%)</span>
                 </td>
-                <td className="num">{formatOMR(f.fullRevenue)}</td>
+                <td className="num">
+                  {formatOMR(f.fullRevenue)}
+                  <div className="tiny muted">{tr('مصروفات متوقعة')}{' '}<span className="text-dng">{formatOMR(f.expensesTotal)}</span></div>
+                  <div className={`tiny ${f.netAtFull >= 0 ? 'text-suc' : 'text-dng'}`}>{tr('صافٍ متوقع')}{' '}{formatOMR(f.netAtFull)}</div>
+                </td>
                 <td className="num">{formatOMR(f.contract)}</td>
                 <td className="num">
                   <span className="text-suc">{formatOMR(f.collected)}</span>

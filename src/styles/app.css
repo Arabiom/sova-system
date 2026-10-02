@@ -4791,3 +4791,12 @@ body {
 .health-check a:hover {
   color: var(--gold-d);
 }
+.potential-lines {
+  display: grid;
+  gap: 2px;
+}
+.potential-lines > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
