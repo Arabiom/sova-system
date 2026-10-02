@@ -3,7 +3,7 @@
 // ending with the contract; a lump sum is one expense due by the contract's end.
 
 import { num } from '../lib/format.js'
-import { supabase, unwrap } from './client.js'
+import { fetchAll, supabase, unwrap } from './client.js'
 
 export const PAY_MONTHLY = 'شهري'
 export const PAY_LUMP = 'مبلغ مقطوع'
@@ -21,7 +21,7 @@ const expenses = () => supabase.from('company_expenses')
 
 /** All contracts, newest start first; [] before migration 023 is run. */
 export async function listContracts() {
-  const { data, error } = await table().select('*').order('start_date', { ascending: false })
+  const { data, error } = await fetchAll(() => table().select('*').order('start_date', { ascending: false }))
   if (error) {
     if (['42P01', 'PGRST205'].includes(error.code)) return []
     return unwrap(Promise.resolve({ data, error }))

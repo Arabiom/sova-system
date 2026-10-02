@@ -1,7 +1,7 @@
 // Company expenses not tied to one exhibition: office rent, salaries, licences… (migration 012).
 
 import { num, todayISO } from '../lib/format.js'
-import { supabase, unwrap } from './client.js'
+import { fetchAll, supabase, unwrap } from './client.js'
 import { openFile, removeFile, uploadFile } from './storage.js'
 import { RECEIPT_BUCKET } from './staffExpenses.js'
 
@@ -29,7 +29,7 @@ const table = () => supabase.from('company_expenses')
 
 /** All company expenses, newest first; [] before migration 012 is run. */
 export async function listCompanyExpenses() {
-  const { data, error } = await table().select('*').order('date', { ascending: false })
+  const { data, error } = await fetchAll(() => table().select('*').order('date', { ascending: false }))
   if (error) {
     if (['42P01', 'PGRST205'].includes(error.code)) return []
     return unwrap(Promise.resolve({ data, error }))

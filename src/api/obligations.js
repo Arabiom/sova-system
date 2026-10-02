@@ -3,7 +3,7 @@
 // and every postponement.
 
 import { num, todayISO } from '../lib/format.js'
-import { supabase, unwrap } from './client.js'
+import { fetchAll, supabase, unwrap } from './client.js'
 import { recordPayment } from './payments.js'
 import { REFUND_TYPE } from '../lib/constants.js'
 
@@ -16,7 +16,7 @@ const table = () => supabase.from('obligations')
 
 /** All obligations, soonest due first; [] before migration 021 is run. */
 export async function listObligations() {
-  const { data, error } = await table().select('*').order('due_date', { ascending: true, nullsFirst: false })
+  const { data, error } = await fetchAll(() => table().select('*').order('due_date', { ascending: true, nullsFirst: false }))
   if (error) {
     if (['42P01', 'PGRST205'].includes(error.code)) return []
     return unwrap(Promise.resolve({ data, error }))

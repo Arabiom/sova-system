@@ -1,6 +1,6 @@
 import { isConfirmed, newReference } from '../lib/finance.js'
 import { num, todayISO } from '../lib/format.js'
-import { supabase, unwrap } from './client.js'
+import { fetchAll, supabase, unwrap } from './client.js'
 import { adjustPaid } from './exhibitors.js'
 import { RECEIPT_BUCKET } from './staffExpenses.js'
 import { openFile, uploadFile } from './storage.js'
@@ -13,7 +13,7 @@ const table = () => supabase.from('payments')
  * (they are not money collected yet) unless `includePending` is set.
  */
 export async function listPayments(columns = '*', { includePending = false } = {}) {
-  const rows = await unwrap(table().select(columns).order('created_at', { ascending: false }))
+  const rows = await unwrap(fetchAll(() => table().select(columns).order('created_at', { ascending: false })))
   return includePending ? rows : rows.filter(isConfirmed)
 }
 

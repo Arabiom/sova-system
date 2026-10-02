@@ -1,13 +1,13 @@
 import { DEFAULT_TIERS } from '../lib/constants.js'
 import { num } from '../lib/format.js'
 import { cleanExtras, cleanPackages } from '../lib/packages.js'
-import { supabase, unwrap } from './client.js'
+import { fetchAll, supabase, unwrap } from './client.js'
 import { countPayments } from './exhibitors.js'
 import { tr } from '../lib/i18n.js'
 
 const table = () => supabase.from('exhibitions')
 
-export const listExhibitions = (columns = '*') => unwrap(table().select(columns).order('date_from'))
+export const listExhibitions = (columns = '*') => unwrap(fetchAll(() => table().select(columns).order('date_from')))
 
 /** Tiers typed on the form, without blank rows: [{ name, price, count }]. */
 export function cleanTiers(tiers = []) {

@@ -510,6 +510,7 @@ export function withoutPlanning(data) {
   const only = (list) => (Array.isArray(list) ? list.filter(keep) : list)
   return {
     ...data,
+    exhibitions: data.exhibitions.filter((e) => !planned.has(e.id)),
     exhibitors: exhibitors.filter(keep),
     payments: Array.isArray(data.payments) ? data.payments.filter((p) => !dropped.has(p.exhibitor_id)) : data.payments,
     awaiting: Array.isArray(data.awaiting) ? data.awaiting.filter((p) => !dropped.has(p.exhibitor_id)) : data.awaiting,

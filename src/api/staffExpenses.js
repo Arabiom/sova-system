@@ -1,7 +1,7 @@
 // Expenses paid by staff for the company, each with its invoice / receipt (migration 008).
 
 import { num, todayISO } from '../lib/format.js'
-import { supabase, unwrap } from './client.js'
+import { fetchAll, supabase, unwrap } from './client.js'
 import { openFile, removeFile, uploadFile } from './storage.js'
 
 export const RECEIPT_BUCKET = 'expense-receipts'
@@ -22,7 +22,7 @@ export const STAFF_EXPENSE_CATEGORIES = [
 
 const table = () => supabase.from('staff_expenses')
 
-export const listStaffExpenses = () => unwrap(table().select('*').order('date', { ascending: false }).order('created_at', { ascending: false }))
+export const listStaffExpenses = () => unwrap(fetchAll(() => table().select('*').order('date', { ascending: false }).order('created_at', { ascending: false })))
 
 /** Problems that stop an expense being saved (empty list = OK). */
 export function validateStaffExpense(form, { hasReceipt }) {

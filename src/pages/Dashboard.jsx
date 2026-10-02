@@ -1,4 +1,5 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { healthChecks } from '../lib/health.js'
 import { listBookings } from '../api/bookings.js'
 import { listExpenses, listSites, listSponsors } from '../api/exhibitionFile.js'
 import { listStaffExpenses } from '../api/staffExpenses.js'
@@ -44,6 +45,44 @@ const barColor = (status) =>
       ? 'linear-gradient(90deg,var(--info),#4A90D9)'
       : 'linear-gradient(90deg,var(--gold),var(--gold-l))'
 
+const LEVELS = { error: ['⛔', 'badge-danger', 'مهم'], warn: ['⚠️', 'badge-warning', 'راجِع'], info: ['ℹ️', 'badge-info', 'للعلم'] }
+
+/** Things in the records that look like mistakes, each with a link to fix it. */
+function HealthPanel({ checks }) {
+  const total = checks.reduce((t, c) => t + c.items.length, 0)
+  const urgent = checks.filter((c) => c.level === 'error').reduce((t, c) => t + c.items.length, 0)
+  return (
+    <details className={`health ${urgent ? 'health-urgent' : ''}`}>
+      <summary>
+        🩺 <strong>{tr('فحص سلامة البيانات')}</strong> — {tr('{0} ملاحظة', [total])}
+        {urgent > 0 && <span className="badge badge-danger">{tr('{0} مهمة', [urgent])}</span>}
+        <span className="muted small">{tr('اضغط للعرض')}</span>
+      </summary>
+      <div className="health-body">
+        {checks.map((c) => {
+          const [icon, badge, word] = LEVELS[c.level]
+          return (
+            <div key={c.id} className="health-check">
+              <div className="health-title">
+                {icon} <strong>{c.title}</strong> <span className={`badge ${badge}`}>{tr(word)}</span> <span className="muted small">({c.items.length})</span>
+              </div>
+              <div className="muted small mb-8">{c.hint}</div>
+              <ul>
+                {c.items.slice(0, 12).map((it, i) => (
+                  <li key={i}>
+                    <Link to={it.to}>{it.label}</Link>
+                  </li>
+                ))}
+                {c.items.length > 12 && <li className="muted">{tr('و{0} غيرها', [c.items.length - 12])}</li>}
+              </ul>
+            </div>
+          )
+        })}
+      </div>
+    </details>
+  )
+}
+
 export default function Dashboard() {
   const go = useNavigate()
   const { data, loading } = useData(load, null)
@@ -84,6 +123,7 @@ export default function Dashboard() {
   const brandOf = (id) => exhibitors.find((e) => e.id === id)?.brand || '—'
   // Every fee is due 10 days before opening: warn from a week before that deadline.
   const deadlines = collectionAlerts(exhibitions, exhibitors, omanDay())
+  const health = healthChecks({ exhibitions, exhibitors, sites, awaiting, payments }, omanDay(), { money })
 
   return (
     <>
@@ -130,6 +170,8 @@ export default function Dashboard() {
           {tr('اضغط للعرض')}
         </button>
       ))}
+
+      {health.length > 0 && <HealthPanel checks={health} />}
 
       {money && awaiting.length > 0 && (
         <button type="button" className="alert alert-warning alert-link" onClick={() => go('/finance?tab=income')}>

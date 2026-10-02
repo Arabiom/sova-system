@@ -1,4 +1,4 @@
-import { supabase, unwrap } from './client.js'
+import { fetchAll, supabase, unwrap } from './client.js'
 import { findOrCreateClient } from './clients.js'
 import { createExhibitor } from './exhibitors.js'
 
@@ -6,7 +6,7 @@ const table = () => supabase.from('bookings')
 
 export const PENDING = 'معلق'
 
-export const listBookings = () => unwrap(table().select('*').order('created_at', { ascending: false }))
+export const listBookings = () => unwrap(fetchAll(() => table().select('*').order('created_at', { ascending: false })))
 
 export const countPendingBookings = () =>
   unwrap(table().select('id', { count: 'exact', head: true }).eq('status', PENDING))

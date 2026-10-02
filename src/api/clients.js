@@ -1,9 +1,9 @@
 import { phoneKey } from '../lib/format.js'
-import { friendlyError, supabase, unwrap } from './client.js'
+import { fetchAll, friendlyError, supabase, unwrap } from './client.js'
 
 const table = () => supabase.from('clients')
 
-export const listClients = () => unwrap(table().select('*').order('name'))
+export const listClients = () => unwrap(fetchAll(() => table().select('*').order('name')))
 
 export function toClientRow(form) {
   return {
@@ -52,7 +52,7 @@ export async function clientWithPhone(phone) {
  * it when there is none. `known` (optional) is an already-loaded client list to search first.
  */
 export async function findOrCreateClient({ brand, manager, phone, email, category }, known) {
-  const clients = known || (await unwrap(table().select('id,name,phone')))
+  const clients = known || (await unwrap(fetchAll(() => table().select('id,name,phone'))))
   const key = phoneKey(phone)
   const name = (brand || manager || '').trim()
   const match =

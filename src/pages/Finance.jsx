@@ -38,7 +38,7 @@ import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { COMPANY, DEFAULT_TIERS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
-import { allExpenses, collectionAlerts, combineFinancials, companyOverview, daysBetween, exhibitionFinancials, EXPENSE_KINDS, isConfirmed, ledger, monthlyFlow, paymentDeadline, receivables, sumBy, vatEnabled, withoutPlanning } from '../lib/finance.js'
+import { allExpenses, collectionAlerts, combineFinancials, companyOverview, daysBetween, exhibitionFinancials, EXPENSE_KINDS, isConfirmed, ledger, isPlanning, monthlyFlow, paymentDeadline, receivables, sumBy, vatEnabled, withoutPlanning } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatDate, formatOMR, num, percent, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { openWhatsApp, paymentReminderMessage } from '../lib/whatsapp.js'
@@ -483,8 +483,10 @@ function Plan({ data }) {
         DEFAULT_TIERS,
       ),
     }))
-  const sum = (key) => rows.reduce((t, r) => t + num(r.f[key]), 0)
-  const ahead = rows.filter(({ ex }) => !['منتهي', 'ملغى'].includes(ex.status))
+  // Exhibitions still «تخطيط» are listed but stay out of the totals, as everywhere else.
+  const counted = rows.filter(({ ex }) => !isPlanning(ex))
+  const sum = (key) => counted.reduce((t, r) => t + num(r.f[key]), 0)
+  const ahead = counted.filter(({ ex }) => !['منتهي', 'ملغى'].includes(ex.status))
 
   return (
     <>
@@ -501,10 +503,11 @@ function Plan({ data }) {
           </thead>
           <tbody>
             {rows.map(({ ex, f }) => (
-              <tr key={ex.id} className={ex.status === 'قادم' || ex.status === 'جاري' ? 'row-highlight' : ''}>
+              <tr key={ex.id} className={ex.status === 'قادم' || ex.status === 'جاري' ? 'row-highlight' : isPlanning(ex) ? 'row-muted' : ''}>
                 <td className="strong plan-name">
                   <Link to={`/exhibitions/${ex.id}`}>{exhibitionTitle(ex)}</Link>
                   <div className="muted tiny">{tr(ex.mall)}</div>
+                  {isPlanning(ex) && <div className="tiny text-wrn">{tr('قيد التخطيط — لا يدخل في الإجمالي')}</div>}
                 </td>
                 <td className="small nowrap">
                   {tr(ex.date_from)}
@@ -549,7 +552,7 @@ function Plan({ data }) {
             <tfoot>
               <tr>
                 <td className="strong" colSpan={4}>
-                  {tr('الإجمالي (')}{rows.length}{' '}{tr('معرض)')}
+                  {tr('الإجمالي (')}{counted.length}{' '}{tr('معرض)')}
                 </td>
                 <td className="num strong">{formatOMR(sum('fullRevenue'))}</td>
                 <td className="num strong">{formatOMR(sum('contract'))}</td>
