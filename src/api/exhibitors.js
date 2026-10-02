@@ -1,12 +1,12 @@
 import { num } from '../lib/format.js'
-import { supabase, unwrap } from './client.js'
+import { fetchAll, supabase, unwrap } from './client.js'
 import { findOrCreateClient } from './clients.js'
 import { tr } from '../lib/i18n.js'
 
 const table = () => supabase.from('exhibitors')
 
 export const listExhibitors = ({ columns = '*', orderBy = 'created_at', ascending = false } = {}) =>
-  unwrap(table().select(columns).order(orderBy, { ascending }))
+  unwrap(fetchAll(() => table().select(columns).order(orderBy, { ascending })))
 
 export function toExhibitorRow(form) {
   return {

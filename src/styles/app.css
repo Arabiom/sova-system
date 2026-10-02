@@ -4731,3 +4731,63 @@ body {
   content: '#';
   background: transparent;
 }
+
+/* ─── Data health check (dashboard) ─── */
+.health {
+  margin-bottom: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-inline-start: 4px solid var(--wrn);
+  border-radius: 14px;
+}
+.health-urgent {
+  border-inline-start-color: var(--dng);
+}
+.health summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+.health summary::-webkit-details-marker {
+  display: none;
+}
+.health summary .muted {
+  margin-inline-start: auto;
+}
+.health[open] summary .muted {
+  display: none;
+}
+.health-body {
+  display: grid;
+  gap: 14px;
+  padding: 0 16px 16px;
+}
+.health-check {
+  padding: 12px 14px;
+  background: var(--surf);
+  border-radius: 12px;
+}
+.health-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.health-check ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-inline-start: 18px;
+  font-size: 13px;
+}
+.health-check a {
+  color: var(--ink-60);
+}
+.health-check a:hover {
+  color: var(--gold-d);
+}

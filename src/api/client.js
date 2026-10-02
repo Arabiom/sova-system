@@ -40,4 +40,20 @@ export async function unwrap(query) {
   return count ?? data
 }
 
+/**
+ * Every row of a list, page by page: the server returns at most 1000 rows per request, so a
+ * plain select would silently cut long tables (and every total built on them). `build()` makes
+ * a fresh query (select + filters + order); `tie` keeps the paging order stable.
+ * Resolves to `{ data, error }` like a single query.
+ */
+export async function fetchAll(build, { tie = 'id', pageSize = 1000 } = {}) {
+  const rows = []
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await build().order(tie, { ascending: true }).range(from, from + pageSize - 1)
+    if (error) return { data: null, error }
+    rows.push(...(data || []))
+    if (!data || data.length < pageSize) return { data: rows, error: null }
+  }
+}
+
 export { supabase }

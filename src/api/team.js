@@ -1,6 +1,6 @@
 // Working time and tasks of the team (migration 017).
 
-import { supabase, unwrap } from './client.js'
+import { fetchAll, supabase, unwrap } from './client.js'
 
 const missing = (error) => ['42P01', 'PGRST205', 'PGRST202', '42883'].includes(error?.code)
 
@@ -16,7 +16,7 @@ export async function reportActivity() {
 
 /** Days of activity from `from` (yyyy-mm-dd) on; `null` before migration 017. */
 export async function listActivity(from) {
-  const { data, error } = await supabase.from('staff_activity').select('*').gte('day', from).order('day')
+  const { data, error } = await fetchAll(() => supabase.from('staff_activity').select('*').gte('day', from).order('day'), { tie: 'user_id' })
   if (error) {
     if (missing(error)) return null
     return unwrap(Promise.resolve({ data, error }))
@@ -26,7 +26,7 @@ export async function listActivity(from) {
 
 /** Tasks the signed-in person may see, newest first; `null` before migration 017. */
 export async function listTasks() {
-  const { data, error } = await supabase.from('staff_tasks').select('*').order('created_at', { ascending: false })
+  const { data, error } = await fetchAll(() => supabase.from('staff_tasks').select('*').order('created_at', { ascending: false }))
   if (error) {
     if (missing(error)) return null
     return unwrap(Promise.resolve({ data, error }))

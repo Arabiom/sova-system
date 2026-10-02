@@ -2,7 +2,7 @@
 
 import { num, todayISO } from '../lib/format.js'
 import { formatRanges } from '../lib/sites.js'
-import { supabase, unwrap } from './client.js'
+import { fetchAll, supabase, unwrap } from './client.js'
 import { findOrCreateClient } from './clients.js'
 import { createExhibitor, updateExhibitor } from './exhibitors.js'
 import { recordPayment } from './payments.js'
@@ -14,8 +14,8 @@ const sponsors = () => supabase.from('exhibition_sponsors')
 
 // ── Sites ────────────────────────────────────────────────────────────────
 export const listSites = (exhibitionId) => {
-  const q = sites().select('*').order('number')
-  return unwrap(exhibitionId ? q.eq('exhibition_id', exhibitionId) : q)
+  const q = () => sites().select('*').order('number')
+  return unwrap(fetchAll(() => (exhibitionId ? q().eq('exhibition_id', exhibitionId) : q())))
 }
 
 /** Add booths `numbers` with one tier/price. Existing numbers are rejected by the database. */
@@ -74,8 +74,8 @@ export async function assignSite(site, exhibitor, { adjustContract = true, previ
 // ── Expenses ─────────────────────────────────────────────────────────────
 /** Expenses of one exhibition, or of all exhibitions when no id is given. */
 export const listExpenses = (exhibitionId) => {
-  const q = expenses().select('*').order('due_date', { ascending: true, nullsFirst: false })
-  return unwrap(exhibitionId ? q.eq('exhibition_id', exhibitionId) : q)
+  const q = () => expenses().select('*').order('due_date', { ascending: true, nullsFirst: false })
+  return unwrap(fetchAll(() => (exhibitionId ? q().eq('exhibition_id', exhibitionId) : q())))
 }
 
 export function toExpenseRow(form, exhibitionId) {
@@ -98,8 +98,8 @@ export const deleteExpense = (id) => unwrap(expenses().delete().eq('id', id))
 
 // ── Sponsors ─────────────────────────────────────────────────────────────
 export const listSponsors = (exhibitionId) => {
-  const q = sponsors().select('*').order('created_at')
-  return unwrap(exhibitionId ? q.eq('exhibition_id', exhibitionId) : q)
+  const q = () => sponsors().select('*').order('created_at')
+  return unwrap(fetchAll(() => (exhibitionId ? q().eq('exhibition_id', exhibitionId) : q())))
 }
 
 export function toSponsorRow(form, exhibitionId) {
@@ -136,7 +136,7 @@ export async function applyImport(exhibitionId, plan, matched, { replaceSites = 
 
   await unwrap(sites().insert(plan.sites.map((s) => ({ exhibition_id: exhibitionId, number: s.number, tier: s.tier, price: s.price }))))
 
-  const known = await unwrap(supabase.from('clients').select('id,name,phone'))
+  const known = await unwrap(fetchAll(() => supabase.from('clients').select('id,name,phone')))
   // Site labels are rebuilt from the file: clear the old ones first, so participants can swap
   // sites without two of them holding the same number for a moment (one site = one participant).
   const reset = [...matched.participants.filter((p) => p.existing).map((p) => p.existing), ...(existing.length ? matched.untouched : [])]

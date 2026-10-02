@@ -1,5 +1,5 @@
 import { todayISO } from '../lib/format.js'
-import { supabase, unwrap } from './client.js'
+import { fetchAll, supabase, unwrap } from './client.js'
 
 const TABLES = [
   'exhibitions',
@@ -22,14 +22,20 @@ const LATER_TABLES = [
   'whatsapp_log',
   'staff_tasks',
   'staff_activity',
+  'obligations',
+  'staff_contracts',
+  'bank_balances',
 ]
+
+// Tables keyed by something other than `id` (used to page through them in a stable order).
+const TIE = { staff: 'user_id', staff_activity: 'user_id' }
 
 /** Download every table as one JSON file (the free Supabase plan keeps no backups). */
 export async function downloadBackup() {
   const data = {}
-  for (const table of TABLES) data[table] = await unwrap(supabase.from(table).select('*'))
+  for (const table of TABLES) data[table] = await unwrap(fetchAll(() => supabase.from(table).select('*'), { tie: TIE[table] || 'id' }))
   for (const table of LATER_TABLES) {
-    const { data: rows, error } = await supabase.from(table).select('*')
+    const { data: rows, error } = await fetchAll(() => supabase.from(table).select('*'), { tie: TIE[table] || 'id' })
     if (!error) data[table] = rows
   }
   const backup = { app: 'AIB', created_at: new Date().toISOString(), counts: Object.fromEntries(Object.entries(data).map(([t, rows]) => [t, rows.length])), data }
