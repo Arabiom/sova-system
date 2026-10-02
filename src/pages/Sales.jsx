@@ -235,7 +235,7 @@ export default function Sales({ embedded = false, onChanged } = {}) {
       {pendingPayments.length > 0 && (
         <Panel icon="⏳" title={tr('دفعات بانتظار التأكيد ({0})', [pendingPayments.length])} subtitle={tr('سجّلها فريق التسويق — لا تُحسب ضمن المحصّل حتى تتأكد المالية من وصول المبلغ')} className="mb-20 panel-pending">
           <div className="table-wrap">
-            <table className="table" style={{ minWidth: 760 }}>
+            <table className="table table-numbered" style={{ minWidth: 760 }}>
               <thead>
                 <tr>
                   {[tr('رقم الفاتورة'), tr('العارض'), tr('المعرض'), vatEnabled() ? tr('المبلغ شامل الضريبة') : tr('المبلغ'), tr('الطريقة'), tr('رقم الحساب / المحوَّل إليه'), tr('التاريخ'), ''].map((h) => (
@@ -340,7 +340,7 @@ export default function Sales({ embedded = false, onChanged } = {}) {
 
       <Panel title={tr('💳 سجل المدفوعات')}>
         <div className="table-wrap">
-          <table className="table" style={{ minWidth: 800 }}>
+          <table className="table table-numbered" style={{ minWidth: 800 }}>
             <thead>
               <tr>
                 {[tr('رقم الفاتورة'), tr('العارض'), tr('المعرض'), tr('المبلغ'), ...(vatEnabled() ? [tr('ضريبة 5%')] : []), tr('الطريقة'), tr('النوع'), tr('التاريخ'), tr('ملاحظة'), ''].map((h) => (

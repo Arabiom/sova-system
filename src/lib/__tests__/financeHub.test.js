@@ -165,3 +165,27 @@ describe('is the plan sound?', async () => {
     expect(c).toMatchObject({ capacity: 40, booked: 10, fullRevenue: 6000, contract: 2000, expensesTotal: 2000, breakEven: 14 })
   })
 })
+
+describe('exhibitions still in planning', () => {
+  it('leave the company totals until they become «قادم»', async () => {
+    const { withoutPlanning, companyOverview } = await import('../finance.js')
+    const data = {
+      exhibitions: [{ id: 'a', status: 'قادم' }, { id: 'p', status: 'تخطيط' }],
+      exhibitors: [{ id: 'e1', exhibition_id: 'a', contract: 100, paid: 50 }, { id: 'e2', exhibition_id: 'p', contract: 300, paid: 0 }],
+      payments: [{ id: 'p1', exhibitor_id: 'e1', amount: 50 }, { id: 'p2', exhibitor_id: 'e2', amount: 20 }],
+      expenses: [{ id: 'x1', exhibition_id: 'a', amount: 40, paid: true }, { id: 'x2', exhibition_id: 'p', amount: 500, paid: true }],
+      sponsors: [],
+      companyExpenses: [{ id: 'c1', amount: 10, paid: true }],
+      staffExpenses: [{ id: 's1', exhibition_id: 'p', amount: 5, status: 'تم التعويض' }],
+    }
+    const live = withoutPlanning(data)
+    const o = companyOverview(live)
+    expect(o.contracts).toBe(100)
+    expect(o.collected).toBe(50)
+    expect(o.expensesAll).toBe(50)
+    expect(live.planned).toEqual([{ exhibition: data.exhibitions[1], contracts: 300, expenses: 500 }])
+    const later = withoutPlanning({ ...data, exhibitions: [{ id: 'a', status: 'قادم' }, { id: 'p', status: 'قادم' }] })
+    expect(companyOverview(later).contracts).toBe(400)
+    expect(later.planned).toEqual([])
+  })
+})

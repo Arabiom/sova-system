@@ -38,7 +38,7 @@ import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { COMPANY, DEFAULT_TIERS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
-import { allExpenses, collectionAlerts, combineFinancials, companyOverview, daysBetween, exhibitionFinancials, EXPENSE_KINDS, isConfirmed, ledger, monthlyFlow, paymentDeadline, receivables, sumBy, vatEnabled } from '../lib/finance.js'
+import { allExpenses, collectionAlerts, combineFinancials, companyOverview, daysBetween, exhibitionFinancials, EXPENSE_KINDS, isConfirmed, ledger, monthlyFlow, paymentDeadline, receivables, sumBy, vatEnabled, withoutPlanning } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatDate, formatOMR, num, percent, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { openWhatsApp, paymentReminderMessage } from '../lib/whatsapp.js'
@@ -88,6 +88,22 @@ const load = async () => {
 
 
 // ── 1. Overview ─────────────────────────────────────────────────────────────
+
+/** Which exhibitions in planning are left out of the totals, and what they hold. */
+function PlannedNote({ planned, go, compact = false }) {
+  if (!planned?.length) return null
+  const contracts = planned.reduce((t, p) => t + p.contracts, 0)
+  const expenses = planned.reduce((t, p) => t + p.expenses, 0)
+  return (
+    <button type="button" className={`alert alert-info alert-link ${compact ? 'mt-16' : 'mb-16'}`} onClick={() => go('exhibitions')}>
+      📝{' '}
+      {tr('لا تدخل في الأرقام: {0} — قيد التخطيط', [planned.map((p) => exhibitionLabel(p.exhibition)).join(tr('، '))])}
+      {(contracts > 0 || expenses > 0) && ` (${tr('عقود {0} • مصروفات {1}', [formatOMR(contracts), formatOMR(expenses)])})`}
+      {'. '}
+      {tr('تُحسب تلقائياً عند تغيير حالة المعرض إلى «قادم».')}
+    </button>
+  )
+}
 
 /** Record the balance the bank shows today. */
 function BankBalanceForm({ last, onClose, onSaved }) {
@@ -403,7 +419,7 @@ function Receivables({ data, canRemind, initialScope = 'all' }) {
     </div>
     <Panel icon="⏳" title={tr('المتبقي للتحصيل: {0}', [formatOMR(total)])} subtitle={tr('من عليه مبلغ متبقٍ من قيمة عقده — الأكبر أولاً') + (vatEnabled() ? tr(' • قبل الضريبة') : '')}>
       <div className="table-wrap">
-        <table className="table">
+        <table className="table table-numbered">
           <thead>
             <tr>
               {[tr('المشارك'), tr('الهاتف'), tr('المعرض'), tr('العقد'), tr('المدفوع'), tr('المتبقي'), tr('آخر موعد للتحصيل'), tr('الحالة'), ''].map((h) => (
@@ -1105,7 +1121,7 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
         }
       >
         <div className="table-wrap">
-          <table className="table" style={{ minWidth: 980 }}>
+          <table className="table table-numbered" style={{ minWidth: 980 }}>
             <thead>
               <tr>
                 {[tr('التاريخ'), tr('البيان'), tr('النوع'), tr('المعرض'), tr('التصنيف'), tr('المبلغ'), tr('الحالة'), tr('الفاتورة'), ''].map((h) => (
@@ -1321,7 +1337,7 @@ function Ledger({ data }) {
       </div>
       <Panel icon="📒" title={tr('سجل الحركات')} subtitle={tr('كل مبلغ دخل أو خرج فعلاً، الأحدث أولاً')}>
         <div className="table-wrap">
-          <table className="table table-compact" style={{ minWidth: 860 }}>
+          <table className="table table-numbered table-compact" style={{ minWidth: 860 }}>
             <thead>
               <tr>
                 {[tr('التاريخ'), tr('الحركة'), tr('البيان'), tr('المعرض'), tr('داخل'), tr('خارج'), ...(filtered ? [] : [tr('الرصيد')])].map((h) => (
@@ -1457,8 +1473,10 @@ export default function Finance() {
   if (loading) return <Loading />
   if (!data) return <EmptyState icon="💼" text={tr('تعذّر تحميل البيانات المالية')} />
 
-  const o = companyOverview(data)
-  const flow = monthlyFlow(data)
+  // Exhibitions still «تخطيط» stay out of the company's money until they become «قادم».
+  const live = withoutPlanning(data)
+  const o = companyOverview(live)
+  const flow = monthlyFlow(live)
 
   return (
     <>
@@ -1474,18 +1492,20 @@ export default function Finance() {
 
       {tab === 'overview' && (
         <>
-          <Attention data={data} o={o} go={go} today={omanDay()} />
-          <Overview o={o} flow={flow} go={go} fixed={monthlyFixedTotal(data.companyExpenses)} bank={data.bankBalances} canEdit={canManage} onChanged={reload} />
+          <Attention data={live} o={o} go={go} today={omanDay()} />
+          <PlannedNote planned={live.planned} go={go} />
+          <Overview o={o} flow={flow} go={go} fixed={monthlyFixedTotal(live.companyExpenses)} bank={data.bankBalances} canEdit={canManage} onChanged={reload} />
         </>
       )}
       {tab === 'income' && <Sales embedded onChanged={reload} />}
-      {tab === 'receivables' && <Receivables key={focus.exhibition} data={data} canRemind={canRemind} initialScope={focus.exhibition} />}
-      {tab === 'expenses' && <AllExpenses data={data} canManage={canManage} reload={reload} go={go} initialKind={focus.kind || ''} key={focus.kind || ''} />}
+      {tab === 'receivables' && <Receivables key={focus.exhibition} data={live} canRemind={canRemind} initialScope={focus.exhibition} />}
+      {tab === 'expenses' && <AllExpenses data={live} canManage={canManage} reload={reload} go={go} initialKind={focus.kind || ''} key={focus.kind || ''} />}
       {tab === 'claims' && <Expenses embedded onChanged={reload} />}
       {tab === 'exhibitions' && <Plan data={data} />}
-      {tab === 'ledger' && <Ledger data={data} />}
+      {tab !== 'overview' && tab !== 'exhibitions' && <PlannedNote planned={live.planned} go={go} compact />}
+      {tab === 'ledger' && <Ledger data={live} />}
       {tab === 'team' && <TeamContracts key={focus.contract || ''} data={data} canManage={canManage} reload={reload} openId={focus.contract} />}
-      {tab === 'company-plan' && <CompanyPlan data={data} />}
+      {tab === 'company-plan' && <CompanyPlan data={live} />}
       {tab === 'reports' && <Reports embedded />}
     </>
   )

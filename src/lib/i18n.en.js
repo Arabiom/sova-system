@@ -1830,4 +1830,7 @@ export default {
   "إخفاء السجل": "Hide history",
   "سجل الأرصدة ({0})": "Balance history ({0})",
   "التغيّر": "Change",
+  "لا تدخل في الأرقام: {0} — قيد التخطيط": "Not in the totals: {0} — still in planning",
+  "عقود {0} • مصروفات {1}": "contracts {0} • expenses {1}",
+  "تُحسب تلقائياً عند تغيير حالة المعرض إلى «قادم».": "Counted automatically once the exhibition is set to «Upcoming».",
 }
