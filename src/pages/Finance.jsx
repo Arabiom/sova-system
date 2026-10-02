@@ -19,6 +19,7 @@ import { listPayments } from '../api/payments.js'
 import { CHEQUE_KIND, deleteObligation, listObligations, OBLIGATION_KINDS, obligationState, payObligation, postponeObligation, REFUND_KIND, reopenObligation, saveObligation, validateObligation } from '../api/obligations.js'
 import { contractOfExpense, duplicateSalaries, listContracts, SALARY_CATEGORY } from '../api/contracts.js'
 import { listStaff } from '../api/staff.js'
+import { addBankBalance, deleteBankBalance, listBankBalances } from '../api/bank.js'
 import { listStaffExpenses, openReceipt } from '../api/staffExpenses.js'
 import { checkFile } from '../api/storage.js'
 import Button from '../components/Button.jsx'
@@ -35,7 +36,7 @@ import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
-import { DEFAULT_TIERS } from '../lib/constants.js'
+import { COMPANY, DEFAULT_TIERS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
 import { allExpenses, collectionAlerts, combineFinancials, companyOverview, daysBetween, exhibitionFinancials, EXPENSE_KINDS, isConfirmed, ledger, monthlyFlow, paymentDeadline, receivables, sumBy, vatEnabled } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatDate, formatOMR, num, percent, todayISO } from '../lib/format.js'
@@ -76,13 +77,192 @@ const load = async () => {
     listCompanyExpenses(),
     listStaffExpenses().catch(() => []),
   ])
-  const [staff, obligations, contracts] = await Promise.all([listStaff().catch(() => []), listObligations().catch(() => []), listContracts().catch(() => [])])
-  return { exhibitions, exhibitors, payments, sites, expenses, sponsors, companyExpenses, staffExpenses, staff, obligations, contracts }
+  const [staff, obligations, contracts, bankBalances] = await Promise.all([
+    listStaff().catch(() => []),
+    listObligations().catch(() => []),
+    listContracts().catch(() => []),
+    listBankBalances().catch(() => null),
+  ])
+  return { exhibitions, exhibitors, payments, sites, expenses, sponsors, companyExpenses, staffExpenses, staff, obligations, contracts, bankBalances }
 }
 
 
 // ── 1. Overview ─────────────────────────────────────────────────────────────
-function Overview({ o, flow, go, fixed = 0 }) {
+
+/** Record the balance the bank shows today. */
+function BankBalanceForm({ last, onClose, onSaved }) {
+  const toast = useToast()
+  const [form, setForm] = useState({ amount: '', as_of: todayISO(), account: last?.account || COMPANY.bank, note: '' })
+  const [saving, setSaving] = useState(false)
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e?.target ? e.target.value : e }))
+  const submit = async () => {
+    if (form.amount === '' || Number.isNaN(Number(form.amount))) return toast(tr('اكتب الرصيد كما يظهر في البنك'), 'error')
+    if (!form.as_of) return toast(tr('اختر تاريخ الرصيد'), 'error')
+    setSaving(true)
+    try {
+      await addBankBalance(form)
+      toast(tr('✅ حُفظ رصيد الحساب'))
+      onSaved()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <Modal
+      title={tr('🏦 تحديث رصيد حساب الشركة')}
+      subtitle={tr('اكتب المبلغ كما يظهر في تطبيق البنك أو كشف الحساب')}
+      size="sm"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            {tr('إلغاء')}
+          </Button>
+          <Button onClick={submit} disabled={saving}>
+            {saving ? tr('جاري...') : tr('حفظ')}
+          </Button>
+        </>
+      }
+    >
+      <Field label={tr('الرصيد في الحساب (ر.ع)')} required>
+        <input className="input" type="number" step="0.001" dir="ltr" autoFocus value={form.amount} onChange={set('amount')} />
+      </Field>
+      <Field label={tr('بتاريخ')} required>
+        <DateInput value={form.as_of} onChange={set('as_of')} />
+      </Field>
+      <Field label={tr('الحساب')}>
+        <input className="input" value={form.account} onChange={set('account')} />
+      </Field>
+      <Field label={tr('ملاحظة (اختياري)')}>
+        <input className="input" value={form.note} onChange={set('note')} placeholder={tr('مثال: بعد إيداع دفعات معرض نزوى')} />
+      </Field>
+    </Modal>
+  )
+}
+
+/** What the bank says the company has, next to what the system expects. */
+function BankBalance({ rows, cash, canEdit, onChanged }) {
+  const toast = useToast()
+  const [adding, setAdding] = useState(false)
+  const [showAll, setShowAll] = useState(false)
+  if (rows === null) {
+    return <div className="alert alert-info mb-16">🏦 {tr('لتسجيل رصيد حساب الشركة شغّل تحديث 028 في Supabase.')}</div>
+  }
+  const last = rows[0]
+  const remove = async (row) => {
+    if (!window.confirm(tr('حذف رصيد {0} بتاريخ {1}؟', [formatOMR(row.amount), formatDate(row.as_of)]))) return
+    try {
+      await deleteBankBalance(row.id)
+      onChanged()
+    } catch (err) {
+      toast(err.message, 'error')
+    }
+  }
+  const diff = last ? Math.round((num(last.amount) - cash) * 1000) / 1000 : 0
+  const age = last ? daysBetween(last.as_of, todayISO()) : 0
+  return (
+    <>
+      <div className="section-label">{tr('حساب الشركة في البنك')}</div>
+      <Panel
+        icon="🏦"
+        title={last ? formatOMR(last.amount) : tr('لم يُسجّل رصيد الحساب بعد')}
+        subtitle={last ? tr('حسب البنك بتاريخ {0}{1}', [formatDate(last.as_of), last.account ? ` • ${last.account}` : '']) : tr('سجّل المبلغ الموجود في حساب الشركة كما يظهر في البنك')}
+        className="mb-16 bank-panel"
+        action={
+          canEdit && (
+            <Button size="sm" onClick={() => setAdding(true)}>
+              {last ? tr('🔄 تحديث الرصيد') : tr('+ تسجيل رصيد الحساب')}
+            </Button>
+          )
+        }
+        bodyClass={last ? 'panel-pad' : ''}
+      >
+        {last && (
+          <>
+            {age > 7 && <div className="alert alert-warning mb-12">{tr('⚠️ آخر تحديث للرصيد قبل {0} يوم — حدّثه ليكون الرقم دقيقاً.', [age])}</div>}
+            <div className="bank-compare">
+              <div>
+                <span>{tr('في البنك')}</span>
+                <strong>{formatOMR(last.amount)}</strong>
+              </div>
+              <div>
+                <span>{tr('الرصيد النقدي حسب النظام')}</span>
+                <strong>{formatOMR(cash)}</strong>
+              </div>
+              <div className={diff === 0 ? 'ok' : 'off'}>
+                <span>{tr('الفرق')}</span>
+                <strong>{diff > 0 ? '+' : ''}{formatOMR(diff)}</strong>
+              </div>
+            </div>
+            <div className="muted small mt-10">
+              {diff === 0
+                ? tr('✔ رصيد البنك مطابق لما سجّله النظام.')
+                : diff > 0
+                  ? tr('في البنك أكثر مما في النظام: قد تكون دفعات وصلت ولم تُسجّل، أو مبالغ أُودعت من خارج المعارض.')
+                  : tr('في البنك أقل مما في النظام: قد تكون مصروفات دُفعت ولم تُسجّل، أو دفعات نقدية لم تُودع في البنك بعد.')}
+            </div>
+            {rows.length > 1 && (
+              <div className="mt-12">
+                <button type="button" className="link-btn" onClick={() => setShowAll(!showAll)}>
+                  {showAll ? tr('إخفاء السجل') : tr('سجل الأرصدة ({0})', [rows.length])}
+                </button>
+              </div>
+            )}
+            {showAll && (
+              <div className="table-wrap mt-10">
+                <table className="table table-compact">
+                  <thead>
+                    <tr>
+                      <th>{tr('التاريخ')}</th>
+                      <th>{tr('الرصيد')}</th>
+                      <th>{tr('التغيّر')}</th>
+                      <th>{tr('ملاحظة')}</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, i) => {
+                      const prev = rows[i + 1]
+                      const change = prev ? num(r.amount) - num(prev.amount) : null
+                      return (
+                        <tr key={r.id}>
+                          <td>{formatDate(r.as_of)}</td>
+                          <td className="num strong">{formatOMR(r.amount)}</td>
+                          <td className={`num ${change > 0 ? 'text-suc' : change < 0 ? 'text-dng' : 'muted'}`}>{change == null ? '—' : `${change > 0 ? '+' : ''}${formatOMR(change)}`}</td>
+                          <td className="small">{r.note || '—'}</td>
+                          <td>
+                            {canEdit && (
+                              <Button size="sm" variant="ghost" onClick={() => remove(r)} title={tr('حذف')}>
+                                🗑️
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </Panel>
+      {adding && (
+        <BankBalanceForm
+          last={last}
+          onClose={() => setAdding(false)}
+          onSaved={() => {
+            setAdding(false)
+            onChanged()
+          }}
+        />
+      )}
+    </>
+  )
+}
+function Overview({ o, flow, go, fixed = 0, bank, canEdit, onChanged }) {
   const rows = [
     ['مصروفات المعارض', o.exhibitionExpenses, o.exhibitionExpensesPaid, 'exhibition'],
     ['مصروفات الشركة', o.company, o.companyPaid, 'company'],
@@ -105,6 +285,8 @@ function Overview({ o, flow, go, fixed = 0 }) {
         <StatCard flat label={tr('الصافي حسب العقود')} value={formatOMR(o.net)} sub={tr('العقود + الرعايات − كل المصروفات')} accent={o.net >= 0 ? 'var(--suc)' : 'var(--dng)'} icon="📈" />
         <StatCard flat label={tr('الرصيد النقدي')} value={formatOMR(o.cash)} sub={tr('المحصّل − المدفوع فعلاً')} accent={o.cash >= 0 ? 'var(--suc)' : 'var(--dng)'} icon="🏦" onClick={() => go('ledger')} />
       </div>
+
+      <BankBalance rows={bank} cash={o.cash} canEdit={canEdit} onChanged={onChanged} />
 
       {fixed > 0 && (
         <button type="button" className="alert alert-info alert-link" onClick={() => go('expenses', { kind: 'company' })}>
@@ -1293,7 +1475,7 @@ export default function Finance() {
       {tab === 'overview' && (
         <>
           <Attention data={data} o={o} go={go} today={omanDay()} />
-          <Overview o={o} flow={flow} go={go} fixed={monthlyFixedTotal(data.companyExpenses)} />
+          <Overview o={o} flow={flow} go={go} fixed={monthlyFixedTotal(data.companyExpenses)} bank={data.bankBalances} canEdit={canManage} onChanged={reload} />
         </>
       )}
       {tab === 'income' && <Sales embedded onChanged={reload} />}
