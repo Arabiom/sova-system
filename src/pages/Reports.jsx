@@ -14,7 +14,7 @@ import { ProgressBar, ShareRow } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { COMPANY } from '../lib/constants.js'
-import { groupTotals, occupancyOf, summarize, sumBy, vatEnabled } from '../lib/finance.js'
+import { groupTotals, occupancyOf, summarize, sumBy, vatEnabled, withoutPlanning } from '../lib/finance.js'
 import { exhibitionTitle, formatOMR, monthOf, num, percent } from '../lib/format.js'
 import { downloadReport } from '../lib/pdf.js'
 import { useData } from '../lib/useData.js'
@@ -54,9 +54,11 @@ export default function Reports({ embedded = false } = {}) {
   if (loading || !data) return <Loading />
   const { exhibitions, exhibitors, payments, sites, expenses, sponsors } = data
 
-  const scopeExhibitors = scope === 'all' ? exhibitors : exhibitors.filter((e) => e.exhibition_id === scope)
+  // «كل المعارض» leaves out exhibitions still in planning; each one can still be chosen on its own.
+  const live = withoutPlanning(data)
+  const scopeExhibitors = scope === 'all' ? live.exhibitors : exhibitors.filter((e) => e.exhibition_id === scope)
   const scopeIds = new Set(scopeExhibitors.map((e) => e.id))
-  const scopePayments = scope === 'all' ? payments : payments.filter((p) => scopeIds.has(p.exhibitor_id))
+  const scopePayments = scope === 'all' ? live.payments : payments.filter((p) => scopeIds.has(p.exhibitor_id))
   const totals = summarize(scopeExhibitors)
 
   const byCategory = groupTotals(scopeExhibitors, (e) => e.category || 'أخرى')
@@ -67,7 +69,7 @@ export default function Reports({ embedded = false } = {}) {
     setExporting(true)
     toast(tr('📄 جاري تصدير التقرير...'))
     try {
-      await downloadReport(data, scope)
+      await downloadReport(scope === 'all' ? live : data, scope)
     } catch (err) {
       toast(tr('تعذّر تصدير التقرير: {0}', [err.message]), 'error')
     } finally {

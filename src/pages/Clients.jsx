@@ -519,7 +519,7 @@ export default function Clients() {
 
       <div className="panel">
         <div className="table-wrap">
-          <table className="table" style={{ minWidth: 1000 }}>
+          <table className="table table-numbered" style={{ minWidth: 1000 }}>
             <thead>
               <tr>
                 {[tr('العميل'), tr('الهاتف'), tr('القطاع'), tr('المدينة'), tr('المشاركات'), tr('آخر معرض'), ...(money ? [tr('المدفوع'), tr('المتبقي')] : []), ...(everyone ? [tr('أضافه')] : []), tr('الحالة'), ''].map((h) => (

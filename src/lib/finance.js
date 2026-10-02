@@ -490,3 +490,38 @@ export function combineFinancials(list, extraExpenses = 0) {
     breakEven,
   }
 }
+
+/** An exhibition still being planned: not counted in the company's money until it is «قادم». */
+export const PLANNING_STATUS = 'تخطيط'
+export const isPlanning = (exhibition) => exhibition?.status === PLANNING_STATUS
+
+/**
+ * The data without exhibitions still in planning: their participants and those participants'
+ * payments, their expenses, sponsors, sites, staff claims and obligations are left out of the
+ * totals. Company-wide records (no exhibition) stay. `planned` lists what was left out.
+ */
+export function withoutPlanning(data) {
+  const plannedList = (data.exhibitions || []).filter(isPlanning)
+  if (!plannedList.length) return { ...data, planned: [] }
+  const planned = new Set(plannedList.map((e) => e.id))
+  const keep = (x) => !planned.has(x.exhibition_id)
+  const exhibitors = data.exhibitors || []
+  const dropped = new Set(exhibitors.filter((e) => !keep(e)).map((e) => e.id))
+  const only = (list) => (Array.isArray(list) ? list.filter(keep) : list)
+  return {
+    ...data,
+    exhibitors: exhibitors.filter(keep),
+    payments: Array.isArray(data.payments) ? data.payments.filter((p) => !dropped.has(p.exhibitor_id)) : data.payments,
+    awaiting: Array.isArray(data.awaiting) ? data.awaiting.filter((p) => !dropped.has(p.exhibitor_id)) : data.awaiting,
+    expenses: only(data.expenses),
+    sponsors: only(data.sponsors),
+    sites: only(data.sites),
+    staffExpenses: Array.isArray(data.staffExpenses) ? data.staffExpenses.filter((x) => !x.exhibition_id || keep(x)) : data.staffExpenses,
+    obligations: Array.isArray(data.obligations) ? data.obligations.filter((x) => !x.exhibition_id || keep(x)) : data.obligations,
+    planned: plannedList.map((ex) => ({
+      exhibition: ex,
+      contracts: sumBy(exhibitors.filter((e) => e.exhibition_id === ex.id), 'contract'),
+      expenses: sumBy((data.expenses || []).filter((x) => x.exhibition_id === ex.id), 'amount'),
+    })),
+  }
+}

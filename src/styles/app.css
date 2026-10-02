@@ -4693,3 +4693,41 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Row numbers on long lists, so the count is visible at a glance. */
+.table-numbered tbody {
+  counter-reset: row;
+}
+.table-numbered tbody tr {
+  counter-increment: row;
+}
+.table-numbered tbody tr > td:first-child,
+.table-numbered thead tr > th:first-child {
+  position: relative;
+  padding-inline-start: 46px;
+}
+.table-numbered tbody tr > td:first-child::before,
+.table-numbered thead tr > th:first-child::before {
+  position: absolute;
+  top: 50%;
+  inset-inline-start: 12px;
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 4px;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-40);
+  background: var(--surf-d);
+  border-radius: 6px;
+  transform: translateY(-50%);
+}
+.table-numbered tbody tr > td:first-child::before {
+  content: counter(row);
+}
+.table-numbered thead tr > th:first-child::before {
+  content: '#';
+  background: transparent;
+}

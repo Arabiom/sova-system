@@ -108,7 +108,7 @@ export default function Exhibitors() {
 
       <div className="panel">
         <div className="table-wrap">
-          <table className="table" style={{ minWidth: 950 }}>
+          <table className="table table-numbered" style={{ minWidth: 950 }}>
             <thead>
               <tr>
                 {[tr('العلامة'), tr('المسؤول'), tr('الجوال'), tr('التصنيف'), tr('المعرض'), tr('البوث'), ...(money ? [tr('العقد'), tr('المدفوع')] : []), tr('سجّله'), tr('الحالة'), ''].map((h) => (

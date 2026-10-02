@@ -16,7 +16,7 @@ import { ProgressRow } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { COMPANY, DEFAULT_TIERS } from '../lib/constants.js'
-import { balanceOf, collectionAlerts, exhibitionFinancials, isConfirmed, occupancyOf, summarize, sumBy, vatEnabled, withVat } from '../lib/finance.js'
+import { balanceOf, collectionAlerts, exhibitionFinancials, isConfirmed, isPlanning, occupancyOf, summarize, sumBy, vatEnabled, withVat, withoutPlanning } from '../lib/finance.js'
 import { exhibitionTitle, formatDate, formatOMR, isolateLtr, monthOf } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { useAuth, useCan } from '../context/AuthContext.jsx'
@@ -68,14 +68,15 @@ export default function Dashboard() {
     )
   const myTasks = (tasks || []).filter((t) => t.assigned_to === uid && t.status !== TASK_DONE)
   const myOverdue = myTasks.filter((t) => isOverdue(t)).length
-  const totals = summarize(exhibitors)
+  // Money totals leave out exhibitions still in planning (counted once they are «قادم»).
+  const totals = summarize(withoutPlanning(data).exhibitors)
   const pending = bookings.filter((b) => b.status === 'معلق').length
   const confirmed = exhibitors.filter((e) => e.status === 'مؤكد').length
   const withBalance = exhibitors.filter((e) => balanceOf(e) > 0).length
   const activeList = exhibitions.filter((e) => !['منتهي', 'ملغى'].includes(e.status))
   const active = activeList.length
-  // Income if every site of the upcoming / running exhibitions is sold.
-  const expectedIncome = activeList.reduce(
+  // Income if every site of the upcoming / running exhibitions is sold (planning ones not yet).
+  const expectedIncome = activeList.filter((ex) => !isPlanning(ex)).reduce(
     (t, ex) => t + exhibitionFinancials({ exhibition: ex, sites: sites.filter((s) => s.exhibition_id === ex.id) }, DEFAULT_TIERS).fullRevenue,
     0,
   )
