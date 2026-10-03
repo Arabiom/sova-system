@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { saveExhibitor } from '../api/exhibitors.js'
+import { listReferrers } from '../api/referrals.js'
+import { useData } from '../lib/useData.js'
 import { recordPayment } from '../api/payments.js'
 import { confirmIfPaid } from '../api/registration.js'
 import { useToast } from '../context/ToastContext.jsx'
@@ -28,6 +30,9 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
   const canPay = useCan('payments.write') // admin + finance record money received
   const [payment, setPayment] = useState({ amount: '', method: PAYMENT_METHODS[0] })
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  const canRate = useCan('payments.write') // the rate is set by admin / finance only
+  const { data: referrers } = useData(() => listReferrers().catch(() => null), null)
+  const referrer = referrers?.find((r) => r.id === form.referrer_id)
   const linked = clients.find((c) => c.id === form.client_id)
   const exhibitionOfForm = exhibitions.find((ex) => ex.id === form.exhibition_id)
   const packages = packagesOf(exhibitionOfForm) // this exhibition's own packages (or the defaults)
@@ -182,6 +187,32 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
           <SelectOptions options={EXHIBITOR_STATUSES} placeholder={null} value={form.status || 'مبدئي'} onChange={set('status')} />
         </Field>
       </div>
+      {referrers?.length > 0 && (
+        <div className="form-grid">
+          <Field label={tr('جلبه (عمولة استقطاب)')} hint={!canRate && id ? tr('تغييره للإدارة والمالية') : undefined}>
+            <select
+              className="input"
+              value={form.referrer_id || ''}
+              disabled={Boolean(id) && !canRate}
+              onChange={(e) => setForm((f) => ({ ...f, referrer_id: e.target.value, referral_pct: '' }))}
+            >
+              <option value="">{tr('— لا أحد —')}</option>
+              {referrers
+                .filter((r) => r.active !== false || r.id === form.referrer_id)
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}{money ? ` — ${num(r.rate)}%` : ''}
+                  </option>
+                ))}
+            </select>
+          </Field>
+          {money && form.referrer_id && (
+            <Field label={tr('نسبته من هذا المشارك %')} hint={tr('من المبلغ المدفوع فعلاً — فارغ = نسبته العامة {0}%', [num(referrer?.rate)])}>
+              <input className="input" type="number" min="0" max="100" step="0.5" dir="ltr" disabled={!canRate} value={form.referral_pct ?? ''} onChange={set('referral_pct')} />
+            </Field>
+          )}
+        </div>
+      )}
       {pkg && (
         <div className="summary-box mb-12 small">
           <strong>{tr('يشمل «{0}»:', [tr(pkg.name)])}</strong> {tr(pkg.includes) || '—'}

@@ -3,6 +3,7 @@ import DateInput from '../components/DateInput.jsx'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listSites } from '../api/exhibitionFile.js'
+import { listReferrers } from '../api/referrals.js'
 import { registerParticipant, validateRegistration } from '../api/registration.js'
 import { clientWithPhone } from '../api/clients.js'
 import Button from '../components/Button.jsx'
@@ -27,12 +28,13 @@ import { chosenExtras, isTransfer, MAX_SECTORS } from '../api/registration.js'
 import { tr } from '../lib/i18n.js'
 
 const load = async () => {
-  const [exhibitions, sites, exhibitors] = await Promise.all([
+  const [exhibitions, sites, exhibitors, referrers] = await Promise.all([
     listExhibitions(),
     listSites(),
     listExhibitors({ columns: 'id,exhibition_id,brand,phone,booth' }),
+    listReferrers().catch(() => null),
   ])
-  return { exhibitions: exhibitions.filter((ex) => !['منتهي', 'ملغى'].includes(ex.status)), sites, exhibitors }
+  return { exhibitions: exhibitions.filter((ex) => !['منتهي', 'ملغى'].includes(ex.status)), sites, exhibitors, referrers: (referrers || []).filter((r) => r.active !== false) }
 }
 
 const blankForm = (exhibitionId = '') => ({
@@ -43,6 +45,7 @@ const blankForm = (exhibitionId = '') => ({
   phone: '',
   categories: [],
   products: '',
+  referrer_id: '',
   package: '',
   site_id: '',
   booth_number: '',
@@ -306,6 +309,18 @@ export default function Register() {
             <Field label={tr('نوع المنتجات')}>
               <input className="input" value={f.products} onChange={set('products')} />
             </Field>
+            {data.referrers.length > 0 && (
+              <Field label={tr('جلبه (من استقطب هذا المشارك) — اختياري')} hint={tr('يحصل على نسبته من المبلغ الذي يدفعه المشارك فعلاً')}>
+                <select className="input" value={f.referrer_id} onChange={set('referrer_id')}>
+                  <option value="">{tr('— لا أحد —')}</option>
+                  {data.referrers.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
           </Panel>
 
           <Panel icon="📍" title={tr('نظام البوث والموقع')} subtitle={exhibition ? boothNote : tr('اختر المعرض أولاً لتظهر باقاته وأسعاره')}>

@@ -25,6 +25,7 @@ const LATER_TABLES = [
   'obligations',
   'staff_contracts',
   'bank_balances',
+  'referrers',
 ]
 
 // Tables keyed by something other than `id` (used to page through them in a stable order).

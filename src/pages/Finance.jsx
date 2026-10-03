@@ -20,6 +20,8 @@ import { CHEQUE_KIND, deleteObligation, listObligations, OBLIGATION_KINDS, oblig
 import { contractOfExpense, duplicateSalaries, listContracts, SALARY_CATEGORY } from '../api/contracts.js'
 import { listStaff } from '../api/staff.js'
 import { addBankBalance, deleteBankBalance, listBankBalances } from '../api/bank.js'
+import { listReferrers } from '../api/referrals.js'
+import Referrals from './finance/Referrals.jsx'
 import { listStaffExpenses, openReceipt } from '../api/staffExpenses.js'
 import { checkFile } from '../api/storage.js'
 import Button from '../components/Button.jsx'
@@ -59,6 +61,7 @@ const TABS = [
   { id: 'claims', label: tr('👥 مطالبات الموظفين') },
   { id: 'exhibitions', label: tr('🏛️ حسب المعرض') },
   { id: 'team', label: tr('👔 عقود الفريق') },
+  { id: 'commissions', label: tr('🤝 العمولات') },
   { id: 'company-plan', label: tr('🗓️ خطة الشركة') },
   { id: 'ledger', label: tr('📒 سجل الحركات') },
   { id: 'reports', label: tr('📈 التقارير') },
@@ -77,13 +80,14 @@ const load = async () => {
     listCompanyExpenses(),
     listStaffExpenses().catch(() => []),
   ])
-  const [staff, obligations, contracts, bankBalances] = await Promise.all([
+  const [staff, obligations, contracts, bankBalances, referrers] = await Promise.all([
     listStaff().catch(() => []),
     listObligations().catch(() => []),
     listContracts().catch(() => []),
     listBankBalances().catch(() => null),
+    listReferrers().catch(() => null),
   ])
-  return { exhibitions, exhibitors, payments, sites, expenses, sponsors, companyExpenses, staffExpenses, staff, obligations, contracts, bankBalances }
+  return { exhibitions, exhibitors, payments, sites, expenses, sponsors, companyExpenses, staffExpenses, staff, obligations, contracts, bankBalances, referrers }
 }
 
 
@@ -1532,6 +1536,7 @@ export default function Finance() {
       {tab === 'ledger' && <Ledger data={live} />}
       {tab === 'team' && <TeamContracts key={focus.contract || ''} data={data} canManage={canManage} reload={reload} openId={focus.contract} />}
       {tab === 'company-plan' && <CompanyPlan data={live} />}
+      {tab === 'commissions' && <Referrals data={data} canManage={canManage} reload={reload} />}
       {tab === 'reports' && <Reports embedded />}
     </>
   )
