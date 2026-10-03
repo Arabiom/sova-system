@@ -20,7 +20,7 @@ describe('data health check', () => {
   const ids = (list) => list.map((c) => c.id)
   it('finds bad phones, doubles, prices, stale statuses and near planning', () => {
     const checks = healthChecks({ exhibitions, exhibitors, sites, awaiting }, today, { money: true })
-    expect(ids(checks)).toEqual(['phones', 'twice', 'overpaid', 'awaiting', 'prices', 'ended', 'free', 'planning'])
+    expect(ids(checks)).toEqual(['phones', 'twice', 'overpaid', 'awaiting', 'prices', 'ended', 'planning'])
     const withPayments = healthChecks({ exhibitions, exhibitors, sites, awaiting, payments: [{ exhibitor_id: 'c', amount: 100 }] }, today, { money: true })
     expect(withPayments.find((c) => c.id === 'drift').items.map((i) => i.label)).toEqual([expect.stringContaining('عطور')])
     expect(checks.find((c) => c.id === 'phones').items).toHaveLength(2)

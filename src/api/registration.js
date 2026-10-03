@@ -92,7 +92,8 @@ export async function registerParticipant(form, { pending: marketing, boothPrice
     booth_size: boothArea || '',
     contract: totals.subtotal,
     paid: 0,
-    status: fullyPaid && !pending ? EXHIBITOR_STATUSES[2] : EXHIBITOR_STATUSES[0],
+    // Paid in full, or a free participation (no contract value): confirmed straight away.
+    status: (fullyPaid && !pending) || !(totals.subtotal > 0) ? EXHIBITOR_STATUSES[2] : EXHIBITOR_STATUSES[0],
     notes: form.notes?.trim() || '',
   })
 

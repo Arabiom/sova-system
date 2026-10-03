@@ -52,14 +52,6 @@ export function healthChecks({ exhibitions = [], exhibitors = [], sites = [], aw
       tr('إما أن قيمة العقد ناقصة، أو أن دفعة سُجّلت مرتين، أو يلزم إرجاع الفرق.'),
       live.filter((e) => balanceOf(e) < -0.0005).map((e) => ({ label: `${who(e)} • ${tr('زيادة')} ${(-balanceOf(e)).toFixed(3)}`, to: '/finance?tab=receivables' })),
     )
-    // 4. Confirmed with no contract value.
-    add(
-      'free',
-      'info',
-      tr('«مؤكد» بدون قيمة عقد'),
-      tr('إن كانت مشاركة مجانية فلا مشكلة، وإلا أضف قيمة العقد.'),
-      live.filter((e) => e.status === 'مؤكد' && !(num(e.contract) > 0)).map((e) => ({ label: who(e), to: '/exhibitors' })),
-    )
     // 4b. The paid total kept on the participant differs from their confirmed payments.
     if (payments) {
       const sums = new Map()
