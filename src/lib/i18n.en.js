@@ -1873,4 +1873,13 @@ export default {
   "المصروفات المدفوعة": "Paid expenses",
   "تعويض الموظفين": "Staff reimbursed",
   "المحصّل − المصروفات المدفوعة": "Collected − paid expenses",
+  "تعذّر تحميل المعارض الآن. أعد المحاولة، أو أرسل استفساراً، أو تواصل معنا عبر واتساب.": "Could not load the exhibitions now. Try again, send an inquiry, or contact us on WhatsApp.",
+  "احجز مساحتك في معارض {0} — {1}": "Book your space at {0} exhibitions — {1}",
+  "تابع طلبك معنا على واتساب الآن": "Follow up on WhatsApp now",
+  "إعادة المحاولة": "Try again",
+  "السلام عليكم، أرسلت الآن من رابط الحجز:": "Hello, I just sent from the booking link:",
+  "طلب حجز": "Booking request",
+  "المعرض:": "Exhibition:",
+  "الباقة:": "Package:",
+  "الاسم:": "Name:",
 }

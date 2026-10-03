@@ -14,6 +14,16 @@ const titleOf = (ex) => ex.name?.trim() || `${COMPANY.brand} ${tr(ex.city)}`
 const longDate = (d) => new Date(`${d}T00:00:00`).toLocaleDateString(uiLocale(), { day: 'numeric', month: 'long', year: 'numeric' })
 const packageLabel = (p) => [p.name, p.area].filter(Boolean).join(' — ')
 
+/** The WhatsApp message offered after sending: who they are and what they asked for. */
+function sentText(sent) {
+  const lines = [tr('السلام عليكم، أرسلت الآن من رابط الحجز:')]
+  lines.push(sent.kind === KIND_BOOKING ? tr('طلب حجز') : tr('استفسار'))
+  if (sent.exhibition) lines.push(`${tr('المعرض:')} ${tr(titleOf(sent.exhibition))}`)
+  if (sent.package) lines.push(`${tr('الباقة:')} ${tr(sent.package)}`)
+  lines.push(`${tr('الاسم:')} ${sent.manager}${sent.brand ? ` — ${sent.brand}` : ''}`)
+  return lines.join('\n')
+}
+
 function ExhibitionCard({ ex, selected, onPick }) {
   return (
     <button type="button" className={`pub-ex ${selected ? 'active' : ''}`} onClick={onPick}>
@@ -46,13 +56,26 @@ export default function PublicBooking() {
   const [error, setError] = useState('')
   const [sent, setSent] = useState(null)
 
-  useEffect(() => {
+  // State changes only inside the promise callbacks (the effect itself sets nothing directly).
+  const fetchList = () =>
     listPublicExhibitions()
-      .then(setExhibitions)
-      .catch((err) => {
-        setExhibitions([])
-        setLoadError(err.message)
+      .then((list) => {
+        setExhibitions(list)
+        // Nothing open for booking: start on the inquiry form instead of a booking that can't be sent.
+        if (!list.length) setForm((f) => ({ ...f, kind: KIND_INQUIRY }))
       })
+      .catch(() => {
+        setExhibitions([])
+        setLoadError(tr('تعذّر تحميل المعارض الآن. أعد المحاولة، أو أرسل استفساراً، أو تواصل معنا عبر واتساب.'))
+      })
+  const retry = () => {
+    setLoadError('')
+    setExhibitions(null)
+    fetchList()
+  }
+  useEffect(() => {
+    document.title = tr('احجز مساحتك في معارض {0} — {1}', [COMPANY.brand, COMPANY.name])
+    fetchList()
   }, [])
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -68,10 +91,11 @@ export default function PublicBooking() {
     if (booking && !form.brand.trim()) return setError(tr('اكتب اسم المشروع أو البراند'))
     if (booking && !form.exhibition_id) return setError(tr('اختر المعرض من القائمة'))
     if (!booking && !form.message.trim()) return setError(tr('اكتب استفسارك'))
+    if (form.email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) return setError(tr('البريد الإلكتروني غير صحيح'))
     setBusy(true)
     try {
       await submitPublicBooking(form)
-      setSent({ kind: form.kind, exhibition: chosen })
+      setSent({ kind: form.kind, exhibition: chosen, manager: form.manager.trim(), brand: form.brand.trim(), package: form.package })
       setForm(EMPTY)
     } catch (err) {
       setError(err.message)
@@ -102,6 +126,9 @@ export default function PublicBooking() {
             <div className="login-hint">
               {sent.exhibition ? tr('طلبك لمعرض {0}. سيتواصل معك فريقنا لتأكيد الموقع والسعر.', [tr(titleOf(sent.exhibition))]) : tr('سيتواصل معك فريقنا قريباً.')}
             </div>
+            <a className="btn btn-whatsapp btn-full mb-12" href={whatsappUrl(COMPANY.whatsapp, sentText(sent))} target="_blank" rel="noopener noreferrer">
+              <Icon name="message" size={18} /> {tr('تابع طلبك معنا على واتساب الآن')}
+            </a>
             <button type="button" className="btn btn-outline btn-full" onClick={() => setSent(null)}>
               {tr('إرسال طلب آخر')}
             </button>
@@ -123,7 +150,16 @@ export default function PublicBooking() {
 
             <div className="pub-section">{booking ? tr('اختر المعرض') : tr('عن أي معرض؟ (اختياري)')}</div>
             {exhibitions === null && <div className="muted small mb-16">{tr('جاري تحميل المعارض...')}</div>}
-            {exhibitions?.length === 0 && <div className="alert alert-info mb-16">{loadError || tr('لا توجد معارض مفتوحة للحجز حالياً — أرسل استفساراً وسنبلغك بالمعارض القادمة.')}</div>}
+            {exhibitions?.length === 0 && (
+              <div className="alert alert-info mb-16">
+                {loadError || tr('لا توجد معارض مفتوحة للحجز حالياً — أرسل استفساراً وسنبلغك بالمعارض القادمة.')}
+                {loadError && (
+                  <button type="button" className="link-btn pub-retry" onClick={retry}>
+                    {tr('إعادة المحاولة')}
+                  </button>
+                )}
+              </div>
+            )}
             <div className="pub-ex-list">
               {exhibitions?.map((ex) => (
                 <ExhibitionCard key={ex.id} ex={ex} selected={form.exhibition_id === ex.id} onPick={() => pick(ex.id)} />
@@ -187,7 +223,7 @@ export default function PublicBooking() {
 
         <div className="pub-contact">
           <a href={whatsappUrl(COMPANY.whatsapp, waText)} target="_blank" rel="noopener noreferrer"><Icon name="message" size={16} /> {tr('واتساب')}</a>
-          <a href={`tel:${COMPANY.phone}`} dir="ltr"><Icon name="phone" size={16} /> {COMPANY.phone}</a>
+          <a href={`tel:+968${COMPANY.phone}`} dir="ltr"><Icon name="phone" size={16} /> {COMPANY.phone}</a>
           <a href={`mailto:${COMPANY.email}`} dir="ltr"><Icon name="mail" size={16} /> {COMPANY.email}</a>
           <a href={`https://instagram.com/${COMPANY.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" dir="ltr"><Icon name="camera" size={16} /> {COMPANY.instagram}</a>
         </div>
