@@ -103,7 +103,7 @@ export default function SponsorsTab({ exhibitionId, sponsors, onChanged }) {
       }
     >
       <div className="table-wrap">
-        <table className="table">
+        <table className="table table-numbered">
           <thead>
             <tr>
               {[tr('الراعي'), tr('المسؤول'), tr('الهاتف'), tr('القيمة'), tr('الحالة'), tr('ملاحظات'), ''].map((h) => (

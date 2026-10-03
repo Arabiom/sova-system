@@ -239,7 +239,7 @@ export default function TeamContracts({ data, canManage, reload, openId }) {
 
       <Panel icon="👔" title={tr('عقود الفريق')} subtitle={tr('الراتب يُسجَّل في «كل المصروفات» تلقائياً كل شهر ويتوقف مع نهاية العقد')}>
         <div className="table-wrap">
-          <table className="table" style={{ minWidth: 980 }}>
+          <table className="table table-numbered" style={{ minWidth: 980 }}>
             <thead>
               <tr>
                 {[tr('الاسم'), tr('المدة'), tr('الحالة'), tr('الدفع'), tr('تكلفة العقد'), tr('العمولة'), ''].map((h) => (

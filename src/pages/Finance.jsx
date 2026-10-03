@@ -228,7 +228,7 @@ function BankBalance({ rows, cash, canEdit, onChanged }) {
             )}
             {showAll && (
               <div className="table-wrap mt-10">
-                <table className="table table-compact">
+                <table className="table table-numbered table-compact">
                   <thead>
                     <tr>
                       <th>{tr('التاريخ')}</th>

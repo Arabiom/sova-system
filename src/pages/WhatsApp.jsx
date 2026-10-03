@@ -848,7 +848,7 @@ function History({ staff, onReuse }) {
                 </Button>
               </div>
               <div className="table-wrap">
-                <table className="table">
+                <table className="table table-numbered">
                   <thead>
                     <tr>
                       <th>{tr('الاسم')}</th>

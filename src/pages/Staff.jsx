@@ -73,7 +73,7 @@ export default function Staff() {
 
       <Panel icon="👤" title={tr('الحسابات')}>
         <div className="table-wrap">
-          <table className="table">
+          <table className="table table-numbered">
             <thead>
               <tr>
                 <th>{tr('البريد')}</th>
