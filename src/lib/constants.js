@@ -7,7 +7,7 @@ export const COMPANY = {
   brandFull: 'SOVA Exhibition',
   cr: 'CR# 1636161',
   location: 'مسقط، سلطنة عُمان',
-  phone: '96955525',
+  phone: '79450062',
   whatsapp: '96895594980', // 95594980 with the Oman country code, for wa.me links
   email: 'axis.integrated.business@gmail.com',
   instagram: '@exhibitions.om',
