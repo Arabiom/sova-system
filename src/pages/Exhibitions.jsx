@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { IconText } from '../components/Glyph.jsx'
 import { Link } from 'react-router-dom'
 import { deleteExhibition, listExhibitions, newExhibitionForm } from '../api/exhibitions.js'
-import { listSites } from '../api/exhibitionFile.js'
+import { listExpenses, listSites, listSponsors } from '../api/exhibitionFile.js'
+import { listStaffExpenses } from '../api/staffExpenses.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
 import Button from '../components/Button.jsx'
@@ -21,13 +22,17 @@ import { useCan } from '../context/AuthContext.jsx'
 import { tr } from '../lib/i18n.js'
 
 const load = async () => {
-  const [exhibitions, exhibitors, payments, sites] = await Promise.all([
+  const [exhibitions, exhibitors, payments, sites, expenses, sponsors, staffExpenses] = await Promise.all([
     listExhibitions(),
     listExhibitors({ columns: 'id,exhibition_id,paid,contract' }),
     listPayments('amount,exhibitor_id'),
     listSites(),
+    // Expenses, sponsors and claims are read by the finance roles only (others get none back).
+    listExpenses().catch(() => []),
+    listSponsors().catch(() => []),
+    listStaffExpenses().catch(() => []),
   ])
-  return { exhibitions, exhibitors, payments, sites }
+  return { exhibitions, exhibitors, payments, sites, expenses, sponsors, staffExpenses }
 }
 
 export default function Exhibitions() {
@@ -76,7 +81,18 @@ export default function Exhibitions() {
       <div className="cards-grid">
         {exhibitions.map((ex) => {
           const ownSites = sites.filter((x) => x.exhibition_id === ex.id)
-          const stats = exhibitionFinancials({ exhibition: ex, sites: ownSites, exhibitors, payments }, DEFAULT_TIERS)
+          const stats = exhibitionFinancials(
+            {
+              exhibition: ex,
+              sites: ownSites,
+              exhibitors,
+              payments,
+              expenses: data.expenses.filter((x) => x.exhibition_id === ex.id),
+              sponsors: data.sponsors.filter((x) => x.exhibition_id === ex.id),
+              staffExpenses: data.staffExpenses,
+            },
+            DEFAULT_TIERS,
+          )
           const tiers = ownSites.length ? tiersFromSites(ownSites) : tiersOf(ex, DEFAULT_TIERS)
           return (
             <article key={ex.id} className="ex-card">
@@ -108,15 +124,17 @@ export default function Exhibitions() {
                   ...(money
                     ? [
                         [tr('الإيراد عند البيع الكامل'), formatOMR(stats.fullRevenue)],
+                        [tr('المصروفات المتوقعة'), formatOMR(stats.expensesTotal), 'text-dng'],
+                        [tr('الصافي عند البيع الكامل'), formatOMR(stats.netAtFull), stats.netAtFull >= 0 ? 'text-suc' : 'text-dng'],
                         [tr('إجمالي العقود'), formatOMR(stats.contract)],
                         [tr('المحصّل'), formatOMR(stats.collected)],
                         [tr('المتبقي للتحصيل'), formatOMR(stats.outstanding)],
                       ]
                     : [[tr('المواقع المتاحة'), `${stats.available}`]]),
-                ].map(([label, value]) => (
+                ].map(([label, value, tone]) => (
                   <div key={label} className="kv-row">
                     <span>{tr(label)}</span>
-                    <strong>{tr(value)}</strong>
+                    <strong className={tone}>{tr(value)}</strong>
                   </div>
                 ))}
               </div>
