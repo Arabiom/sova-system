@@ -1869,4 +1869,8 @@ export default {
   "الدخل الممكن (بيع كل المواقع)": "Possible income (all sites sold)",
   "مصروفات متوقعة": "expected expenses",
   "صافٍ متوقع": "expected net",
+  "كل المصروفات المسجّلة — مدفوعة وغير مدفوعة": "All recorded expenses — paid and unpaid",
+  "المصروفات المدفوعة": "Paid expenses",
+  "تعويض الموظفين": "Staff reimbursed",
+  "المحصّل − المصروفات المدفوعة": "Collected − paid expenses",
 }
