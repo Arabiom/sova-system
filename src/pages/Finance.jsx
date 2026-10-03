@@ -294,12 +294,31 @@ function Overview({ o, flow, go, fixed = 0, bank, canEdit, onChanged }) {
         <StatCard flat label={tr('بانتظار تأكيد الوصول')} value={formatOMR(o.awaiting)} sub={tr('دفعات سجلها التسويق')} accent="var(--info)" icon="🕓" onClick={() => go('income')} />
       </div>
 
-      <div className="section-label">{tr('المصروفات والنتيجة')}</div>
-      <div className="grid-4 mb-16">
-        <StatCard flat label={tr('إجمالي المصروفات')} value={formatOMR(o.expensesAll)} sub={tr('مدفوع {0}', [formatOMR(o.expensesPaidAll)])} accent="var(--dng)" icon="🧾" onClick={() => go('expenses')} />
-        <StatCard flat label={tr('مستحق الدفع')} value={formatOMR(o.payable)} sub={o.staffOwed ? tr('منها للموظفين {0}', [formatOMR(o.staffOwed)]) : tr('مصروفات لم تُدفع بعد')} accent="var(--wrn)" icon="📌" onClick={() => go('expenses')} />
+      <div className="section-label">{tr('المصروفات')}</div>
+      <div className="grid-3 mb-16">
+        <StatCard flat label={tr('إجمالي المصروفات')} value={formatOMR(o.expensesAll)} sub={tr('كل المصروفات المسجّلة — مدفوعة وغير مدفوعة')} accent="var(--dng)" icon="🧾" onClick={() => go('expenses')} />
+        <StatCard
+          flat
+          label={tr('المصروفات المدفوعة')}
+          value={formatOMR(o.expensesPaidAll)}
+          sub={
+            <span className="potential-lines">
+              <span>{tr('المعارض')} <strong>{formatOMR(o.exhibitionExpensesPaid)}</strong></span>
+              <span>{tr('الشركة')} <strong>{formatOMR(o.companyPaid)}</strong></span>
+              <span>{tr('تعويض الموظفين')} <strong>{formatOMR(o.staffReimbursed)}</strong></span>
+            </span>
+          }
+          accent="var(--suc)"
+          icon="✅"
+          onClick={() => go('expenses', { state: 'paid' })}
+        />
+        <StatCard flat label={tr('مستحق الدفع')} value={formatOMR(o.payable)} sub={o.staffOwed ? tr('منها للموظفين {0}', [formatOMR(o.staffOwed)]) : tr('مصروفات لم تُدفع بعد')} accent="var(--wrn)" icon="📌" onClick={() => go('expenses', { state: 'unpaid' })} />
+      </div>
+
+      <div className="section-label">{tr('النتيجة')}</div>
+      <div className="grid-2 mb-16">
         <StatCard flat label={tr('الصافي حسب العقود')} value={formatOMR(o.net)} sub={tr('العقود + الرعايات − كل المصروفات')} accent={o.net >= 0 ? 'var(--suc)' : 'var(--dng)'} icon="📈" />
-        <StatCard flat label={tr('الرصيد النقدي')} value={formatOMR(o.cash)} sub={tr('المحصّل − المدفوع فعلاً')} accent={o.cash >= 0 ? 'var(--suc)' : 'var(--dng)'} icon="🏦" onClick={() => go('ledger')} />
+        <StatCard flat label={tr('الرصيد النقدي')} value={formatOMR(o.cash)} sub={tr('المحصّل − المصروفات المدفوعة')} accent={o.cash >= 0 ? 'var(--suc)' : 'var(--dng)'} icon="🏦" onClick={() => go('ledger')} />
       </div>
 
       <BankBalance rows={bank} cash={o.cash} canEdit={canEdit} onChanged={onChanged} />
@@ -975,10 +994,10 @@ function PostponeForm({ obligation, onClose, onSaved }) {
   )
 }
 
-function AllExpenses({ data, canManage, reload, go, initialKind = '' }) {
+function AllExpenses({ data, canManage, reload, go, initialKind = '', initialState = '' }) {
   const toast = useToast()
   const userId = useAuth().session?.user?.id
-  const [filters, setFilters] = useState({ kind: initialKind, exhibition: 'all', month: '', state: '', category: '' })
+  const [filters, setFilters] = useState({ kind: initialKind, exhibition: 'all', month: '', state: initialState, category: '' })
   const [adding, setAdding] = useState(null) // 'exhibition' | 'company' | 'claim' | 'obligation'
   const [postponing, setPostponing] = useState(null)
   const [editing, setEditing] = useState(null) // an allExpenses() row
@@ -1506,7 +1525,7 @@ export default function Finance() {
       )}
       {tab === 'income' && <Sales embedded onChanged={reload} />}
       {tab === 'receivables' && <Receivables key={focus.exhibition} data={live} canRemind={canRemind} initialScope={focus.exhibition} />}
-      {tab === 'expenses' && <AllExpenses data={live} canManage={canManage} reload={reload} go={go} initialKind={focus.kind || ''} key={focus.kind || ''} />}
+      {tab === 'expenses' && <AllExpenses data={live} canManage={canManage} reload={reload} go={go} initialKind={focus.kind || ''} initialState={focus.state || ''} key={`${focus.kind || ''}|${focus.state || ''}`} />}
       {tab === 'claims' && <Expenses embedded onChanged={reload} />}
       {tab === 'exhibitions' && <Plan data={data} />}
       {tab !== 'overview' && tab !== 'exhibitions' && <PlannedNote planned={live.planned} go={go} compact />}
