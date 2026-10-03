@@ -95,6 +95,8 @@ export async function registerParticipant(form, { pending: marketing, boothPrice
     // Paid in full, or a free participation (no contract value): confirmed straight away.
     status: (fullyPaid && !pending) || !(totals.subtotal > 0) ? EXHIBITOR_STATUSES[2] : EXHIBITOR_STATUSES[0],
     notes: form.notes?.trim() || '',
+    // Who brought the participant: their own rate is applied by the database (migration 030).
+    ...(form.referrer_id ? { referrer_id: form.referrer_id } : {}),
   })
 
   // Take the site only if it is still free at this moment.

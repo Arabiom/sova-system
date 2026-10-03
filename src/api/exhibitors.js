@@ -24,6 +24,10 @@ export function toExhibitorRow(form) {
     client_id: form.client_id || null,
     // Older forms did not carry the package; leave what is stored untouched then.
     ...('booth_type' in form ? { booth_type: form.booth_type || '' } : {}),
+    // Who brought the participant (migration 030); an empty rate takes the referrer's own rate.
+    ...('referrer_id' in form
+      ? { referrer_id: form.referrer_id || null, referral_pct: form.referrer_id && form.referral_pct !== '' && form.referral_pct != null ? num(form.referral_pct) : null }
+      : {}),
   }
 }
 
