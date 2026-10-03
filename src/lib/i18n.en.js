@@ -1882,4 +1882,5 @@ export default {
   "المعرض:": "Exhibition:",
   "الباقة:": "Package:",
   "الاسم:": "Name:",
+
 }
