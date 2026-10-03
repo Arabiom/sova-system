@@ -4800,3 +4800,7 @@ body {
   justify-content: space-between;
   gap: 8px;
 }
+.pub-retry {
+  display: block;
+  margin-top: 6px;
+}
