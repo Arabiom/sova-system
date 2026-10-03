@@ -261,7 +261,7 @@ function ClientDetails({ client, onClose, onEdit }) {
       <div className="section-label mt-14">{tr('سجل المشاركات')}</div>
       {h.participations.length ? (
         <div className="table-wrap">
-          <table className="table table-compact">
+          <table className="table table-numbered table-compact">
             <thead>
               <tr>
                 <th>{tr('المعرض')}</th>

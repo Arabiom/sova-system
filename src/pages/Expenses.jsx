@@ -277,7 +277,7 @@ export default function Expenses({ embedded = false, onChanged } = {}) {
 
       <Panel title={seeAll ? tr('🧾 مطالبات الموظفين وفواتيرها') : tr('🧾 مصروفاتي وفواتيرها')}>
         <div className="table-wrap">
-          <table className="table" style={{ minWidth: 900 }}>
+          <table className="table table-numbered" style={{ minWidth: 900 }}>
             <thead>
               <tr>
                 {[tr('التاريخ'), ...(seeAll ? [tr('الموظف')] : []), tr('الوصف'), tr('التصنيف'), tr('المعرض'), tr('المبلغ'), tr('الحالة'), tr('الإيصال'), ''].map((h) => (

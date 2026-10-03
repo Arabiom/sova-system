@@ -61,7 +61,7 @@ export default function ParticipantsTab({ exhibition, exhibitions, exhibitors, c
         </div>
       )}
       <div className="table-wrap">
-        <table className="table" style={{ minWidth: 820 }}>
+        <table className="table table-numbered" style={{ minWidth: 820 }}>
           <thead>
             <tr>
               {[tr('المشارك'), tr('الهاتف'), tr('النشاط'), tr('المواقع'), ...(money ? [tr('العقد'), tr('المدفوع'), tr('المتبقي')] : []), tr('الحالة'), ''].map((h) => (

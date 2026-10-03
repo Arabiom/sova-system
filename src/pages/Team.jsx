@@ -500,7 +500,7 @@ function Performance({ data }) {
 
       <Panel icon="📈" title={tr('فعالية الموظفين')} subtitle={tr('الوقت في النظام، إنجاز المهام، والعمل المسجّل لكل موظف خلال الفترة')}>
         <div className="table-wrap">
-          <table className="table" style={{ minWidth: 1100 }}>
+          <table className="table table-numbered" style={{ minWidth: 1100 }}>
             <thead>
               <tr>
                 <th>{tr('الموظف')}</th>

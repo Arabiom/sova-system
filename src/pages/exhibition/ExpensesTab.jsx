@@ -138,7 +138,7 @@ export default function ExpensesTab({ exhibitionId, expenses, claims = [], onCha
       }
     >
       <div className="table-wrap">
-        <table className="table">
+        <table className="table table-numbered">
           <thead>
             <tr>
               {[tr('البند'), tr('التصنيف'), tr('المبلغ'), tr('الاستحقاق'), tr('مدفوع'), tr('ملاحظات'), ''].map((h) => (
