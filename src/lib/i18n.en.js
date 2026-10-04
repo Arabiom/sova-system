@@ -1929,4 +1929,12 @@ export default {
   "✅ سُجّل دفع {0} لـ {1} ضمن مصروفات الشركة": "✅ Payment of {0} to {1} recorded in company expenses",
   "🤝 العمولات": "🤝 Commissions",
   "عمولات استقطاب": "Referral commissions",
+  "+ التزامات قائمة": "+ open obligations",
+  "+ التزامات سُدّدت": "+ obligations settled",
+  "المحصّل + الرعايات − المصروفات والالتزامات المدفوعة": "Collected + sponsorships − paid expenses and obligations",
+  "المحصّل + الرعايات − المصروفات المدفوعة": "Collected + sponsorships − paid expenses",
+  "معارض {0} • شركة {1} • موظفين {2} • التزامات {3}": "Exhibitions {0} • company {1} • staff {2} • obligations {3}",
+  "خفّض قيمة العقد بمقدار المبلغ المُرجَع (انسحاب أو إلغاء جزء)": "Lower the contract by the refunded amount (withdrawal or partial cancellation)",
+  "بدون تخفيض العقد سيظهر على المشارك متبقٍ {0} وستصله تذكيرات الدفع.": "Without lowering the contract, the participant will show {0} outstanding and receive payment reminders.",
+  "خفّض قيمة عقد {0} من {1} إلى {2}؟ (اختر «إلغاء» إن كان المبلغ زيادة دفعها فقط)": "Lower {0}'s contract from {1} to {2}? (Choose Cancel if the amount was only an overpayment)",
 }

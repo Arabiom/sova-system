@@ -170,7 +170,7 @@ export default function Referrals({ data, canManage, reload }) {
       <div className="grid-3 mb-16">
         <StatCard flat icon="💰" label={tr('العمولات المستحقة حتى الآن')} value={formatOMR(total('earned'))} sub={tr('من المبالغ التي دفعها المشاركون فعلاً')} accent="var(--gold)" />
         <StatCard flat icon="✅" label={tr('العمولات المدفوعة')} value={formatOMR(total('paidOut'))} sub={tr('مسجّلة ضمن مصروفات الشركة')} accent="var(--suc)" />
-        <StatCard flat icon="⏳" label={tr('المتبقي للدفع')} value={formatOMR(total('due'))} sub={tr('{0} شخص', [rows.filter((r) => r.due > 0.0005).length])} accent="var(--wrn)" />
+        <StatCard flat icon="⏳" label={tr('المتبقي للدفع')} value={formatOMR(rows.reduce((t, r) => t + Math.max(0, r.due), 0))} sub={tr('{0} شخص', [rows.filter((r) => r.due > 0.0005).length])} accent="var(--wrn)" />
       </div>
 
       <Panel

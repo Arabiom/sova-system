@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import DateInput from '../components/DateInput.jsx'
 import { listExhibitions } from '../api/exhibitions.js'
-import { listExhibitors } from '../api/exhibitors.js'
+import { listExhibitors, updateExhibitor } from '../api/exhibitors.js'
 import { attachPaymentReceipt, confirmPayment, deletePayment, listPayments, openPaymentReceipt, recordPayment, TRANSFER_NOT_YET, updatePayment } from '../api/payments.js'
 import { confirmIfPaid } from '../api/registration.js'
 import Button from '../components/Button.jsx'
@@ -41,6 +41,12 @@ function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const refund = form.type === REFUND_TYPE
   const exhibitor = exhibitors.find((e) => e.id === form.exhibitor_id)
+  // A refund to someone who withdrew must lower the contract too, or they show as owing again.
+  // Off by default only when the refund just returns an overpayment.
+  const [lowerContract, setLowerContract] = useState(null)
+  const lowersByDefault = Boolean(exhibitor) && num(exhibitor.paid) - num(form.amount) < num(exhibitor.contract) - 0.0005
+  const lowering = refund && !editing && num(exhibitor?.contract) > 0 && (lowerContract ?? lowersByDefault)
+  const newContract = exhibitor ? Math.max(0, num(exhibitor.contract) - num(form.amount)) : 0
 
   const submit = async () => {
     if (!form.exhibitor_id || !(+form.amount > 0)) return toast(tr('اختر العارض وأدخل المبلغ'), 'error')
@@ -55,6 +61,7 @@ function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
       } else {
         const { invoice_no: invoice } = await recordPayment(form)
         if (!refund) await confirmIfPaid(form.exhibitor_id)
+        if (lowering) await updateExhibitor(form.exhibitor_id, { contract: +newContract.toFixed(3) })
         toast(refund ? tr('✅ تم تسجيل الإرجاع — {0}', [invoice]) : tr('✅ تم تسجيل الدفعة — {0}', [invoice]))
       }
       onSaved()
@@ -116,6 +123,18 @@ function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
         <input className="input" placeholder={refund ? tr('مثال: إرجاع مبلغ المعرض الملغى') : tr('مثال: دفعة مقدمة معرض نزوى')} value={form.note || ''} onChange={set('note')} />
       </Field>
       {refund && <div className="alert alert-warning">{tr('يُسجَّل كمبلغ سالب ويُخصم من إجمالي ما دفعه العارض ومن المحصّل.')}</div>}
+      {refund && !editing && num(exhibitor?.contract) > 0 && +form.amount > 0 && (
+        <label className="check-row">
+          <input type="checkbox" checked={lowering} onChange={(e) => setLowerContract(e.target.checked)} />
+          <span>
+            {tr('خفّض قيمة العقد بمقدار المبلغ المُرجَع (انسحاب أو إلغاء جزء)')}
+            <span className="muted small"> — {formatOMR(exhibitor.contract)} ← {formatOMR(newContract)}</span>
+          </span>
+        </label>
+      )}
+      {refund && !editing && num(exhibitor?.contract) > 0 && +form.amount > 0 && !lowering && num(exhibitor.paid) - num(form.amount) < num(exhibitor.contract) - 0.0005 && (
+        <div className="alert alert-info small">{tr('بدون تخفيض العقد سيظهر على المشارك متبقٍ {0} وستصله تذكيرات الدفع.', [formatOMR(num(exhibitor.contract) - num(exhibitor.paid) + num(form.amount))])}</div>
+      )}
       {+form.amount > 0 && !refund && (
         <div className="summary-box">
           <div className="kv-row">
