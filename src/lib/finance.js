@@ -219,7 +219,7 @@ export function receivables(exhibitors, exhibitions) {
  * The whole company's money in one place: what was sold, collected and is still owed, and
  * every kind of expense (exhibitions, company overheads, staff claims). Amounts before VAT.
  */
-export function companyOverview({ exhibitors = [], payments = [], expenses = [], sponsors = [], companyExpenses = [], staffExpenses = [] }) {
+export function companyOverview({ exhibitors = [], payments = [], expenses = [], sponsors = [], companyExpenses = [], staffExpenses = [], obligations = [] }) {
   const contracts = sumBy(exhibitors, 'contract')
   const collected = sumBy(payments.filter(isConfirmed), 'amount')
   const awaiting = sumBy(payments.filter((p) => !isConfirmed(p)), 'amount')
@@ -236,6 +236,11 @@ export function companyOverview({ exhibitors = [], payments = [], expenses = [],
 
   const expensesAll = exhibitionExpenses + company + staffClaims
   const expensesPaidAll = exhibitionExpensesPaid + companyPaid + staffReimbursed
+  // Obligations (postponed cheques, supplier payments, loans…) are not expenses, but once paid
+  // the money has left — cash counts them, as the ledger does. A participant refund is already
+  // in the payments (as a negative payment), so it is not counted twice.
+  const obligationsPaid = sumBy(obligations.filter((x) => x.status === 'مدفوع' && !x.refund_invoice), 'amount')
+  const obligationsOpen = sumBy(obligations.filter((x) => x.status !== 'مدفوع'), 'amount')
   return {
     contracts,
     collected,
@@ -258,8 +263,10 @@ export function companyOverview({ exhibitors = [], payments = [], expenses = [],
     payable: expensesAll - expensesPaidAll,
     // on paper: everything sold and sponsored minus every expense
     net: contracts + sponsorship - expensesAll,
-    // in hand: money received minus money already paid out
-    cash: collected + sponsorshipPaid - expensesPaidAll,
+    obligationsPaid,
+    obligationsOpen,
+    // in hand: money received minus money already paid out — the ledger's final balance
+    cash: collected + sponsorshipPaid - expensesPaidAll - obligationsPaid,
   }
 }
 
@@ -268,20 +275,26 @@ export function companyOverview({ exhibitors = [], payments = [], expenses = [],
  * Out: paid company expenses by date, paid exhibition expenses by due date (else when added),
  * staff claims reimbursed by the review date.
  */
-export function monthlyFlow({ payments = [], expenses = [], companyExpenses = [], staffExpenses = [] }) {
+export function monthlyFlow({ payments = [], sponsors = [], expenses = [], companyExpenses = [], staffExpenses = [], obligations = [] }) {
   const months = {}
   const add = (date, key, amount) => {
     const m = String(date || '').slice(0, 7)
     if (!/^\d{4}-\d{2}$/.test(m)) return
-    months[m] ||= { month: m, in: 0, exhibitions: 0, company: 0, staff: 0 }
+    months[m] ||= { month: m, in: 0, exhibitions: 0, company: 0, staff: 0, obligations: 0 }
     months[m][key] += num(amount)
   }
   payments.filter(isConfirmed).forEach((p) => add(p.date || p.created_at, 'in', p.amount))
   expenses.filter((x) => x.paid).forEach((x) => add(x.due_date || x.created_at, 'exhibitions', x.amount))
   companyExpenses.filter((x) => x.paid).forEach((x) => add(x.date, 'company', x.amount))
   staffExpenses.filter((x) => x.status === 'تم التعويض').forEach((x) => add(x.reviewed_at || x.date, 'staff', x.amount))
+  // Same money as the ledger: paid sponsorships come in, paid obligations (not refunds) go out.
+  sponsors.filter((s) => s.status === 'مدفوع').forEach((s) => add(s.created_at, 'in', s.amount))
+  obligations.filter((x) => x.status === 'مدفوع' && !x.refund_invoice).forEach((x) => add(x.paid_at || x.due_date, 'obligations', x.amount))
   return Object.values(months)
-    .map((m) => ({ ...m, out: m.exhibitions + m.company + m.staff, net: m.in - m.exhibitions - m.company - m.staff }))
+    .map((m) => {
+      const out = m.exhibitions + m.company + m.staff + m.obligations
+      return { ...m, out, net: m.in - out }
+    })
     .sort((a, b) => b.month.localeCompare(a.month))
 }
 

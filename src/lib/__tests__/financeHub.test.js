@@ -189,3 +189,33 @@ describe('exhibitions still in planning', () => {
     expect(later.planned).toEqual([])
   })
 })
+
+describe('cash agrees everywhere', () => {
+  it('overview cash = ledger final balance = sum of monthly net', async () => {
+    const { companyOverview, ledger, monthlyFlow } = await import('../finance.js')
+    const data = {
+      exhibitors: [{ id: 'e1', contract: 300, paid: 150 }],
+      payments: [
+        { id: 'p1', exhibitor_id: 'e1', amount: 200, date: '2026-08-02' },
+        { id: 'p2', exhibitor_id: 'e1', amount: -50, date: '2026-09-03', type: 'إرجاع' },
+        { id: 'p3', exhibitor_id: 'e1', amount: 40, date: '2026-09-04', status: 'بانتظار التأكيد' },
+      ],
+      sponsors: [{ id: 's1', amount: 100, status: 'مدفوع', created_at: '2026-08-10' }, { id: 's2', amount: 70, status: 'متفق عليه', created_at: '2026-08-11' }],
+      expenses: [{ id: 'x1', amount: 80, paid: true, due_date: '2026-08-15' }, { id: 'x2', amount: 30, paid: false }],
+      companyExpenses: [{ id: 'c1', amount: 25, paid: true, date: '2026-09-01' }],
+      staffExpenses: [{ id: 'st1', amount: 10, status: 'تم التعويض', date: '2026-09-02' }],
+      obligations: [
+        { id: 'o1', amount: 60, status: 'مدفوع', paid_at: '2026-09-05', kind: 'شيك مؤجل' },
+        { id: 'o2', amount: 50, status: 'مدفوع', paid_at: '2026-09-03', refund_invoice: 'INV-9', kind: 'إرجاع مبلغ لمشارك' },
+        { id: 'o3', amount: 15, status: 'قائم', due_date: '2026-11-01' },
+      ],
+    }
+    const o = companyOverview(data)
+    const end = ledger(data)[0].balance
+    const flowNet = monthlyFlow(data).reduce((t, m) => t + m.net, 0)
+    expect(o.cash).toBe(75)
+    expect(end).toBe(75)
+    expect(Math.round(flowNet * 1000) / 1000).toBe(75)
+    expect(o.obligationsOpen).toBe(15)
+  })
+})

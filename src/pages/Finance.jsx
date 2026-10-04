@@ -14,7 +14,7 @@ import {
 } from '../api/companyExpenses.js'
 import { deleteExpense, listExpenses, listSites, listSponsors, setExpensePaid } from '../api/exhibitionFile.js'
 import { listExhibitions } from '../api/exhibitions.js'
-import { listExhibitors } from '../api/exhibitors.js'
+import { listExhibitors, updateExhibitor } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
 import { CHEQUE_KIND, deleteObligation, listObligations, OBLIGATION_KINDS, obligationState, payObligation, postponeObligation, REFUND_KIND, reopenObligation, saveObligation, validateObligation } from '../api/obligations.js'
 import { contractOfExpense, duplicateSalaries, listContracts, SALARY_CATEGORY } from '../api/contracts.js'
@@ -310,19 +310,41 @@ function Overview({ o, flow, go, fixed = 0, bank, canEdit, onChanged }) {
               <span>{tr('المعارض')} <strong>{formatOMR(o.exhibitionExpensesPaid)}</strong></span>
               <span>{tr('الشركة')} <strong>{formatOMR(o.companyPaid)}</strong></span>
               <span>{tr('تعويض الموظفين')} <strong>{formatOMR(o.staffReimbursed)}</strong></span>
+              {o.obligationsPaid > 0 && (
+                <span className="muted">
+                  {tr('+ التزامات سُدّدت')} <strong>{formatOMR(o.obligationsPaid)}</strong>
+                </span>
+              )}
             </span>
           }
           accent="var(--suc)"
           icon="✅"
           onClick={() => go('expenses', { state: 'paid' })}
         />
-        <StatCard flat label={tr('مستحق الدفع')} value={formatOMR(o.payable)} sub={o.staffOwed ? tr('منها للموظفين {0}', [formatOMR(o.staffOwed)]) : tr('مصروفات لم تُدفع بعد')} accent="var(--wrn)" icon="📌" onClick={() => go('expenses', { state: 'unpaid' })} />
+        <StatCard
+          flat
+          label={tr('مستحق الدفع')}
+          value={formatOMR(o.payable)}
+          sub={
+            <span className="potential-lines">
+              <span>{o.staffOwed ? tr('منها للموظفين {0}', [formatOMR(o.staffOwed)]) : tr('مصروفات لم تُدفع بعد')}</span>
+              {o.obligationsOpen > 0 && (
+                <span>
+                  {tr('+ التزامات قائمة')} <strong>{formatOMR(o.obligationsOpen)}</strong>
+                </span>
+              )}
+            </span>
+          }
+          accent="var(--wrn)"
+          icon="📌"
+          onClick={() => go('expenses', { state: 'unpaid' })}
+        />
       </div>
 
       <div className="section-label">{tr('النتيجة')}</div>
       <div className="grid-2 mb-16">
         <StatCard flat label={tr('الصافي حسب العقود')} value={formatOMR(o.net)} sub={tr('العقود + الرعايات − كل المصروفات')} accent={o.net >= 0 ? 'var(--suc)' : 'var(--dng)'} icon="📈" />
-        <StatCard flat label={tr('الرصيد النقدي')} value={formatOMR(o.cash)} sub={tr('المحصّل − المصروفات المدفوعة')} accent={o.cash >= 0 ? 'var(--suc)' : 'var(--dng)'} icon="🏦" onClick={() => go('ledger')} />
+        <StatCard flat label={tr('الرصيد النقدي')} value={formatOMR(o.cash)} sub={o.obligationsPaid > 0 ? tr('المحصّل + الرعايات − المصروفات والالتزامات المدفوعة') : tr('المحصّل + الرعايات − المصروفات المدفوعة')} accent={o.cash >= 0 ? 'var(--suc)' : 'var(--dng)'} icon="🏦" onClick={() => go('ledger')} />
       </div>
 
       <BankBalance rows={bank} cash={o.cash} canEdit={canEdit} onChanged={onChanged} />
@@ -383,7 +405,7 @@ function Overview({ o, flow, go, fixed = 0, bank, canEdit, onChanged }) {
                   <tr key={m.month}>
                     <td className="strong nowrap">{tr(m.month)}</td>
                     <td className="num text-suc">{formatOMR(m.in)}</td>
-                    <td className="num text-dng" title={tr('معارض {0} • شركة {1} • موظفين {2}', [formatOMR(m.exhibitions), formatOMR(m.company), formatOMR(m.staff)])}>
+                    <td className="num text-dng" title={tr('معارض {0} • شركة {1} • موظفين {2} • التزامات {3}', [formatOMR(m.exhibitions), formatOMR(m.company), formatOMR(m.staff), formatOMR(m.obligations)])}>
                       {formatOMR(m.out)}
                     </td>
                     <td className={`num strong ${m.net >= 0 ? 'text-suc' : 'text-dng'}`}>{formatOMR(m.net)}</td>
@@ -1053,7 +1075,16 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '', initialSta
       ? tr('تأكيد إرجاع {0} إلى {1}؟ يُسجَّل إرجاعاً على حسابه في المدفوعات.', [formatOMR(ob.amount), ob.party])
       : tr('تأكيد سداد {0} إلى {1}؟', [formatOMR(ob.amount), ob.party || ob.kind])
     if (!confirm(question)) return
-    act(() => payObligation(ob), tr('✅ تم تسجيل السداد'))
+    const ex = refund ? data.exhibitors.find((e) => e.id === ob.exhibitor_id) : null
+    // Same as a refund from the payments page: a withdrawal should lower the contract too.
+    const lower =
+      ex &&
+      num(ex.paid) - num(ob.amount) < num(ex.contract) - 0.0005 &&
+      confirm(tr('خفّض قيمة عقد {0} من {1} إلى {2}؟ (اختر «إلغاء» إن كان المبلغ زيادة دفعها فقط)', [ex.brand || ob.party, formatOMR(ex.contract), formatOMR(Math.max(0, num(ex.contract) - num(ob.amount)))]))
+    act(async () => {
+      await payObligation(ob)
+      if (lower) await updateExhibitor(ex.id, { contract: +Math.max(0, num(ex.contract) - num(ob.amount)).toFixed(3) })
+    }, tr('✅ تم تسجيل السداد'))
   }
   const viewReceipt = (x) => (x.kind === 'company' ? openCompanyReceipt(x.receipt) : openReceipt(x.receipt)).catch((err) => toast(err.message, 'error'))
 
