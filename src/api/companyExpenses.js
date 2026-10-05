@@ -100,9 +100,14 @@ export async function addDueMonthlyExpenses() {
   return error ? 0 : data || 0
 }
 
-/** Monthly equivalent of the fixed expenses still running (a 3-monthly one counts a third). */
-export const monthlyFixedTotal = (rows) =>
-  Math.round(rows.filter((x) => x.recurring).reduce((t, x) => t + num(x.amount) / (Number(x.recurring_every) || 1), 0) * 1000) / 1000
+/** A fixed expense running in the month of `today`: started, and not past its last month. */
+export const runningFixed = (x, today = todayISO()) =>
+  Boolean(x.recurring) && String(x.date || '').slice(0, 7) <= today.slice(0, 7) && (!x.recurring_end || String(x.recurring_end).slice(0, 7) >= today.slice(0, 7))
+
+/** Monthly equivalent of the fixed expenses running now (a 3-monthly one counts a third).
+ *  Ended ones and those not started yet are left out. */
+export const monthlyFixedTotal = (rows, today = todayISO()) =>
+  Math.round(rows.filter((x) => runningFixed(x, today)).reduce((t, x) => t + num(x.amount) / (Number(x.recurring_every) || 1), 0) * 1000) / 1000
 
 export async function saveCompanyExpense(form, { id, receiptFile, oldReceipt } = {}) {
   let receipt_path = oldReceipt || null
@@ -113,6 +118,20 @@ export async function saveCompanyExpense(form, { id, receiptFile, oldReceipt } =
 }
 
 export const setCompanyExpensePaid = (id, paid) => unwrap(table().update({ paid }).eq('id', id))
+
+/**
+ * Record that a company expense was paid: optionally a different amount for this time only
+ * (not on a fixed expense's own record, whose amount is used for the coming months), the
+ * transfer receipt, and a note.
+ */
+export async function payCompanyExpense(x, { amount, note, receiptFile } = {}) {
+  const patch = { paid: true }
+  if (amount != null && !x.recurring && num(amount) > 0 && num(amount) !== num(x.amount)) patch.amount = num(amount)
+  if (note?.trim()) patch.notes = [x.notes, note.trim()].filter(Boolean).join(' • ')
+  if (receiptFile) patch.receipt_path = await uploadFile(RECEIPT_BUCKET, 'company', receiptFile, { what: 'إيصال الدفع', migration: '012' })
+  await unwrap(table().update(patch).eq('id', x.id))
+  if (receiptFile && x.receipt_path) await removeFile(RECEIPT_BUCKET, x.receipt_path)
+}
 
 export async function deleteCompanyExpense(x) {
   await unwrap(table().delete().eq('id', x.id))
