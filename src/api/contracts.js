@@ -141,7 +141,7 @@ export function contractExpenseRow(c) {
     return {
       date: c.start_date,
       category: SALARY_CATEGORY,
-      description: `أتعاب ${label(c)} (عقد مبلغ مقطوع)`,
+      description: payDescription(c),
       amount: num(c.amount),
       paid: false,
       due_date: c.end_date,
@@ -158,7 +158,7 @@ export function contractExpenseRow(c) {
   return {
     date: c.start_date,
     category: SALARY_CATEGORY,
-    description: `راتب ${label(c)} (عقد)`,
+    description: payDescription(c),
     amount: num(c.amount),
     paid: false,
     due_date: monthEnd(c.start_date),
@@ -171,9 +171,20 @@ export function contractExpenseRow(c) {
   }
 }
 
-/** The contract a company expense belongs to (its salary / lump sum, or a month added from it). */
-export const contractOfExpense = (contracts, x) =>
-  x ? contracts.find((c) => c.expense_id && (c.expense_id === x.id || c.expense_id === x.series_id)) || null : null
+/** Description the contract's pay is recorded under (also on every month added from it). */
+const payDescription = (c) => (c.pay_type === PAY_LUMP ? `أتعاب ${label(c)} (عقد مبلغ مقطوع)` : `راتب ${label(c)} (عقد)`)
+
+/**
+ * The contract a company expense belongs to: its salary / lump sum, a month added from it, or
+ * a month of an earlier salary of the same contract (before its amount was changed).
+ */
+export const contractOfExpense = (contracts, x) => {
+  if (!x) return null
+  const linked = contracts.find((c) => c.expense_id && (c.expense_id === x.id || c.expense_id === x.series_id))
+  if (linked) return linked
+  if (x.category !== SALARY_CATEGORY) return null
+  return contracts.find((c) => c.pay_type !== PAY_COMMISSION && c.name?.trim() && x.description === payDescription(c)) || null
+}
 
 /**
  * Salaries entered by hand for someone who also has a contract — counted twice. A company
@@ -213,31 +224,78 @@ export function toContractRow(form) {
   }
 }
 
-/** Stop a contract's pay: a monthly salary stops recurring (months already added stay);
- *  an unpaid lump sum is removed. */
+const getExpense = async (id) => (id ? unwrap(expenses().select('*').eq('id', id).maybeSingle()) : null)
+
+/** A salary already running: its first month paid, or later months already added. */
+const hasHistory = (x) => Boolean(x && (x.paid || x.generated_until))
+
+/** First month (YYYY-MM-01) of a monthly salary not yet added to the books. */
+function nextMonthOf(x) {
+  const last = x.generated_until ? `${x.generated_until}-01` : `${String(x.date).slice(0, 7)}-01`
+  return addMonths(last, Number(x.recurring_every) || 1)
+}
+
+/** Same day of the month as `date`, in the month starting `monthStart` (clamped to its end). */
+function sameDayIn(monthStart, date) {
+  const [y, m] = parts(monthStart)
+  return iso(y, m, Math.min(parts(date)[2], lastDay(y, m)))
+}
+
+/** Stop a contract's pay. Pay not started yet (unpaid, no month added) is removed; a salary
+ *  already running stops recurring (months already added stay); an unpaid lump sum is removed. */
 async function releaseExpense(contract) {
   if (!contract?.expense_id || contract.pay_type === PAY_COMMISSION) return
   if (contract.pay_type === PAY_LUMP) {
     await unwrap(expenses().delete().eq('id', contract.expense_id).eq('paid', false))
-  } else {
-    await unwrap(expenses().update({ recurring: false }).eq('id', contract.expense_id))
+    return
   }
+  const row = await getExpense(contract.expense_id)
+  if (!row) return
+  if (!hasHistory(row)) await unwrap(expenses().delete().eq('id', row.id))
+  else await unwrap(expenses().update({ recurring: false }).eq('id', row.id))
 }
 
 /**
- * Save a contract and its pay. A new contract creates its expense; an edit updates it —
- * or, when the start date or the way of paying changes, stops the old one and starts anew.
+ * Save a contract and its pay. A new contract creates its expense; an edit updates it.
+ * Salaries already paid or added are never rewritten:
+ * • a new monthly amount on a running salary starts from the next month not yet added;
+ * • the start date or the way of paying can change only before the pay has started —
+ *   afterwards the contract is ended and a new one made, so no month is counted twice.
  */
 export async function saveContract(form, previous) {
   const row = toContractRow(form)
   const expense = contractExpenseRow(row)
-  const create = async () => (expense ? (await unwrap(expenses().insert(expense).select('id').single())).id : null)
+  const create = async (x = expense) => (x ? (await unwrap(expenses().insert(x).select('id').single())).id : null)
   if (!previous) return unwrap(table().insert({ ...row, expense_id: await create() }))
+
   let expense_id = previous.expense_id
-  const restart = !expense_id || !expense || previous.pay_type !== row.pay_type || previous.start_date !== row.start_date
+  const current = previous.pay_type === PAY_COMMISSION ? null : await getExpense(expense_id)
+  const restart = !current || !expense || previous.pay_type !== row.pay_type || previous.start_date !== row.start_date
   if (restart) {
+    if (hasHistory(current) && expense && (previous.pay_type !== row.pay_type || previous.start_date !== row.start_date)) {
+      throw new Error('لا يمكن تغيير بداية العقد أو طريقة الدفع بعد صرف أو إضافة رواتب له — حدّد تاريخ نهاية لهذا العقد وأنشئ عقداً جديداً، حتى لا يُحسب أي شهر مرتين.')
+    }
     await releaseExpense(previous)
     expense_id = await create()
+  } else if (row.pay_type === PAY_MONTHLY && hasHistory(current) && num(current.amount) !== num(row.amount)) {
+    // New salary from the next month not yet added; the months before keep their amount.
+    const from = nextMonthOf(current)
+    await unwrap(expenses().update({ recurring: false }).eq('id', current.id))
+    // The month of the contract's last salary (none for an open-ended one).
+    const ends = isOpen(row) ? null : expense.recurring_end || `${row.start_date.slice(0, 7)}-01`
+    if (!ends || from <= ends) {
+      const shift = (d) => (d ? sameDayIn(from, d) : null)
+      const monthEnd = (d) => iso(parts(d)[0], parts(d)[1], lastDay(parts(d)[0], parts(d)[1]))
+      expense_id = await create({
+        ...expense,
+        date: shift(row.start_date),
+        pay_from: shift(row.start_date),
+        pay_to: monthEnd(from),
+        due_date: monthEnd(from),
+        recurring: !ends || from < ends,
+        recurring_end: ends && from < ends ? ends : null,
+      })
+    }
   } else {
     const { date: _date, paid: _paid, pay_from: _pf, ...changes } = expense // keep what was paid
     await unwrap(expenses().update(changes).eq('id', expense_id))
@@ -245,7 +303,7 @@ export async function saveContract(form, previous) {
   return unwrap(table().update({ ...row, expense_id }).eq('id', previous.id))
 }
 
-/** Delete a contract: its future pay stops; salaries already added stay in the books. */
+/** Delete a contract: its future pay stops; salaries already paid or added stay in the books. */
 export async function deleteContract(contract) {
   await releaseExpense(contract)
   return unwrap(table().delete().eq('id', contract.id))
