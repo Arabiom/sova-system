@@ -1961,4 +1961,5 @@ export default {
   "💵 الرواتب": "💵 Salaries",
   "مدفوع {0} من {1} شهر": "{0} of {1} months paid",
   "راتب كل شهر يُضاف تلقائياً ويتوقف مع نهاية العقد — سجّل دفعه من زر «💵 الرواتب»": "Each month's salary is added automatically and stops when the contract ends — record its payment with «💵 Salaries»",
+  "تاريخ آخر تحديث للموقع": "Date of the site's last update",
 }

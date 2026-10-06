@@ -182,7 +182,7 @@ export default function Layout() {
             {tr(COMPANY.legalName)} • {tr(COMPANY.cr)} • {tr(COMPANY.location)}
           </div>
           <div>
-            {tr(COMPANY.systemName)} — {tr(COMPANY.nameEn)} {tr(COMPANY.version)}
+            {tr(COMPANY.systemName)} — {tr(COMPANY.nameEn)} {tr(COMPANY.version)} <span className="muted" title={tr('تاريخ آخر تحديث للموقع')}>({typeof __BUILD__ === 'undefined' ? 'dev' : __BUILD__})</span>
           </div>
         </footer>
       </div>
