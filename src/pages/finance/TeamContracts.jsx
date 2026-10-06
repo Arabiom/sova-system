@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { openCompanyReceipt, setCompanyExpensePaid } from '../../api/companyExpenses.js'
 import {
   COMMISSION_BASES,
   commissionOf,
   CONTRACT_TITLES,
+  contractOfExpense,
   contractStatus,
   contractTotal,
   deleteContract,
@@ -28,6 +30,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { formatDate, formatOMR, num, todayISO } from '../../lib/format.js'
 import { tr } from '../../lib/i18n.js'
 import { omanDay } from '../../lib/team.js'
+import PayExpenseForm from './PayExpenseForm.jsx'
 
 /** «شهر / شهران / 3 أشهر / 12 شهراً» */
 const monthsLabel = (n) => (n === 1 ? tr('شهر') : n === 2 ? tr('شهران') : n <= 10 ? tr('{0} أشهر', [n]) : tr('{0} شهراً', [n]))
@@ -196,11 +199,111 @@ function ContractForm({ contract, staff, onClose, onSaved }) {
   )
 }
 
+/** The salary months of a contract recorded in the company expenses, oldest first. */
+const salariesOf = (c, companyExpenses = []) =>
+  companyExpenses
+    .filter((x) => contractOfExpense([c], x))
+    .map((x) => ({ source: x, amount: num(x.amount), description: x.description, period: x.period || String(x.date || '').slice(0, 7), receipt: x.receipt_path || '', paid: x.paid !== false, due: x.pay_to || x.due_date || '' }))
+    .sort((a, b) => a.period.localeCompare(b.period) || String(a.source.date).localeCompare(String(b.source.date)))
+
+/** Every salary month of one contract: paid or not, with «pay» on each one still owed. */
+function SalaryMonths({ contract, rows, canManage, today, onClose, onChanged }) {
+  const toast = useToast()
+  const [paying, setPaying] = useState(null)
+  const paid = rows.filter((x) => x.paid)
+  const owed = rows.filter((x) => !x.paid)
+  const undo = async (x) => {
+    if (!confirm(tr('إلغاء علامة «مدفوع» عن "{0}"؟', [x.description]))) return
+    try {
+      await setCompanyExpensePaid(x.source.id, false)
+      onChanged()
+    } catch (err) {
+      toast(err.message, 'error')
+    }
+  }
+  return (
+    <Modal
+      title={tr('💵 رواتب {0}', [contract.name])}
+      subtitle={tr('مدفوع {0} • غير مدفوع {1}', [formatOMR(paid.reduce((t, x) => t + x.amount, 0)), formatOMR(owed.reduce((t, x) => t + x.amount, 0))])}
+      onClose={onClose}
+      footer={
+        <Button variant="outline" onClick={onClose}>
+          {tr('إغلاق')}
+        </Button>
+      }
+    >
+      <div className="table-wrap">
+        <table className="table table-compact table-numbered">
+          <thead>
+            <tr>
+              <th>{tr('الشهر')}</th>
+              <th>{tr('المبلغ')}</th>
+              <th>{tr('الحالة')}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((x) => (
+              <tr key={x.source.id}>
+                <td className="strong nowrap">
+                  {x.period}
+                  {x.due && <div className="muted tiny">{tr('يُدفع حتى {0}', [formatDate(x.due)])}</div>}
+                </td>
+                <td className="num strong">{formatOMR(x.amount)}</td>
+                <td>
+                  {x.paid ? (
+                    <span className="badge badge-success">{tr('✓ مدفوع')}</span>
+                  ) : (
+                    <span className={`badge ${x.due && x.due < today ? 'badge-danger' : 'badge-warning'}`}>{x.due && x.due < today ? tr('متأخر') : tr('غير مدفوع')}</span>
+                  )}
+                </td>
+                <td>
+                  <div className="row-actions">
+                    {canManage && !x.paid && (
+                      <Button size="sm" onClick={() => setPaying(x)} title={tr('تسجيل دفع الراتب')}>
+                        {tr('💵 دفع')}
+                      </Button>
+                    )}
+                    {x.receipt && (
+                      <Button size="sm" variant="outline" onClick={() => openCompanyReceipt(x.receipt).catch((err) => toast(err.message, 'error'))}>
+                        {tr('📎 عرض')}
+                      </Button>
+                    )}
+                    {canManage && x.paid && (
+                      <Button size="sm" variant="ghost" onClick={() => undo(x)} title={tr('إلغاء الدفع')}>
+                        ↩️
+                      </Button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!rows.length && <div className="empty-inline">{tr('لم يُضف أي راتب بعد — يُضاف راتب الشهر الأول في {0}', [formatDate(contract.start_date)])}</div>}
+      <div className="muted tiny mt-8">{tr('راتب كل شهر جديد يُضاف هنا تلقائياً في بدايته حتى نهاية العقد.')}</div>
+      {paying && (
+        <PayExpenseForm
+          x={paying}
+          contract={contract}
+          onClose={() => setPaying(null)}
+          onSaved={() => {
+            setPaying(null)
+            onChanged()
+          }}
+        />
+      )}
+    </Modal>
+  )
+}
+
 export default function TeamContracts({ data, canManage, reload, openId }) {
   const toast = useToast()
   // Opened from a salary in «all expenses»: start on that contract's form.
   const [editing, setEditing] = useState(() => (openId && canManage ? (data.contracts || []).find((c) => c.id === openId) || null : null))
   const today = omanDay()
+  const [months, setMonths] = useState(null) // the contract whose salaries are open
   const contracts = data.contracts || []
   const rows = contracts.map((c) => ({ c, status: contractStatus(c, today), commission: commissionOf(c, data.exhibitors, data.payments) }))
   const running = rows.filter((r) => r.status === 'ساري')
@@ -237,7 +340,7 @@ export default function TeamContracts({ data, canManage, reload, openId }) {
         </div>
       )}
 
-      <Panel icon="👔" title={tr('عقود الفريق')} subtitle={tr('الراتب يُسجَّل في «كل المصروفات» تلقائياً كل شهر ويتوقف مع نهاية العقد')}>
+      <Panel icon="👔" title={tr('عقود الفريق')} subtitle={tr('راتب كل شهر يُضاف تلقائياً ويتوقف مع نهاية العقد — سجّل دفعه من زر «💵 الرواتب»')}>
         <div className="table-wrap">
           <table className="table table-numbered" style={{ minWidth: 980 }}>
             <thead>
@@ -286,6 +389,18 @@ export default function TeamContracts({ data, canManage, reload, openId }) {
                     )}
                   </td>
                   <td>
+                    {c.pay_type !== PAY_COMMISSION && (() => {
+                      const list = salariesOf(c, data.companyExpenses)
+                      const owed = list.filter((x) => !x.paid)
+                      return (
+                        <div className="mb-8">
+                          <Button size="sm" variant={owed.length ? 'primary' : 'outline'} onClick={() => setMonths(c)}>
+                            {owed.length ? tr('💵 الرواتب — {0} غير مدفوع', [owed.length]) : tr('💵 الرواتب')}
+                          </Button>
+                          <div className="muted tiny mt-4">{tr('مدفوع {0} من {1} شهر', [list.length - owed.length, list.length])}</div>
+                        </div>
+                      )
+                    })()}
                     {canManage && (
                       <div className="row-actions">
                         <Button size="sm" variant="outline" onClick={() => setEditing(c)} title={tr('تعديل')}>
@@ -310,6 +425,16 @@ export default function TeamContracts({ data, canManage, reload, openId }) {
         {!rows.length && <EmptyState icon="👔" text={tr('لا توجد عقود بعد — أضف عقد المصمم والمسوق لمدة 3 أشهر مثلاً')} />}
       </Panel>
 
+      {months && (
+        <SalaryMonths
+          contract={months}
+          rows={salariesOf(months, data.companyExpenses)}
+          canManage={canManage}
+          today={today}
+          onClose={() => setMonths(null)}
+          onChanged={reload}
+        />
+      )}
       {editing && (
         <ContractForm
           contract={editing.id ? editing : null}
