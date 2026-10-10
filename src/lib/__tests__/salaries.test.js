@@ -64,7 +64,7 @@ describe('salaries of team contracts', () => {
     expect(first.amount).toBe(300)
     expect(first.recurring).toBe(false)
     const fresh = salaries()[1]
-    expect(fresh).toMatchObject({ date: '2026-10-01', amount: 350, recurring: true, recurring_end: '2026-12-01', pay_to: '2026-10-31', paid: false })
+    expect(fresh).toMatchObject({ date: '2026-10-01', amount: 350, recurring: true, recurring_end: '2026-12-01', pay_from: '2026-10-31', pay_to: '2026-10-31', paid: false })
     expect(contract().expense_id).toBe(fresh.id)
     // months added from the earlier salary still belong to the contract
     expect(contractOfExpense([contract()], { id: 'old', series_id: first.id, category: 'رواتب وأجور', description: first.description })).toBe(contract())

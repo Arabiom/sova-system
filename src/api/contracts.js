@@ -162,7 +162,8 @@ export function contractExpenseRow(c) {
     amount: num(c.amount),
     paid: false,
     due_date: monthEnd(c.start_date),
-    pay_from: c.start_date,
+    // a salary is due at the end of each month, not from its first day
+    pay_from: monthEnd(c.start_date),
     pay_to: monthEnd(c.start_date),
     // one salary a month, the last one in the contract's last month (open-ended: no last one)
     recurring: open || n > 1,
@@ -289,7 +290,7 @@ export async function saveContract(form, previous) {
       expense_id = await create({
         ...expense,
         date: shift(row.start_date),
-        pay_from: shift(row.start_date),
+        pay_from: monthEnd(from),
         pay_to: monthEnd(from),
         due_date: monthEnd(from),
         recurring: !ends || from < ends,
