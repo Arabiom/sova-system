@@ -837,7 +837,7 @@ function PayWindow({ x }) {
   const to = x.pay_to || x.due_date ? formatDate(x.pay_to || x.due_date) : ''
   return (
     <div className={`tiny mt-4 ${WINDOW_CLASS[state]}`}>
-      {tr(WINDOW_LABEL[state])} — {from ? tr('من {0} إلى {1}', [from, to || '—']) : tr('حتى {0}', [to])}
+      {tr(WINDOW_LABEL[state])} — {from && from === to ? tr('يُدفع في {0}', [to]) : from ? tr('من {0} إلى {1}', [from, to || '—']) : tr('حتى {0}', [to])}
     </div>
   )
 }
