@@ -208,13 +208,13 @@ export const contractOfExpense = (contracts, x) => {
 
 /**
  * Salaries made by a team contract that no current contract owns — left behind when a contract
- * was deleted or made again. Unpaid ones are counted on top of the contract's own salary.
+ * was deleted or made again (or renamed). Paid or not, they are counted on top of the contract's
+ * own salary, and one still repeating keeps adding a month.
  */
 export function orphanSalaries(contracts, companyExpenses) {
   return companyExpenses.filter(
     (x) =>
       x.category === SALARY_CATEGORY &&
-      x.paid === false &&
       /\((عقد|عقد مبلغ مقطوع)\)$/.test(String(x.description || '').trim()) &&
       !contractOfExpense(contracts, x),
   )
@@ -331,7 +331,10 @@ export async function saveContract(form, previous) {
     }
   } else {
     const { date: _date, paid: _paid, ...changes } = expense // keep what was paid
+    const renamed = Boolean(current) && current.description !== changes.description
     await unwrap(expenses().update(changes).eq('id', expense_id))
+    // a new name or title shows on the months already added too
+    if (renamed) await unwrap(expenses().update({ description: changes.description }).eq('series_id', expense_id))
   }
   return unwrap(table().update({ ...row, expense_id }).eq('id', previous.id))
 }

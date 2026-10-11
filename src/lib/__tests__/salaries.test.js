@@ -157,13 +157,23 @@ describe('salaries no contract owns', async () => {
   const { orphanSalaries } = await import('../../api/contracts.js')
   const c = { id: 'k', name: 'محمد عبدالباقي', title: 'محاسب', pay_type: 'شهري', amount: 80, expense_id: 'own' }
   const desc = 'راتب محمد عبدالباقي — محاسب (عقد)'
-  it('flags a salary left repeating by an old contract, not the contract’s own months', () => {
+  it('flags salaries left by an old contract (paid or not), not the contract’s own months', () => {
     const own = { id: 'own', category: 'رواتب وأجور', description: desc, recurring: true, paid: false }
     const month = { id: 'm', category: 'رواتب وأجور', description: desc, series_id: 'own', paid: false }
     const left = { id: 'old', category: 'رواتب وأجور', description: desc, recurring: true, paid: false, date: '2026-11-01' }
     const leftPaid = { ...left, id: 'old2', paid: true }
     const rent = { id: 'r', category: 'إيجار مكتب', description: 'إيجار', recurring: true, paid: false }
     expect(contractOfExpense([c], left)).toBe(null)
-    expect(orphanSalaries([c], [own, month, left, leftPaid, rent]).map((x) => x.id)).toEqual(['old'])
+    expect(orphanSalaries([c], [own, month, left, leftPaid, rent]).map((x) => x.id)).toEqual(['old', 'old2'])
+  })
+})
+
+describe('renaming a contract', () => {
+  it('renames the months already added from its salary', async () => {
+    await saveContract({ name: 'A', title: 'مصمم', start_date: '2026-09-01', end_date: '2026-12-31', pay_type: 'شهري', amount: 120 })
+    const origin = db.company_expenses[0]
+    db.company_expenses.push({ id: 'oct', series_id: origin.id, period: '2026-10', description: origin.description, category: 'رواتب وأجور', amount: 120, paid: false })
+    await saveContract({ name: 'مصمم', title: 'مصمم', start_date: '2026-09-01', end_date: '2026-12-31', pay_type: 'شهري', amount: 120 }, { ...db.staff_contracts[0] })
+    expect(db.company_expenses.map((x) => x.description)).toEqual(['راتب مصمم — مصمم (عقد)', 'راتب مصمم — مصمم (عقد)'])
   })
 })
