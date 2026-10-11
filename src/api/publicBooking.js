@@ -9,7 +9,7 @@ export const KIND_INQUIRY = 'استفسار'
 
 /** The public page's own path — shared on Instagram and WhatsApp. */
 export const PUBLIC_BOOKING_PATH = '/book'
-export const publicBookingUrl = () => `${window.location.origin}${PUBLIC_BOOKING_PATH}`
+export const publicBookingUrl = () => `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}${PUBLIC_BOOKING_PATH}`
 
 const MESSAGES = {
   invalid_kind: 'اختر نوع الطلب',
