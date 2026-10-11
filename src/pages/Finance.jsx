@@ -17,7 +17,7 @@ import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors, updateExhibitor } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
 import { CHEQUE_KIND, deleteObligation, listObligations, OBLIGATION_KINDS, obligationState, payObligation, postponeObligation, REFUND_KIND, reopenObligation, saveObligation, validateObligation } from '../api/obligations.js'
-import { contractOfExpense, duplicateSalaries, fetchSalaryWindow, listContracts, SALARY_CATEGORY } from '../api/contracts.js'
+import { contractOfExpense, duplicateSalaries, fetchSalaryWindow, listContracts, orphanSalaries, SALARY_CATEGORY } from '../api/contracts.js'
 import { listStaff } from '../api/staff.js'
 import { addBankBalance, deleteBankBalance, listBankBalances } from '../api/bank.js'
 import { listReferrers } from '../api/referrals.js'
@@ -1474,6 +1474,7 @@ function Attention({ data, o, go, today: day }) {
   const payNow = unpaidList.filter((x) => x.kind === 'company' && paymentWindowState(x, day) === 'open')
   const obLate = data.obligations.filter((x) => obligationState(x, day) === 'late')
   const doubled = duplicateSalaries(data.contracts || [], data.companyExpenses)
+  const orphans = orphanSalaries(data.contracts || [], data.companyExpenses)
   const obSoon = data.obligations.filter((x) => obligationState(x, day) === 'soon')
   const items = [
     ...alerts.map((a) => ({
@@ -1506,6 +1507,12 @@ function Attention({ data, o, go, today: day }) {
       text: `⚠️ ${tr('راتب «{0}» مسجّل يدوياً في المصروفات ({1}) وله عقد في «عقود الفريق» — يُحسب مرتين. احذف المسجّل يدوياً', [d.contract.name, d.expenses.map((x) => x.description).join('، ')])}`,
       open: () => go('expenses', { kind: 'company' }),
     })),
+    orphans.length && {
+      key: 'orphan',
+      tone: 'danger',
+      text: `⚠️ ${tr('{0} راتب غير مرتبط بأي عقد حالي ({1}) — بقايا عقد حُذف أو أُعيد إنشاؤه، ويُحسب فوق راتب العقد. احذفه من «كل المصروفات»', [orphans.length, [...new Set(orphans.map((x) => x.description))].join('، ')])}`,
+      open: () => go('expenses', { kind: 'company' }),
+    },
     obLate.length && {
       key: 'ol',
       tone: 'danger',
