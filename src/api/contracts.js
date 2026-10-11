@@ -200,7 +200,24 @@ export const contractOfExpense = (contracts, x) => {
   const linked = contracts.find((c) => c.expense_id && (c.expense_id === x.id || c.expense_id === x.series_id))
   if (linked) return linked
   if (x.category !== SALARY_CATEGORY) return null
+  // A salary record still repeating every month must be the contract's own: one left from a
+  // contract that was deleted or made again would add the salary a second time.
+  if (x.recurring && !x.series_id) return null
   return contracts.find((c) => c.pay_type !== PAY_COMMISSION && c.name?.trim() && x.description === payDescription(c)) || null
+}
+
+/**
+ * Salaries made by a team contract that no current contract owns — left behind when a contract
+ * was deleted or made again. Unpaid ones are counted on top of the contract's own salary.
+ */
+export function orphanSalaries(contracts, companyExpenses) {
+  return companyExpenses.filter(
+    (x) =>
+      x.category === SALARY_CATEGORY &&
+      x.paid === false &&
+      /\((عقد|عقد مبلغ مقطوع)\)$/.test(String(x.description || '').trim()) &&
+      !contractOfExpense(contracts, x),
+  )
 }
 
 /**

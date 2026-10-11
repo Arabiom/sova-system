@@ -1991,4 +1991,5 @@ export default {
   "📅 تُدفع الرواتب من يوم {0} إلى يوم {1} من كل شهر": "📅 Salaries are paid from day {0} to day {1} of each month",
   "📅 موعد دفع الرواتب": "📅 Salary payment dates",
   "📎 الإيصال": "📎 Receipt",
+  "{0} راتب غير مرتبط بأي عقد حالي ({1}) — بقايا عقد حُذف أو أُعيد إنشاؤه، ويُحسب فوق راتب العقد. احذفه من «كل المصروفات»": "{0} salary not linked to any current contract ({1}) — left from a contract deleted or made again, counted on top of the contract's salary. Delete it from «All expenses»",
 }

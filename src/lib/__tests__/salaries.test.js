@@ -152,3 +152,18 @@ describe('paying a salary in parts', async () => {
     expect(ledger({ companyExpenses: [old] }).map((r) => [r.date, r.amount])).toEqual([['2026-09-01', -150]])
   })
 })
+
+describe('salaries no contract owns', async () => {
+  const { orphanSalaries } = await import('../../api/contracts.js')
+  const c = { id: 'k', name: 'محمد عبدالباقي', title: 'محاسب', pay_type: 'شهري', amount: 80, expense_id: 'own' }
+  const desc = 'راتب محمد عبدالباقي — محاسب (عقد)'
+  it('flags a salary left repeating by an old contract, not the contract’s own months', () => {
+    const own = { id: 'own', category: 'رواتب وأجور', description: desc, recurring: true, paid: false }
+    const month = { id: 'm', category: 'رواتب وأجور', description: desc, series_id: 'own', paid: false }
+    const left = { id: 'old', category: 'رواتب وأجور', description: desc, recurring: true, paid: false, date: '2026-11-01' }
+    const leftPaid = { ...left, id: 'old2', paid: true }
+    const rent = { id: 'r', category: 'إيجار مكتب', description: 'إيجار', recurring: true, paid: false }
+    expect(contractOfExpense([c], left)).toBe(null)
+    expect(orphanSalaries([c], [own, month, left, leftPaid, rent]).map((x) => x.id)).toEqual(['old'])
+  })
+})
