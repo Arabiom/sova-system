@@ -1510,7 +1510,7 @@ function Attention({ data, o, go, today: day }) {
     orphans.length && {
       key: 'orphan',
       tone: 'danger',
-      text: `⚠️ ${tr('{0} راتب غير مرتبط بأي عقد حالي ({1}) — بقايا عقد حُذف أو أُعيد إنشاؤه، ويُحسب فوق راتب العقد. احذفه من «كل المصروفات»', [orphans.length, [...new Set(orphans.map((x) => x.description))].join('، ')])}`,
+      text: `⚠️ ${tr('{0} راتب غير مرتبط بأي عقد حالي ({1}) — بقايا عقد حُذف أو أُعيد إنشاؤه أو تغيّر اسمه، ويُحسب فوق راتب العقد. تأكد واحذف المكرر من «كل المصروفات»', [orphans.length, [...new Set(orphans.map((x) => x.description))].join('، ')])}`,
       open: () => go('expenses', { kind: 'company' }),
     },
     obLate.length && {
