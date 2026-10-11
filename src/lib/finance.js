@@ -9,6 +9,20 @@ export const isConfirmed = (payment) => payment.status !== PAYMENT_PENDING
 /** Round to the baisa (3 decimals) so sums of prices never show floating-point noise. */
 const baisa = (value) => Math.round(num(value) * 1000) / 1000
 
+/**
+ * The money that has left the company for a company expense: each part recorded as paid (on
+ * its own date, migration 033), plus the rest of one marked paid without them (on its date).
+ */
+export function companyOutflows(x) {
+  const out = (x.payments || []).map((p) => ({ id: p.id, date: p.date, amount: num(p.amount), part: true }))
+  const recorded = baisa(out.reduce((t, p) => t + p.amount, 0))
+  if (x.paid !== false && num(x.amount) - recorded > 0.0005) out.push({ id: 'rest', date: x.date, amount: baisa(num(x.amount) - recorded), part: false })
+  return out
+}
+
+/** What has been paid of a company expense so far (all of it once marked paid). */
+export const companyPaidOf = (x) => baisa(companyOutflows(x).reduce((t, p) => t + p.amount, 0))
+
 /** Staff claims that count as company money spent (approved, or already paid back). */
 export const APPROVED_CLAIMS = ['معتمد', 'تم التعويض']
 const CLAIM_REIMBURSED = 'تم التعويض'
@@ -229,7 +243,8 @@ export function companyOverview({ exhibitors = [], payments = [], expenses = [],
   const exhibitionExpenses = sumBy(expenses, 'amount')
   const exhibitionExpensesPaid = sumBy(expenses.filter((x) => x.paid), 'amount')
   const company = sumBy(companyExpenses, 'amount')
-  const companyPaid = sumBy(companyExpenses.filter((x) => x.paid), 'amount')
+  // a salary paid in parts counts what was paid so far
+  const companyPaid = companyExpenses.reduce((t, x) => t + companyPaidOf(x), 0)
   const claims = staffExpenses.filter((x) => APPROVED_CLAIMS.includes(x.status))
   const staffClaims = sumBy(claims, 'amount')
   const staffReimbursed = sumBy(claims.filter((x) => x.status === 'تم التعويض'), 'amount')
@@ -285,7 +300,7 @@ export function monthlyFlow({ payments = [], sponsors = [], expenses = [], compa
   }
   payments.filter(isConfirmed).forEach((p) => add(p.date || p.created_at, 'in', p.amount))
   expenses.filter((x) => x.paid).forEach((x) => add(x.due_date || x.created_at, 'exhibitions', x.amount))
-  companyExpenses.filter((x) => x.paid).forEach((x) => add(x.date, 'company', x.amount))
+  companyExpenses.forEach((x) => companyOutflows(x).forEach((o) => add(o.date, 'company', o.amount)))
   staffExpenses.filter((x) => x.status === 'تم التعويض').forEach((x) => add(x.reviewed_at || x.date, 'staff', x.amount))
   // Same money as the ledger: paid sponsorships come in, paid obligations (not refunds) go out.
   sponsors.filter((s) => s.status === 'مدفوع').forEach((s) => add(s.created_at, 'in', s.amount))
@@ -397,6 +412,10 @@ export function allExpenses({ expenses = [], companyExpenses = [], staffExpenses
       exhibition_id: null,
       paid: x.paid !== false,
       counted: true,
+      // paid in parts: what was paid so far and what is still to pay
+      paidSoFar: companyPaidOf(x),
+      remaining: baisa(Math.max(0, num(x.amount) - companyPaidOf(x))),
+      payments: x.payments || [],
       due_date: x.due_date || '',
       pay_from: x.pay_from || '',
       pay_to: x.pay_to || '',
@@ -425,7 +444,10 @@ export function allExpenses({ expenses = [], companyExpenses = [], staffExpenses
         user_id: x.user_id,
         notes: [x.vendor, x.payment_method].filter(Boolean).join(' • '),
       })),
-  ].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+  ]
+    // still to pay: a company expense paid in parts has its own; others are all or nothing
+    .map((r) => ('remaining' in r ? r : { ...r, remaining: r.paid ? 0 : r.amount }))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
 }
 
 /**
@@ -439,7 +461,7 @@ export function ledger({ payments = [], sponsors = [], expenses = [], companyExp
     ...payments.filter(isConfirmed).map((p) => ({ key: `p:${p.id}`, kind: num(p.amount) < 0 ? 'refund' : 'payment', date: day(p.date || p.created_at), amount: num(p.amount), ref: p.invoice_no || '', exhibitor_id: p.exhibitor_id, method: p.method || '', note: p.note || '' })),
     ...sponsors.filter((s) => s.status === 'مدفوع').map((s) => ({ key: `s:${s.id}`, kind: 'sponsor', date: day(s.created_at), amount: num(s.amount), label: s.name, exhibition_id: s.exhibition_id })),
     ...expenses.filter((x) => x.paid).map((x) => ({ key: `e:${x.id}`, kind: 'exhibition', date: day(x.due_date || x.created_at), amount: -num(x.amount), label: x.item, exhibition_id: x.exhibition_id })),
-    ...companyExpenses.filter((x) => x.paid !== false).map((x) => ({ key: `c:${x.id}`, kind: 'company', date: day(x.date), amount: -num(x.amount), label: x.description })),
+    ...companyExpenses.flatMap((x) => companyOutflows(x).map((o) => ({ key: `c:${x.id}:${o.id}`, kind: 'company', date: day(o.date), amount: -o.amount, label: x.description, part: o.part }))),
     ...staffExpenses.filter((x) => x.status === CLAIM_REIMBURSED).map((x) => ({ key: `st:${x.id}`, kind: 'claim', date: day(x.reviewed_at || x.date), amount: -num(x.amount), label: x.description, exhibition_id: x.exhibition_id || null, user_id: x.user_id })),
     // A paid obligation — unless it was a participant refund, already in the payments as a refund.
     ...obligations.filter((x) => x.status === 'مدفوع' && !x.refund_invoice).map((x) => ({ key: `ob:${x.id}`, kind: 'obligation', date: day(x.paid_at || x.due_date), amount: -num(x.amount), label: [x.party, x.description].filter(Boolean).join(' — '), exhibition_id: x.exhibition_id || null })),

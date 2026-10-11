@@ -2384,6 +2384,11 @@ a.ex-card-head {
   background: var(--suc-b);
   color: var(--suc);
 }
+.paid-toggle.part {
+  border-color: transparent;
+  background: var(--wrn-b);
+  color: var(--wrn);
+}
 .table tfoot td {
   border-top: 2px solid var(--border);
   background: var(--surf);

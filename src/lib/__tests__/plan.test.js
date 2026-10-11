@@ -27,9 +27,10 @@ describe('contract dates', () => {
 })
 
 describe('contract pay as a company expense', () => {
-  it('monthly salary: fixed monthly, last one in the last month, window = the month', () => {
+  it('monthly salary: fixed monthly, last one in the last month, paid in the team window of its month', () => {
     const e = contractExpenseRow({ name: 'سارة', title: 'مصممة', start_date: '2026-10-01', end_date: '2026-12-31', pay_type: 'شهري', amount: 250 })
-    expect(e).toMatchObject({ amount: 250, recurring: true, recurring_end: '2026-12-01', date: '2026-10-01', pay_to: '2026-10-31', paid: false, category: 'رواتب وأجور' })
+    expect(e).toMatchObject({ amount: 250, recurring: true, recurring_end: '2026-12-01', date: '2026-10-01', pay_from: '2026-10-23', pay_to: '2026-10-28', due_date: '2026-10-28', paid: false, category: 'رواتب وأجور' })
+    expect(contractExpenseRow({ name: 'x', start_date: '2026-02-01', end_date: '2026-03-31', pay_type: 'شهري', amount: 1 }, { from: 20, to: 25 })).toMatchObject({ pay_from: '2026-02-20', pay_to: '2026-02-25' })
     expect(e.description).toContain('سارة — مصممة')
   })
   it('one month: not recurring; lump sum: one expense due by the end; commission only: none', () => {

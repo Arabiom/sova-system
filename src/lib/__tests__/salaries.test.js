@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // A tiny in-memory stand-in for the database tables the contract code touches.
-const db = { company_expenses: [], staff_contracts: [] }
+const db = { company_expenses: [], staff_contracts: [], company_settings: [{ id: 1, salary_pay_from: 23, salary_pay_to: 28 }], company_expense_payments: [] }
 let next = 0
 function query(t) {
   let rows = () => db[t]
@@ -53,6 +53,7 @@ const salaries = () => db.company_expenses
 beforeEach(() => {
   db.company_expenses = []
   db.staff_contracts = []
+  db.company_expense_payments = []
 })
 
 describe('salaries of team contracts', () => {
@@ -64,7 +65,7 @@ describe('salaries of team contracts', () => {
     expect(first.amount).toBe(300)
     expect(first.recurring).toBe(false)
     const fresh = salaries()[1]
-    expect(fresh).toMatchObject({ date: '2026-10-01', amount: 350, recurring: true, recurring_end: '2026-12-01', pay_from: '2026-10-31', pay_to: '2026-10-31', paid: false })
+    expect(fresh).toMatchObject({ date: '2026-10-01', amount: 350, recurring: true, recurring_end: '2026-12-01', pay_from: '2026-10-23', pay_to: '2026-10-28', paid: false })
     expect(contract().expense_id).toBe(fresh.id)
     // months added from the earlier salary still belong to the contract
     expect(contractOfExpense([contract()], { id: 'old', series_id: first.id, category: 'رواتب وأجور', description: first.description })).toBe(contract())
@@ -105,5 +106,49 @@ describe('fixed monthly total', () => {
       { recurring: true, amount: 100, date: '2026-09-01', recurring_end: '2026-10-01' },
     ]
     expect(monthlyFixedTotal(rows, '2026-10-05')).toBe(250)
+  })
+})
+
+describe('paying a salary in parts', async () => {
+  const { payCompanyExpense, deleteExpensePayment, unpayCompanyExpense, paidSoFar } = await import('../../api/companyExpenses.js')
+  const { companyOverview, ledger, monthlyFlow, allExpenses } = await import('../finance.js')
+  const withPayments = () => db.company_expenses.map((x) => ({ ...x, payments: db.company_expense_payments.filter((p) => p.expense_id === x.id) }))
+  const salary = () => withPayments().find((x) => x.id === 's1')
+
+  beforeEach(() => {
+    db.company_expenses = [{ id: 's1', date: '2026-10-01', category: 'رواتب وأجور', description: 'راتب عرابي (عقد)', amount: 325, paid: false, series_id: 'o', period: '2026-10' }]
+  })
+
+  it('stays open (late / due) until the parts reach the amount, then it is paid', async () => {
+    await payCompanyExpense(salary(), { amount: 40, date: '2026-10-29', note: 'جزء' })
+    expect(salary().paid).toBe(false)
+    expect(paidSoFar(salary())).toBe(40)
+    const [row] = allExpenses({ companyExpenses: [salary()] })
+    expect(row).toMatchObject({ paid: false, paidSoFar: 40, remaining: 285 })
+    // the 40 paid is money out, on the day it was paid
+    expect(companyOverview({ companyExpenses: [salary()] })).toMatchObject({ expensesPaidAll: 40, payable: 285, cash: -40 })
+    expect(monthlyFlow({ companyExpenses: [salary()] })[0]).toMatchObject({ month: '2026-10', company: 40 })
+    expect(ledger({ companyExpenses: [salary()] }).map((r) => [r.date, r.amount])).toEqual([['2026-10-29', -40]])
+    await payCompanyExpense(salary(), { amount: 285, date: '2026-11-05' })
+    expect(salary().paid).toBe(true)
+    expect(companyOverview({ companyExpenses: [salary()] })).toMatchObject({ expensesPaidAll: 325, payable: 0 })
+    expect(ledger({ companyExpenses: [salary()] }).map((r) => [r.date, r.amount])).toEqual([['2026-11-05', -285], ['2026-10-29', -40]]) // newest first
+  })
+
+  it('a settlement closes it at what was paid; deleting a part reopens it; un-marking removes the parts', async () => {
+    await payCompanyExpense(salary(), { amount: 300, settle: true })
+    expect(salary()).toMatchObject({ paid: true, amount: 300 })
+    db.company_expenses[0].amount = 325
+    await deleteExpensePayment(salary(), salary().payments[0])
+    expect(salary()).toMatchObject({ paid: false, payments: [] })
+    await payCompanyExpense(salary(), { amount: 325 })
+    await unpayCompanyExpense(salary())
+    expect(salary()).toMatchObject({ paid: false, payments: [] })
+  })
+
+  it('an expense marked paid before parts existed still counts in full on its date', () => {
+    const old = { id: 'r', date: '2026-09-01', amount: 150, paid: true }
+    expect(companyOverview({ companyExpenses: [old] }).expensesPaidAll).toBe(150)
+    expect(ledger({ companyExpenses: [old] }).map((r) => [r.date, r.amount])).toEqual([['2026-09-01', -150]])
   })
 })

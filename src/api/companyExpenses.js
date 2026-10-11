@@ -27,15 +27,29 @@ export const COMPANY_EXPENSE_CATEGORIES = [
 ]
 
 const table = () => supabase.from('company_expenses')
+const paymentsTable = () => supabase.from('company_expense_payments')
+const missing = (error) => ['42P01', 'PGRST205'].includes(error?.code)
 
-/** All company expenses, newest first; [] before migration 012 is run. */
+/** What was paid of each company expense (migration 033); {} before it is run. */
+async function paymentsByExpense() {
+  const { data, error } = await fetchAll(() => paymentsTable().select('*').order('date', { ascending: true }), { tie: 'id' })
+  if (error) return {}
+  const out = {}
+  for (const p of data || []) (out[p.expense_id] ||= []).push(p)
+  return out
+}
+
+/**
+ * All company expenses, newest first, each with `payments` (the parts paid so far, oldest
+ * first); [] before migration 012 is run.
+ */
 export async function listCompanyExpenses() {
-  const { data, error } = await fetchAll(() => table().select('*').order('date', { ascending: false }))
+  const [{ data, error }, payments] = await Promise.all([fetchAll(() => table().select('*').order('date', { ascending: false })), paymentsByExpense()])
   if (error) {
-    if (['42P01', 'PGRST205'].includes(error.code)) return []
+    if (missing(error)) return []
     return unwrap(Promise.resolve({ data, error }))
   }
-  return data
+  return data.map((x) => ({ ...x, payments: payments[x.id] || [] }))
 }
 
 export function validateCompanyExpense(form) {
@@ -119,18 +133,48 @@ export async function saveCompanyExpense(form, { id, receiptFile, oldReceipt } =
 
 export const setCompanyExpensePaid = (id, paid) => unwrap(table().update({ paid }).eq('id', id))
 
+/** Total paid so far of a company expense (its parts), whatever its «paid» mark. */
+export const paidSoFar = (x) => Math.round((x.payments || []).reduce((t, p) => t + num(p.amount), 0) * 1000) / 1000
+
 /**
- * Record that a company expense was paid: optionally a different amount for this time only
- * (not on a fixed expense's own record, whose amount is used for the coming months), the
- * transfer receipt, and a note.
+ * Record a payment of a company expense — all of what is left or a part of it — with its date,
+ * a note and the transfer receipt. The expense is marked paid once its parts reach the amount;
+ * `settle` closes it now (the rest will not be paid: a deduction) — then its amount becomes what
+ * was paid (not on a fixed expense's own record, whose amount the coming months are made from).
+ * Before migration 033 a payment can only be the whole amount.
  */
-export async function payCompanyExpense(x, { amount, note, receiptFile } = {}) {
-  const patch = { paid: true }
-  if (amount != null && !x.recurring && num(amount) > 0 && num(amount) !== num(x.amount)) patch.amount = num(amount)
-  if (note?.trim()) patch.notes = [x.notes, note.trim()].filter(Boolean).join(' • ')
-  if (receiptFile) patch.receipt_path = await uploadFile(RECEIPT_BUCKET, 'company', receiptFile, { what: 'إيصال الدفع', migration: '012' })
-  await unwrap(table().update(patch).eq('id', x.id))
-  if (receiptFile && x.receipt_path) await removeFile(RECEIPT_BUCKET, x.receipt_path)
+export async function payCompanyExpense(x, { amount, date = todayISO(), note, receiptFile, settle = false } = {}) {
+  const value = Math.round(num(amount) * 1000) / 1000
+  if (!(value > 0)) throw new Error('أدخل المبلغ المدفوع')
+  const receipt_path = receiptFile ? await uploadFile(RECEIPT_BUCKET, 'company', receiptFile, { what: 'إيصال الدفع', migration: '012' }) : null
+  const { error } = await paymentsTable().insert({ expense_id: x.id, amount: value, date, note: note?.trim() || '', receipt_path })
+  if (missing(error)) {
+    // Before migration 033: the whole expense is marked paid at once.
+    const patch = { paid: true }
+    if (!x.recurring && value !== num(x.amount)) patch.amount = value
+    if (note?.trim()) patch.notes = [x.notes, note.trim()].filter(Boolean).join(' • ')
+    if (receipt_path) patch.receipt_path = receipt_path
+    await unwrap(table().update(patch).eq('id', x.id))
+    return
+  }
+  if (error) throw error
+  const total = Math.round((paidSoFar(x) + value) * 1000) / 1000
+  if (total >= num(x.amount) - 0.0005) await unwrap(table().update({ paid: true }).eq('id', x.id))
+  else if (settle) await unwrap(table().update(x.recurring ? { paid: true } : { paid: true, amount: total }).eq('id', x.id))
+}
+
+/** Remove one recorded payment; the expense is open again if what is left falls short. */
+export async function deleteExpensePayment(x, payment) {
+  await unwrap(paymentsTable().delete().eq('id', payment.id))
+  await removeFile(RECEIPT_BUCKET, payment.receipt_path)
+  const left = paidSoFar({ payments: (x.payments || []).filter((p) => p.id !== payment.id) })
+  if (left < num(x.amount) - 0.0005 && x.paid !== false) await unwrap(table().update({ paid: false }).eq('id', x.id))
+}
+
+/** Mark unpaid: its recorded payments are removed too, so nothing is counted as paid. */
+export async function unpayCompanyExpense(x) {
+  for (const p of x.payments || []) await deleteExpensePayment({ ...x, paid: false }, p)
+  await unwrap(table().update({ paid: false }).eq('id', x.id))
 }
 
 export async function deleteCompanyExpense(x) {

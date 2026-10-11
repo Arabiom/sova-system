@@ -129,13 +129,29 @@ export function validateContract(form) {
 
 const label = (c) => [c.name?.trim(), c.title?.trim()].filter(Boolean).join(' — ')
 
+/** Days of the month salaries are paid (migration 033): the same for the whole team. */
+export const DEFAULT_SALARY_WINDOW = { from: 23, to: 28 }
+
+/** The salary payment days saved for the company; 23 → 28 before migration 033 is run. */
+export async function fetchSalaryWindow() {
+  const { data, error } = await supabase.from('company_settings').select('*').eq('id', 1).maybeSingle()
+  if (error || !data || !data.salary_pay_from) return DEFAULT_SALARY_WINDOW
+  return { from: Number(data.salary_pay_from), to: Number(data.salary_pay_to) }
+}
+
+/** Save the salary payment days and move every unpaid salary of the team to them. */
+export const saveSalaryWindow = (from, to) => unwrap(supabase.rpc('apply_salary_pay_window', { p_from: Number(from), p_to: Number(to) }))
+
+/** The salary window in the month of `date`: { pay_from, pay_to } (days clamped to the month). */
+export function salaryWindowIn(date, win = DEFAULT_SALARY_WINDOW) {
+  const [y, m] = parts(date)
+  const end = lastDay(y, m)
+  return { pay_from: iso(y, m, Math.min(win.from, end)), pay_to: iso(y, m, Math.min(win.to, end)) }
+}
+
 /** The company expense that carries a contract's fixed pay (none for commission only). */
-export function contractExpenseRow(c) {
+export function contractExpenseRow(c, win = DEFAULT_SALARY_WINDOW) {
   if (c.pay_type === PAY_COMMISSION) return null
-  const monthEnd = (d) => {
-    const [y, m] = parts(d)
-    return iso(y, m, lastDay(y, m))
-  }
   if (c.pay_type === PAY_LUMP) {
     if (isOpen(c)) return null
     return {
@@ -155,16 +171,16 @@ export function contractExpenseRow(c) {
   const open = isOpen(c)
   const n = open ? 0 : monthsOf(c.start_date, c.end_date)
   const [ly, lm] = open ? [0, 0] : parts(addMonths(c.start_date, n - 1))
+  // each month's salary is paid in the team's salary window of that month (23 → 28 by default)
+  const window = salaryWindowIn(c.start_date, win)
   return {
     date: c.start_date,
     category: SALARY_CATEGORY,
     description: payDescription(c),
     amount: num(c.amount),
     paid: false,
-    due_date: monthEnd(c.start_date),
-    // a salary is due at the end of each month, not from its first day
-    pay_from: monthEnd(c.start_date),
-    pay_to: monthEnd(c.start_date),
+    due_date: window.pay_to,
+    ...window,
     // one salary a month, the last one in the contract's last month (open-ended: no last one)
     recurring: open || n > 1,
     recurring_end: !open && n > 1 ? iso(ly, lm, 1) : null,
@@ -265,7 +281,8 @@ async function releaseExpense(contract) {
  */
 export async function saveContract(form, previous) {
   const row = toContractRow(form)
-  const expense = contractExpenseRow(row)
+  const win = await fetchSalaryWindow()
+  const expense = contractExpenseRow(row, win)
   const create = async (x = expense) => (x ? (await unwrap(expenses().insert(x).select('id').single())).id : null)
   if (!previous) return unwrap(table().insert({ ...row, expense_id: await create() }))
 
@@ -286,19 +303,17 @@ export async function saveContract(form, previous) {
     const ends = isOpen(row) ? null : expense.recurring_end || `${row.start_date.slice(0, 7)}-01`
     if (!ends || from <= ends) {
       const shift = (d) => (d ? sameDayIn(from, d) : null)
-      const monthEnd = (d) => iso(parts(d)[0], parts(d)[1], lastDay(parts(d)[0], parts(d)[1]))
       expense_id = await create({
         ...expense,
         date: shift(row.start_date),
-        pay_from: monthEnd(from),
-        pay_to: monthEnd(from),
-        due_date: monthEnd(from),
+        ...salaryWindowIn(from, win),
+        due_date: salaryWindowIn(from, win).pay_to,
         recurring: !ends || from < ends,
         recurring_end: ends && from < ends ? ends : null,
       })
     }
   } else {
-    const { date: _date, paid: _paid, pay_from: _pf, ...changes } = expense // keep what was paid
+    const { date: _date, paid: _paid, ...changes } = expense // keep what was paid
     await unwrap(expenses().update(changes).eq('id', expense_id))
   }
   return unwrap(table().update({ ...row, expense_id }).eq('id', previous.id))

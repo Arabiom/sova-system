@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { openCompanyReceipt, setCompanyExpensePaid } from '../../api/companyExpenses.js'
+import { deleteExpensePayment, openCompanyReceipt, unpayCompanyExpense } from '../../api/companyExpenses.js'
 import {
   COMMISSION_BASES,
   commissionOf,
@@ -17,6 +17,7 @@ import {
   PAY_TYPES,
   recordCommission,
   saveContract,
+  saveSalaryWindow,
   validateContract,
 } from '../../api/contracts.js'
 import Button from '../../components/Button.jsx'
@@ -28,6 +29,7 @@ import Panel from '../../components/Panel.jsx'
 import StatCard from '../../components/StatCard.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { formatDate, formatOMR, num, todayISO } from '../../lib/format.js'
+import { companyPaidOf } from '../../lib/finance.js'
 import { tr } from '../../lib/i18n.js'
 import { omanDay } from '../../lib/team.js'
 import PayExpenseForm from './PayExpenseForm.jsx'
@@ -203,28 +205,51 @@ function ContractForm({ contract, staff, onClose, onSaved }) {
 const salariesOf = (c, companyExpenses = []) =>
   companyExpenses
     .filter((x) => contractOfExpense([c], x))
-    .map((x) => ({ source: x, amount: num(x.amount), description: x.description, period: x.period || String(x.date || '').slice(0, 7), receipt: x.receipt_path || '', paid: x.paid !== false, due: x.pay_to || x.due_date || '' }))
+    .map((x) => {
+      const paidNow = companyPaidOf(x)
+      return {
+        source: x,
+        amount: num(x.amount),
+        description: x.description,
+        period: x.period || String(x.date || '').slice(0, 7),
+        receipt: x.receipt_path || '',
+        paid: x.paid !== false,
+        paidSoFar: paidNow,
+        remaining: Math.max(0, Math.round((num(x.amount) - paidNow) * 1000) / 1000),
+        payments: x.payments || [],
+        from: x.pay_from || '',
+        due: x.pay_to || x.due_date || '',
+      }
+    })
     .sort((a, b) => a.period.localeCompare(b.period) || String(a.source.date).localeCompare(String(b.source.date)))
 
-/** Every salary month of one contract: paid or not, with «pay» on each one still owed. */
+/** Where an unpaid salary stands today against its payment window. */
+const salaryState = (x, today) => (x.paid ? 'paid' : x.due && x.due < today ? 'late' : x.from && today < x.from ? 'upcoming' : 'due')
+const STATE_BADGE = { paid: ['✓ مدفوع', 'badge-success'], late: ['متأخر', 'badge-danger'], due: ['مستحق الآن', 'badge-warning'], upcoming: ['قادم', 'badge-neutral'] }
+
+/** Every salary month of one contract: paid, partly paid or owed, with each payment made. */
 function SalaryMonths({ contract, rows, canManage, today, onClose, onChanged }) {
   const toast = useToast()
   const [paying, setPaying] = useState(null)
-  const paid = rows.filter((x) => x.paid)
-  const owed = rows.filter((x) => !x.paid)
-  const undo = async (x) => {
-    if (!confirm(tr('إلغاء علامة «مدفوع» عن "{0}"؟', [x.description]))) return
+  const paidTotal = rows.reduce((t, x) => t + x.paidSoFar, 0)
+  const owedTotal = rows.reduce((t, x) => t + (x.paid ? 0 : x.remaining), 0)
+  const run = async (fn) => {
     try {
-      await setCompanyExpensePaid(x.source.id, false)
+      await fn()
       onChanged()
     } catch (err) {
       toast(err.message, 'error')
     }
   }
+  const undo = (x) => {
+    const parts = x.payments.length ? tr(' — تُحذف دفعاته المسجلة ({0})', [x.payments.length]) : ''
+    if (confirm(tr('إلغاء علامة «مدفوع» عن "{0}"؟', [x.description]) + parts)) run(() => unpayCompanyExpense(x.source))
+  }
+  const dropPayment = (x, p) => confirm(tr('حذف دفعة {0} بتاريخ {1}؟', [formatOMR(p.amount), formatDate(p.date)])) && run(() => deleteExpensePayment(x.source, p))
   return (
     <Modal
       title={tr('💵 رواتب {0}', [contract.name])}
-      subtitle={tr('مدفوع {0} • غير مدفوع {1}', [formatOMR(paid.reduce((t, x) => t + x.amount, 0)), formatOMR(owed.reduce((t, x) => t + x.amount, 0))])}
+      subtitle={tr('مدفوع {0} • غير مدفوع {1}', [formatOMR(paidTotal), formatOMR(owedTotal)])}
       onClose={onClose}
       footer={
         <Button variant="outline" onClick={onClose}>
@@ -243,41 +268,60 @@ function SalaryMonths({ contract, rows, canManage, today, onClose, onChanged }) 
             </tr>
           </thead>
           <tbody>
-            {rows.map((x) => (
-              <tr key={x.source.id}>
-                <td className="strong nowrap">
-                  {x.period}
-                  {x.due && <div className="muted tiny">{tr('يُدفع حتى {0}', [formatDate(x.due)])}</div>}
-                </td>
-                <td className="num strong">{formatOMR(x.amount)}</td>
-                <td>
-                  {x.paid ? (
-                    <span className="badge badge-success">{tr('✓ مدفوع')}</span>
-                  ) : (
-                    <span className={`badge ${x.due && x.due < today ? 'badge-danger' : 'badge-warning'}`}>{x.due && x.due < today ? tr('متأخر') : tr('غير مدفوع')}</span>
-                  )}
-                </td>
-                <td>
-                  <div className="row-actions">
-                    {canManage && !x.paid && (
-                      <Button size="sm" onClick={() => setPaying(x)} title={tr('تسجيل دفع الراتب')}>
-                        {tr('💵 دفع')}
-                      </Button>
-                    )}
-                    {x.receipt && (
-                      <Button size="sm" variant="outline" onClick={() => openCompanyReceipt(x.receipt).catch((err) => toast(err.message, 'error'))}>
-                        {tr('📎 عرض')}
-                      </Button>
-                    )}
-                    {canManage && x.paid && (
-                      <Button size="sm" variant="ghost" onClick={() => undo(x)} title={tr('إلغاء الدفع')}>
-                        ↩️
-                      </Button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {rows.map((x) => {
+              const state = salaryState(x, today)
+              return (
+                <tr key={x.source.id}>
+                  <td className="strong nowrap">
+                    {x.period}
+                    {x.due && <div className="muted tiny">{x.from && x.from !== x.due ? tr('يُدفع من {0} إلى {1}', [formatDate(x.from), formatDate(x.due)]) : tr('يُدفع حتى {0}', [formatDate(x.due)])}</div>}
+                  </td>
+                  <td className="num strong">
+                    {formatOMR(x.amount)}
+                    {!x.paid && x.paidSoFar > 0 && <div className="tiny text-wrn">{tr('دُفع {0} — المتبقي {1}', [formatOMR(x.paidSoFar), formatOMR(x.remaining)])}</div>}
+                  </td>
+                  <td>
+                    <span className={`badge ${STATE_BADGE[state][1]}`}>{tr(STATE_BADGE[state][0])}</span>
+                    {!x.paid && x.paidSoFar > 0 && <div className="tiny muted mt-4">{tr('مدفوع جزئياً')}</div>}
+                    {x.payments.map((p) => (
+                      <div key={p.id} className="tiny muted mt-4 nowrap">
+                        💵 {formatOMR(p.amount)} — {formatDate(p.date)}
+                        {p.note ? ` • ${p.note}` : ''}
+                        {p.receipt_path && (
+                          <button type="button" className="link-btn mis-6" onClick={() => openCompanyReceipt(p.receipt_path).catch((err) => toast(err.message, 'error'))}>
+                            {tr('📎 الإيصال')}
+                          </button>
+                        )}
+                        {canManage && (
+                          <button type="button" className="link-btn mis-6" title={tr('حذف هذه الدفعة')} onClick={() => dropPayment(x, p)}>
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </td>
+                  <td>
+                    <div className="row-actions">
+                      {canManage && !x.paid && (
+                        <Button size="sm" onClick={() => setPaying(x)} title={tr('تسجيل دفع الراتب')}>
+                          {x.paidSoFar > 0 ? tr('💵 دفع الباقي') : tr('💵 دفع')}
+                        </Button>
+                      )}
+                      {x.receipt && (
+                        <Button size="sm" variant="outline" onClick={() => openCompanyReceipt(x.receipt).catch((err) => toast(err.message, 'error'))}>
+                          {tr('📎 عرض')}
+                        </Button>
+                      )}
+                      {canManage && x.paid && (
+                        <Button size="sm" variant="ghost" onClick={() => undo(x)} title={tr('إلغاء الدفع')}>
+                          ↩️
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -298,12 +342,64 @@ function SalaryMonths({ contract, rows, canManage, today, onClose, onChanged }) 
   )
 }
 
+/** The days of the month the whole team is paid; changing them moves every unpaid salary. */
+function SalaryWindowForm({ current, onClose, onSaved }) {
+  const toast = useToast()
+  const [from, setFrom] = useState(String(current.from))
+  const [to, setTo] = useState(String(current.to))
+  const [saving, setSaving] = useState(false)
+  const submit = async () => {
+    const f = Number(from)
+    const t = Number(to)
+    if (!(f >= 1 && t <= 28 && t >= f)) return toast(tr('اختر يومين بين 1 و28، و«من» قبل «إلى»'), 'error')
+    setSaving(true)
+    try {
+      const moved = await saveSalaryWindow(f, t)
+      toast(tr('✅ مواعيد الرواتب: من يوم {0} إلى يوم {1} — عُدِّل {2} راتب', [f, t, moved ?? 0]))
+      onSaved()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <Modal
+      title={tr('📅 موعد دفع الرواتب')}
+      subtitle={tr('موعد واحد لكل الموظفين، في كل شهر')}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            {tr('إلغاء')}
+          </Button>
+          <Button onClick={submit} disabled={saving}>
+            {saving ? tr('جاري...') : tr('حفظ')}
+          </Button>
+        </>
+      }
+    >
+      <div className="form-grid">
+        <Field label={tr('من يوم')} required>
+          <input className="input" type="number" min="1" max="28" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </Field>
+        <Field label={tr('إلى يوم')} required>
+          <input className="input" type="number" min="1" max="28" value={to} onChange={(e) => setTo(e.target.value)} />
+        </Field>
+      </div>
+      <div className="alert alert-info">{tr('قبل يوم «من» يظهر الراتب «قادم»، وبين اليومين «مستحق الآن»، وبعد يوم «إلى» «متأخر» حتى يُدفع. الرواتب غير المدفوعة تنتقل للموعد الجديد.')}</div>
+    </Modal>
+  )
+}
+
 export default function TeamContracts({ data, canManage, reload, openId }) {
   const toast = useToast()
   // Opened from a salary in «all expenses»: start on that contract's form.
   const [editing, setEditing] = useState(() => (openId && canManage ? (data.contracts || []).find((c) => c.id === openId) || null : null))
   const today = omanDay()
   const [months, setMonths] = useState(null) // the contract whose salaries are open
+  const [windowOpen, setWindowOpen] = useState(false)
+  const salaryWindow = data.salaryWindow || { from: 23, to: 28 }
   const contracts = data.contracts || []
   const rows = contracts.map((c) => ({ c, status: contractStatus(c, today), commission: commissionOf(c, data.exhibitors, data.payments) }))
   const running = rows.filter((r) => r.status === 'ساري')
@@ -334,11 +430,15 @@ export default function TeamContracts({ data, canManage, reload, openId }) {
         <StatCard flat label={tr('عمولات لم تُسجَّل بعد')} value={formatOMR(commissionDue)} accent="var(--info)" icon="💹" />
       </div>
 
-      {canManage && (
-        <div className="page-actions page-actions-bar mb-16">
-          <Button onClick={() => setEditing({})}>{tr('+ عقد جديد')}</Button>
-        </div>
-      )}
+      <div className="page-actions page-actions-bar mb-16">
+        <span className="strong">{tr('📅 تُدفع الرواتب من يوم {0} إلى يوم {1} من كل شهر', [salaryWindow.from, salaryWindow.to])}</span>
+        {canManage && (
+          <Button size="sm" variant="outline" onClick={() => setWindowOpen(true)}>
+            {tr('تعديل الموعد')}
+          </Button>
+        )}
+        {canManage && <Button onClick={() => setEditing({})}>{tr('+ عقد جديد')}</Button>}
+      </div>
 
       <Panel icon="👔" title={tr('عقود الفريق')} subtitle={tr('راتب كل شهر يُضاف تلقائياً ويتوقف مع نهاية العقد — سجّل دفعه من زر «💵 الرواتب»')}>
         <div className="table-wrap">
@@ -425,6 +525,16 @@ export default function TeamContracts({ data, canManage, reload, openId }) {
         {!rows.length && <EmptyState icon="👔" text={tr('لا توجد عقود بعد — أضف عقد المصمم والمسوق لمدة 3 أشهر مثلاً')} />}
       </Panel>
 
+      {windowOpen && (
+        <SalaryWindowForm
+          current={salaryWindow}
+          onClose={() => setWindowOpen(false)}
+          onSaved={() => {
+            setWindowOpen(false)
+            reload()
+          }}
+        />
+      )}
       {months && (
         <SalaryMonths
           contract={months}
