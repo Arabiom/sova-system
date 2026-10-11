@@ -5,6 +5,8 @@ import react from '@vitejs/plugin-react'
 const stamp = `${new Date().toISOString().slice(0, 10)} • ${(process.env.COMMIT_REF || 'local').slice(0, 7)}`
 
 export default defineConfig({
+  // GitHub Pages serves the site under /sova-system/ (BASE_PATH set by its workflow); Netlify at /.
+  base: process.env.BASE_PATH || '/',
   plugins: [react()],
   define: { __BUILD__: JSON.stringify(stamp) },
   build: {

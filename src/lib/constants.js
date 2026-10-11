@@ -13,10 +13,10 @@ export const COMPANY = {
   instagram: '@exhibitions.om',
   bank: 'بنك مسقط — INTEGRATED BUSINESS AXIS',
   signatory: 'عربي بن هلال',
-  logo: '/brand/axis-logo.svg', // for light backgrounds
-  logoLight: '/brand/axis-logo-light.svg', // for dark backgrounds
-  mark: '/brand/axis-mark.svg',
-  markLight: '/brand/axis-mark-light.svg',
+  logo: `${import.meta.env.BASE_URL}brand/axis-logo.svg`, // for light backgrounds
+  logoLight: `${import.meta.env.BASE_URL}brand/axis-logo-light.svg`, // for dark backgrounds
+  mark: `${import.meta.env.BASE_URL}brand/axis-mark.svg`,
+  markLight: `${import.meta.env.BASE_URL}brand/axis-mark-light.svg`,
   systemName: 'نظام إدارة المعارض',
   vatNumber: '', // الرقم الضريبي — printed on tax invoices once provided
   version: 'v4.0',
