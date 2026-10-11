@@ -9,7 +9,7 @@ import {
   listCompanyExpenses,
   openCompanyReceipt,
   saveCompanyExpense,
-  setCompanyExpensePaid,
+  unpayCompanyExpense,
   validateCompanyExpense,
 } from '../api/companyExpenses.js'
 import { deleteExpense, listExpenses, listSites, listSponsors, setExpensePaid } from '../api/exhibitionFile.js'
@@ -17,7 +17,7 @@ import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors, updateExhibitor } from '../api/exhibitors.js'
 import { listPayments } from '../api/payments.js'
 import { CHEQUE_KIND, deleteObligation, listObligations, OBLIGATION_KINDS, obligationState, payObligation, postponeObligation, REFUND_KIND, reopenObligation, saveObligation, validateObligation } from '../api/obligations.js'
-import { contractOfExpense, duplicateSalaries, listContracts, SALARY_CATEGORY } from '../api/contracts.js'
+import { contractOfExpense, duplicateSalaries, fetchSalaryWindow, listContracts, SALARY_CATEGORY } from '../api/contracts.js'
 import { listStaff } from '../api/staff.js'
 import { addBankBalance, deleteBankBalance, listBankBalances } from '../api/bank.js'
 import { listReferrers } from '../api/referrals.js'
@@ -81,14 +81,15 @@ const load = async () => {
     listCompanyExpenses(),
     listStaffExpenses().catch(() => []),
   ])
-  const [staff, obligations, contracts, bankBalances, referrers] = await Promise.all([
+  const [staff, obligations, contracts, bankBalances, referrers, salaryWindow] = await Promise.all([
     listStaff().catch(() => []),
     listObligations().catch(() => []),
     listContracts().catch(() => []),
     listBankBalances().catch(() => null),
     listReferrers().catch(() => null),
+    fetchSalaryWindow(),
   ])
-  return { exhibitions, exhibitors, payments, sites, expenses, sponsors, companyExpenses, staffExpenses, staff, obligations, contracts, bankBalances, referrers }
+  return { exhibitions, exhibitors, payments, sites, expenses, sponsors, companyExpenses, staffExpenses, staff, obligations, contracts, bankBalances, referrers, salaryWindow }
 }
 
 
@@ -1050,7 +1051,7 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '', initialSta
   const rows = base.filter((x) => !filters.kind || x.kind === filters.kind)
   const counted = rows.filter((x) => x.counted)
   const total = sumBy(counted, 'amount')
-  const unpaid = sumBy(counted.filter((x) => !x.paid), 'amount')
+  const unpaid = sumBy(counted.filter((x) => !x.paid), 'remaining') // a salary paid in parts: what is left
   const review = rows.filter((x) => x.kind === 'claim' && !x.counted)
   const openObligations = rows.filter((x) => x.kind === 'obligation' && !x.paid)
   // Obligations are not expenses: their chip shows what is still owed.
@@ -1070,8 +1071,9 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '', initialSta
   const togglePaid = (x) => {
     if (x.kind === 'exhibition') return act(() => setExpensePaid(x.source.id, !x.paid))
     if (!x.paid) return setPaying(x)
-    if (!confirm(tr('إلغاء علامة «مدفوع» عن "{0}"؟', [x.description]))) return
-    act(() => setCompanyExpensePaid(x.source.id, false))
+    const parts = x.payments?.length ? tr(' — تُحذف دفعاته المسجلة ({0})', [x.payments.length]) : ''
+    if (!confirm(tr('إلغاء علامة «مدفوع» عن "{0}"؟', [x.description]) + parts)) return
+    act(() => unpayCompanyExpense(x.source))
   }
   const remove = (x) =>
     confirm(tr('حذف "{0}"؟', [x.description])) &&
@@ -1222,9 +1224,12 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '', initialSta
                     ) : x.kind === 'claim' ? (
                       <StatusBadge status={x.status} />
                     ) : (
-                      <button className={`paid-toggle ${x.paid ? 'on' : ''}`} onClick={() => canManage && togglePaid(x)} disabled={!canManage}>
-                        {x.paid ? tr('✓ مدفوع') : tr('غير مدفوع')}
+                      <button className={`paid-toggle ${x.paid ? 'on' : ''} ${!x.paid && x.paidSoFar > 0 ? 'part' : ''}`} onClick={() => canManage && togglePaid(x)} disabled={!canManage}>
+                        {x.paid ? tr('✓ مدفوع') : x.paidSoFar > 0 ? tr('مدفوع جزئياً') : tr('غير مدفوع')}
                       </button>
+                    )}
+                    {x.kind === 'company' && !x.paid && x.paidSoFar > 0 && (
+                      <div className="tiny mt-4 strong">{tr('دُفع {0} — المتبقي {1}', [formatOMR(x.paidSoFar), formatOMR(x.remaining)])}</div>
                     )}
                     {x.kind === 'company' && <PayWindow x={x} />}
                   </td>
@@ -1516,13 +1521,13 @@ function Attention({ data, o, go, today: day }) {
     payNow.length && {
       key: 'pn',
       tone: 'warning',
-      text: `📅 ${tr('{0} مصروف موعد دفعه الآن ({1})', [payNow.length, formatOMR(sumBy(payNow, 'amount'))])}`,
+      text: `📅 ${tr('{0} مصروف موعد دفعه الآن ({1})', [payNow.length, formatOMR(sumBy(payNow, 'remaining'))])}`,
       open: () => go('expenses', { kind: 'company' }),
     },
     overdue.length && {
       key: 'od',
       tone: 'danger',
-      text: `📌 ${tr('{0} مصروف تجاوز موعد دفعه ({1})', [overdue.length, formatOMR(sumBy(overdue, 'amount'))])}`,
+      text: `📌 ${tr('{0} مصروف تجاوز موعد دفعه ({1})', [overdue.length, formatOMR(sumBy(overdue, 'remaining'))])}`,
       open: () => go('expenses'),
     },
   ].filter(Boolean)
