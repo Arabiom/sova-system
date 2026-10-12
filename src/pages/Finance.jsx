@@ -1045,18 +1045,23 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '', initialSta
       (filters.exhibition === 'all' || (filters.exhibition === 'general' ? !x.exhibition_id : x.exhibition_id === filters.exhibition)) &&
       (!filters.month || String(x.date || '').startsWith(filters.month)) &&
       (!filters.state ||
-        (filters.state === 'review' ? x.kind === 'claim' && !x.counted : (x.counted || x.kind === 'obligation') && (filters.state === 'paid') === x.paid)) &&
+        (filters.state === 'review'
+          ? x.kind === 'claim' && !x.counted
+          : (x.counted || x.kind === 'obligation') && (filters.state === 'paid' ? x.paid || x.paidSoFar > 0 : !x.paid))) &&
       (!filters.category || x.category === filters.category),
   )
   const rows = base.filter((x) => !filters.kind || x.kind === filters.kind)
   const counted = rows.filter((x) => x.counted)
-  const total = sumBy(counted, 'amount')
+  // What each row counts for under the chosen state: paid → what was paid of it (a salary paid in
+  // parts counts its parts), unpaid → what is left, otherwise its whole amount. Matches the overview.
+  const valueOf = (x) => (filters.state === 'paid' ? (x.paid ? x.amount : x.paidSoFar || 0) : filters.state === 'unpaid' ? x.remaining : x.amount)
+  const total = counted.reduce((t, x) => t + valueOf(x), 0)
   const unpaid = sumBy(counted.filter((x) => !x.paid), 'remaining') // a salary paid in parts: what is left
   const review = rows.filter((x) => x.kind === 'claim' && !x.counted)
   const openObligations = rows.filter((x) => x.kind === 'obligation' && !x.paid)
   // Obligations are not expenses: their chip shows what is still owed.
-  const kindTotal = (kind) => sumBy(base.filter((x) => x.kind === kind && (kind === 'obligation' ? !x.paid : x.counted)), 'amount')
-  const byCategory = Object.entries(counted.reduce((acc, x) => ({ ...acc, [x.category || 'أخرى']: (acc[x.category || 'أخرى'] || 0) + x.amount }), {})).sort((a, b) => b[1] - a[1])
+  const kindTotal = (kind) => (kind === 'obligation' ? sumBy(base.filter((x) => x.kind === kind && !x.paid), 'amount') : base.filter((x) => x.kind === kind && x.counted).reduce((t, x) => t + valueOf(x), 0))
+  const byCategory = Object.entries(counted.reduce((acc, x) => ({ ...acc, [x.category || 'أخرى']: (acc[x.category || 'أخرى'] || 0) + valueOf(x) }), {})).sort((a, b) => b[1] - a[1])
 
   const act = async (fn, ok) => {
     try {
@@ -1120,7 +1125,7 @@ function AllExpenses({ data, canManage, reload, go, initialKind = '', initialSta
   return (
     <>
       <div className="category-strip mb-12">
-        {[['', '🧾 الكل', sumBy(base.filter((x) => x.counted), 'amount')], ...Object.entries(EXPENSE_KINDS).map(([k, label]) => [k, `${KIND_ICON[k]} ${label}`, kindTotal(k)])].map(([k, label, amount]) => (
+        {[['', '🧾 الكل', base.filter((x) => x.counted).reduce((t, x) => t + valueOf(x), 0)], ...Object.entries(EXPENSE_KINDS).map(([k, label]) => [k, `${KIND_ICON[k]} ${label}`, kindTotal(k)])].map(([k, label, amount]) => (
           <button key={k || 'all'} type="button" className={`category-chip ${filters.kind === k ? 'selected' : ''}`} onClick={() => setFilters((f) => ({ ...f, kind: k }))}>
             <span>
               <IconText text={tr(label)} size={15} />
