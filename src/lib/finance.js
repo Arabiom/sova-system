@@ -158,7 +158,20 @@ export function exhibitionFinancials({ exhibition, sites = [], exhibitors = [], 
   const planTiers = hasSites ? [] : tiersOf(exhibition, defaults)
   const tierCount = planTiers.reduce((t, x) => t + x.count, 0)
   const capacity = hasSites ? sites.length : num(exhibition.booths) || tierCount
-  const fullRevenue = hasSites ? sumBy(sites, 'price') : planTiers.reduce((t, x) => t + x.count * num(x.price), 0)
+  // Full sale: a booked site counts what its participant's contract says (after any discount),
+  // a free one its price. Each participant holding sites counts once, however many sites.
+  const listRevenue = hasSites ? sumBy(sites, 'price') : planTiers.reduce((t, x) => t + x.count * num(x.price), 0)
+  let fullRevenue = listRevenue
+  if (hasSites) {
+    const ownById = new Map(own.map((e) => [e.id, e]))
+    const holders = new Set()
+    let free = 0
+    for (const s of sites) {
+      if (s.exhibitor_id && ownById.has(s.exhibitor_id)) holders.add(s.exhibitor_id)
+      else free += num(s.price)
+    }
+    fullRevenue = free + [...holders].reduce((t, id) => t + num(ownById.get(id).contract), 0)
+  }
   // Average price over the booths that have a price (the entered total may include unpriced ones).
   const pricedCount = hasSites ? sites.length : tierCount
   const booked = hasSites ? sites.filter((s) => s.exhibitor_id).length : own.length
@@ -174,7 +187,8 @@ export function exhibitionFinancials({ exhibition, sites = [], exhibitors = [], 
   const expensesPaid = sumBy(expenses.filter((x) => x.paid), 'amount') + sumBy(claims.filter((x) => x.status === CLAIM_REIMBURSED), 'amount')
 
   // Break-even: sites to sell (at the average list price) to cover expenses not covered by sponsors.
-  const avgPrice = pricedCount ? fullRevenue / pricedCount : 0
+  // Sites still to sell go at their list price, so break-even works on the list average.
+  const avgPrice = pricedCount ? listRevenue / pricedCount : 0
   const toCover = Math.max(0, expensesTotal - sponsorship)
   const breakEven = avgPrice ? Math.ceil(toCover / avgPrice - 1e-9) : 0
 
@@ -185,6 +199,9 @@ export function exhibitionFinancials({ exhibition, sites = [], exhibitors = [], 
     available: Math.max(0, capacity - booked),
     occupancy: percent(booked, capacity),
     fullRevenue,
+    listRevenue,
+    // list price minus what was agreed with the participants (discounts; negative when extras cost more)
+    discounts: listRevenue - fullRevenue,
     avgPrice,
     contract,
     collected,

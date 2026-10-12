@@ -1992,4 +1992,8 @@ export default {
   "📅 موعد دفع الرواتب": "📅 Salary payment dates",
   "📎 الإيصال": "📎 Receipt",
   "{0} راتب غير مرتبط بأي عقد حالي ({1}) — بقايا عقد حُذف أو أُعيد إنشاؤه أو تغيّر اسمه، ويُحسب فوق راتب العقد. تأكد واحذف المكرر من «كل المصروفات»": "{0} salary not linked to any current contract ({1}) — left from a contract deleted or made again, or renamed, counted on top of the contract's salary. Check and delete the duplicate from «All expenses»",
+  "بسعر القائمة {0} • {1} {2}": "At list price {0} \u2022 {1} {2}",
+  "خصومات": "discounts",
+  "إضافات": "extras",
+  "منها خصومات على العقود": "Of which contract discounts",
 }
