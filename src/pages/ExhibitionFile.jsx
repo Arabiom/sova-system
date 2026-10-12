@@ -78,6 +78,11 @@ function Summary({ f, internal }) {
                 <span>
                   {tr('الصافي المتوقع')} <strong className={f.netAtFull >= 0 ? 'text-suc' : 'text-dng'}>{formatOMR(f.netAtFull)}</strong>
                 </span>
+                {Math.abs(f.discounts) > 0.0005 && (
+                  <span className="muted">
+                    {tr('بسعر القائمة {0} • {1} {2}', [formatOMR(f.listRevenue), f.discounts > 0 ? tr('خصومات') : tr('إضافات'), formatOMR(Math.abs(f.discounts))])}
+                  </span>
+                )}
                 <span className="muted">{tr('متوسط سعر الموقع {0}', [formatOMR(f.avgPrice)])}</span>
               </span>
             }

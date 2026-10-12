@@ -114,9 +114,10 @@ export default function Dashboard() {
   const withBalance = exhibitors.filter((e) => balanceOf(e) > 0).length
   const activeList = exhibitions.filter((e) => !['منتهي', 'ملغى'].includes(e.status))
   const active = activeList.length
-  // Income if every site of the upcoming / running exhibitions is sold (planning ones not yet).
+  // Income if every site of the upcoming / running exhibitions is sold — booked ones at their
+  // agreed contract (after discounts), free ones at their price (planning ones not yet).
   const expectedIncome = activeList.filter((ex) => !isPlanning(ex)).reduce(
-    (t, ex) => t + exhibitionFinancials({ exhibition: ex, sites: sites.filter((s) => s.exhibition_id === ex.id) }, DEFAULT_TIERS).fullRevenue,
+    (t, ex) => t + exhibitionFinancials({ exhibition: ex, sites: sites.filter((s) => s.exhibition_id === ex.id), exhibitors }, DEFAULT_TIERS).fullRevenue,
     0,
   )
   const exhibitorsOf = (id) => exhibitors.filter((e) => e.exhibition_id === id)

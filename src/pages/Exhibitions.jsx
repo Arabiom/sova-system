@@ -124,6 +124,7 @@ export default function Exhibitions() {
                   ...(money
                     ? [
                         [tr('الإيراد عند البيع الكامل'), formatOMR(stats.fullRevenue)],
+                        ...(stats.discounts > 0.0005 ? [[tr('منها خصومات على العقود'), `− ${formatOMR(stats.discounts)}`, 'muted']] : []),
                         [tr('المصروفات المتوقعة'), formatOMR(stats.expensesTotal), 'text-dng'],
                         [tr('الصافي عند البيع الكامل'), formatOMR(stats.netAtFull), stats.netAtFull >= 0 ? 'text-suc' : 'text-dng'],
                         [tr('إجمالي العقود'), formatOMR(stats.contract)],

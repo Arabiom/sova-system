@@ -255,3 +255,22 @@ describe('payments, references and errors', () => {
     expect(csv).toContain("'@SUM(A1)")
   })
 })
+
+describe('full sale after discounts', () => {
+  it('counts a booked site at its participant’s contract, a free one at its price', () => {
+    const sites = [
+      { id: 's1', price: 200, exhibitor_id: 'a' },
+      { id: 's2', price: 200, exhibitor_id: 'a' }, // one participant, two sites: their contract once
+      { id: 's3', price: 150, exhibitor_id: 'b' },
+      { id: 's4', price: 100, exhibitor_id: null },
+    ]
+    const exhibitors = [
+      { id: 'a', exhibition_id: 'x', contract: 350 },
+      { id: 'b', exhibition_id: 'x', contract: 0 }, // free participant
+    ]
+    const f = exhibitionFinancials({ exhibition: { id: 'x' }, sites, exhibitors }, DEFAULT_TIERS)
+    expect(f.listRevenue).toBe(650)
+    expect(f.fullRevenue).toBe(350 + 0 + 100)
+    expect(f.discounts).toBe(200)
+  })
+})
