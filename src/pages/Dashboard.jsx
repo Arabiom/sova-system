@@ -1,6 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { healthChecks } from '../lib/health.js'
 import { listBookings } from '../api/bookings.js'
+import { listCompanyExpenses } from '../api/companyExpenses.js'
+import { listObligations } from '../api/obligations.js'
 import { listExpenses, listSites, listSponsors } from '../api/exhibitionFile.js'
 import { listStaffExpenses } from '../api/staffExpenses.js'
 import { HealthBadge } from '../components/PlanHealth.jsx'
@@ -17,7 +19,7 @@ import { ProgressRow } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { COMPANY, DEFAULT_TIERS } from '../lib/constants.js'
-import { balanceOf, collectionAlerts, exhibitionFinancials, isConfirmed, isPlanning, occupancyOf, summarize, sumBy, vatEnabled, withVat, withoutPlanning } from '../lib/finance.js'
+import { balanceOf, collectionAlerts, companyOverview, exhibitionFinancials, isConfirmed, isPlanning, occupancyOf, summarize, sumBy, vatEnabled, withVat, withoutPlanning } from '../lib/finance.js'
 import { exhibitionTitle, formatDate, formatOMR, isolateLtr, monthOf } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { useAuth, useCan } from '../context/AuthContext.jsx'
@@ -34,8 +36,13 @@ const load = async () => {
   ])
   const tasks = await listTasks().catch(() => null)
   // For each exhibition's verdict (finance roles; others simply get nothing back).
-  const [sponsors, staffExpenses] = await Promise.all([listSponsors().catch(() => []), listStaffExpenses().catch(() => [])])
-  return { exhibitions, exhibitors, payments: payments.filter(isConfirmed), awaiting: payments.filter((p) => !isConfirmed(p)), bookings, sites, expenses, tasks, sponsors, staffExpenses }
+  const [sponsors, staffExpenses, companyExpenses, obligations] = await Promise.all([
+    listSponsors().catch(() => []),
+    listStaffExpenses().catch(() => []),
+    listCompanyExpenses().catch(() => []),
+    listObligations().catch(() => []),
+  ])
+  return { exhibitions, exhibitors, payments: payments.filter(isConfirmed), awaiting: payments.filter((p) => !isConfirmed(p)), bookings, sites, expenses, tasks, sponsors, staffExpenses, companyExpenses, obligations }
 }
 
 const barColor = (status) =>
@@ -108,7 +115,10 @@ export default function Dashboard() {
   const myTasks = (tasks || []).filter((t) => t.assigned_to === uid && t.status !== TASK_DONE)
   const myOverdue = myTasks.filter((t) => isOverdue(t)).length
   // Money totals leave out exhibitions still in planning (counted once they are «قادم»).
-  const totals = summarize(withoutPlanning(data).exhibitors)
+  const live = withoutPlanning(data)
+  const totals = summarize(live.exhibitors)
+  // Every expense (exhibitions, company, staff claims) — the same figures as the finance page.
+  const spend = companyOverview(live)
   const pending = bookings.filter((b) => b.status === 'معلق').length
   const confirmed = exhibitors.filter((e) => e.status === 'مؤكد').length
   const withBalance = exhibitors.filter((e) => balanceOf(e) > 0).length
@@ -199,6 +209,33 @@ export default function Dashboard() {
         ) : (
           <StatCard label={tr('الدخل الممكن من المعارض')} value={formatOMR(expectedIncome)} sub={tr('بيع كل المواقع في المعارض القادمة والجارية')} accent="var(--suc)" icon="🏆" onClick={() => go('/finance')} />
         )}
+      </div>
+      <div className="grid-2 mt-16">
+        <StatCard
+          label={tr('إجمالي المصروفات')}
+          value={formatOMR(spend.expensesAll)}
+          sub={
+            <span className="potential-lines">
+              <span>
+                {tr('مدفوع')} <strong className="text-suc">{formatOMR(spend.expensesPaidAll)}</strong>
+              </span>
+              <span>
+                {tr('مستحق الدفع')} <strong className="text-dng">{formatOMR(spend.payable)}</strong>
+              </span>
+            </span>
+          }
+          accent="var(--dng)"
+          icon="🧾"
+          onClick={() => go('/finance?tab=expenses')}
+        />
+        <StatCard
+          label={tr('الرصيد النقدي')}
+          value={formatOMR(spend.cash)}
+          sub={tr('المحصّل + الرعايات − المصروفات المدفوعة')}
+          accent={spend.cash >= 0 ? 'var(--suc)' : 'var(--dng)'}
+          icon="👛"
+          onClick={() => go('/finance?tab=ledger')}
+        />
       </div>
         </>
       )}
