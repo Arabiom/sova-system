@@ -4809,3 +4809,24 @@ body {
   display: block;
   margin-top: 6px;
 }
+
+/* A newer version of the site is out: offer a reload */
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 12px 24px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--info-b, #e8f1fb);
+  color: var(--info, #1f5b99);
+  font-weight: 700;
+  font-size: 13px;
+}
+@media (max-width: 700px) {
+  .update-banner {
+    margin: 10px 12px 0;
+  }
+}
