@@ -16,9 +16,15 @@ const baisa = (value) => Math.round(num(value) * 1000) / 1000
 export function companyOutflows(x) {
   const out = (x.payments || []).map((p) => ({ id: p.id, date: p.date, amount: num(p.amount), part: true }))
   const recorded = baisa(out.reduce((t, p) => t + p.amount, 0))
-  if (x.paid !== false && num(x.amount) - recorded > 0.0005) out.push({ id: 'rest', date: x.date, amount: baisa(num(x.amount) - recorded), part: false })
+  if (x.paid !== false && !isSettled(x) && num(x.amount) - recorded > 0.0005) out.push({ id: 'rest', date: x.date, amount: baisa(num(x.amount) - recorded), part: false })
   return out
 }
+
+/** A fixed expense's own record closed at what was paid (a deduction): the rest is not owed. */
+export const isSettled = (x) => x.paid !== false && String(x.notes || '').split(' • ').some((n) => n.startsWith('تسوية نهائية'))
+
+/** What a company expense costs: its amount, or what was paid of it once settled for less. */
+export const companyCostOf = (x) => (isSettled(x) ? companyPaidOf(x) : num(x.amount))
 
 /** What has been paid of a company expense so far (all of it once marked paid). */
 export const companyPaidOf = (x) => baisa(companyOutflows(x).reduce((t, p) => t + p.amount, 0))
@@ -259,7 +265,7 @@ export function companyOverview({ exhibitors = [], payments = [], expenses = [],
 
   const exhibitionExpenses = sumBy(expenses, 'amount')
   const exhibitionExpensesPaid = sumBy(expenses.filter((x) => x.paid), 'amount')
-  const company = sumBy(companyExpenses, 'amount')
+  const company = companyExpenses.reduce((t, x) => t + companyCostOf(x), 0)
   // a salary paid in parts counts what was paid so far
   const companyPaid = companyExpenses.reduce((t, x) => t + companyPaidOf(x), 0)
   const claims = staffExpenses.filter((x) => APPROVED_CLAIMS.includes(x.status))
@@ -425,13 +431,13 @@ export function allExpenses({ expenses = [], companyExpenses = [], staffExpenses
       date: x.date,
       description: x.description,
       category: x.category || '',
-      amount: num(x.amount),
+      amount: companyCostOf(x),
       exhibition_id: null,
       paid: x.paid !== false,
       counted: true,
       // paid in parts: what was paid so far and what is still to pay
       paidSoFar: companyPaidOf(x),
-      remaining: baisa(Math.max(0, num(x.amount) - companyPaidOf(x))),
+      remaining: baisa(Math.max(0, companyCostOf(x) - companyPaidOf(x))),
       payments: x.payments || [],
       due_date: x.due_date || '',
       pay_from: x.pay_from || '',
