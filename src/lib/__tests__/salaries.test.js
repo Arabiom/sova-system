@@ -146,6 +146,17 @@ describe('paying a salary in parts', async () => {
     expect(salary()).toMatchObject({ paid: false, payments: [] })
   })
 
+  it('settling a fixed salary’s own record counts only what was paid, and keeps its amount for the next months', async () => {
+    Object.assign(db.company_expenses[0], { series_id: null, period: null, recurring: true, notes: 'عقود الفريق' })
+    await payCompanyExpense(salary(), { amount: 40, date: '2026-09-28', settle: true })
+    expect(salary()).toMatchObject({ paid: true, amount: 325 })
+    expect(companyOverview({ companyExpenses: [salary()] })).toMatchObject({ company: 40, expensesPaidAll: 40, payable: 0 })
+    expect(allExpenses({ companyExpenses: [salary()] })[0]).toMatchObject({ amount: 40, remaining: 0, paid: true })
+    expect(ledger({ companyExpenses: [salary()] }).map((r) => r.amount)).toEqual([-40])
+    await deleteExpensePayment(salary(), salary().payments[0])
+    expect(salary()).toMatchObject({ paid: false, notes: 'عقود الفريق' })
+  })
+
   it('an expense marked paid before parts existed still counts in full on its date', () => {
     const old = { id: 'r', date: '2026-09-01', amount: 150, paid: true }
     expect(companyOverview({ companyExpenses: [old] }).expensesPaidAll).toBe(150)

@@ -133,6 +133,9 @@ export async function saveCompanyExpense(form, { id, receiptFile, oldReceipt } =
 
 export const setCompanyExpensePaid = (id, paid) => unwrap(table().update({ paid }).eq('id', id))
 
+/** Written in the notes of a fixed expense's own record closed at less than its amount. */
+export const SETTLED_NOTE = 'تسوية نهائية'
+
 /** Total paid so far of a company expense (its parts), whatever its «paid» mark. */
 export const paidSoFar = (x) => Math.round((x.payments || []).reduce((t, p) => t + num(p.amount), 0) * 1000) / 1000
 
@@ -160,7 +163,14 @@ export async function payCompanyExpense(x, { amount, date = todayISO(), note, re
   if (error) throw error
   const total = Math.round((paidSoFar(x) + value) * 1000) / 1000
   if (total >= num(x.amount) - 0.0005) await unwrap(table().update({ paid: true }).eq('id', x.id))
-  else if (settle) await unwrap(table().update(x.recurring ? { paid: true } : { paid: true, amount: total }).eq('id', x.id))
+  else if (settle) {
+    // A fixed expense's own record keeps its amount (the coming months are made from it), so
+    // the settlement is written in its notes: only what was paid counts (settledOf).
+    const patch = x.recurring
+      ? { paid: true, notes: [x.notes, `${SETTLED_NOTE}: دُفع ${total.toFixed(3)} من ${num(x.amount).toFixed(3)}`].filter(Boolean).join(' • ') }
+      : { paid: true, amount: total }
+    await unwrap(table().update(patch).eq('id', x.id))
+  }
 }
 
 /** Remove one recorded payment; the expense is open again if what is left falls short. */
@@ -168,13 +178,19 @@ export async function deleteExpensePayment(x, payment) {
   await unwrap(paymentsTable().delete().eq('id', payment.id))
   await removeFile(RECEIPT_BUCKET, payment.receipt_path)
   const left = paidSoFar({ payments: (x.payments || []).filter((p) => p.id !== payment.id) })
-  if (left < num(x.amount) - 0.0005 && x.paid !== false) await unwrap(table().update({ paid: false }).eq('id', x.id))
+  if (left < num(x.amount) - 0.0005 && x.paid !== false) await unwrap(table().update(reopen(x)).eq('id', x.id))
+}
+
+/** Open again: unpaid, and no longer settled. */
+const reopen = (x) => {
+  const notes = String(x.notes || '').split(' • ').filter((n) => !n.startsWith(SETTLED_NOTE)).join(' • ')
+  return notes === (x.notes || '') ? { paid: false } : { paid: false, notes }
 }
 
 /** Mark unpaid: its recorded payments are removed too, so nothing is counted as paid. */
 export async function unpayCompanyExpense(x) {
   for (const p of x.payments || []) await deleteExpensePayment({ ...x, paid: false }, p)
-  await unwrap(table().update({ paid: false }).eq('id', x.id))
+  await unwrap(table().update(reopen(x)).eq('id', x.id))
 }
 
 export async function deleteCompanyExpense(x) {
