@@ -1996,4 +1996,6 @@ export default {
   "خصومات": "discounts",
   "إضافات": "extras",
   "منها خصومات على العقود": "Of which contract discounts",
+  "🔄 صدر تحديث جديد للنظام — حدّث الصفحة لتعمل على آخر نسخة": "🔄 A new version of the system is out — reload to use the latest",
+  "تحديث الآن": "Update now",
 }

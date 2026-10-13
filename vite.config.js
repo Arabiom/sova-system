@@ -7,7 +7,11 @@ const stamp = `${new Date().toISOString().slice(0, 10)} • ${(process.env.COMMI
 export default defineConfig({
   // GitHub Pages serves the site under /sova-system/ (BASE_PATH set by its workflow); Netlify at /.
   base: process.env.BASE_PATH || '/',
-  plugins: [react()],
+  plugins: [
+    react(),
+    // version.json next to the site: open pages compare it with their own build and offer a reload.
+    { name: 'version-file', generateBundle() { this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ build: stamp }) }) } },
+  ],
   define: { __BUILD__: JSON.stringify(stamp) },
   build: {
     // jsPDF + html2canvas form one large chunk, but it is only downloaded when a PDF is printed.

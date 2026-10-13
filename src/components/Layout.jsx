@@ -9,6 +9,7 @@ import LanguageSwitch from './LanguageSwitch.jsx'
 import { Glyph } from './Glyph.jsx'
 import Icon from './Icon.jsx'
 import { useActivityTracker } from '../lib/useActivityTracker.js'
+import { useUpdateAvailable } from '../lib/useUpdateCheck.js'
 import { tr, uiLocale } from '../lib/i18n.js'
 
 /** The line icon of each page (menu and top bar). */
@@ -164,6 +165,7 @@ export default function Layout() {
   const pendingCount = usePendingCount()
   const { role } = useAuth()
   useActivityTracker(Boolean(role))
+  const updated = useUpdateAvailable()
   const page = NAV.find((item) => item.path && location.pathname.startsWith(item.path)) || NAV[1]
 
   return (
@@ -172,6 +174,14 @@ export default function Layout() {
       {menuOpen && <div className="sidebar-overlay" onClick={() => setMenuOpen(false)} />}
       <div className="main">
         <Topbar page={page} onMenu={() => setMenuOpen(true)} />
+        {updated && (
+          <div className="update-banner" role="status">
+            <span>{tr('🔄 صدر تحديث جديد للنظام — حدّث الصفحة لتعمل على آخر نسخة')}</span>
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => window.location.reload()}>
+              {tr('تحديث الآن')}
+            </button>
+          </div>
+        )}
         <main key={location.pathname} className="content fade-in">
           <Suspense fallback={<Loading />}>
             <Outlet />
