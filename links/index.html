@@ -41,6 +41,58 @@
         تواصل معنا على الواتساب
       </a>
 
+      <!-- Leave your details: the request lands in «طلبات الحجز» of the internal system. -->
+      <details class="lead" data-lead>
+        <summary class="btn btn-line btn-lead" data-track="lead_open">
+          <span class="txt">سجّل بياناتك ونتواصل معك</span>
+          <span class="en">Leave your details — we'll call you</span>
+        </summary>
+        <form class="form" data-lead-form novalidate>
+          <label class="field">
+            <span class="lbl">الاسم <b aria-hidden="true">*</b></span>
+            <input id="lead-name" name="name" autocomplete="name" required maxlength="120" />
+          </label>
+          <label class="field">
+            <span class="lbl">رقم الجوال (واتساب) <b aria-hidden="true">*</b></span>
+            <input id="lead-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" dir="ltr" placeholder="9XXXXXXX" required maxlength="20" />
+          </label>
+          <label class="field">
+            <span class="lbl">الجهة أو المشروع <span class="opt">(اختياري)</span></span>
+            <input id="lead-brand" name="brand" autocomplete="organization" maxlength="120" />
+          </label>
+          <fieldset class="field">
+            <legend class="lbl">الخدمة المطلوبة <b aria-hidden="true">*</b></legend>
+            <div class="chips">
+              <label class="chip"><input type="radio" name="service" value="تنظيم معرض" required /><span>تنظيم معرض</span></label>
+              <label class="chip"><input type="radio" name="service" value="تصميم جناح وتنفيذه" /><span>تصميم جناح</span></label>
+              <label class="chip"><input type="radio" name="service" value="تأجير الخيام والتجهيزات" /><span>تأجير تجهيزات</span></label>
+              <label class="chip"><input type="radio" name="service" value="رحلات الأعمال" /><span>رحلات الأعمال</span></label>
+              <label class="chip"><input type="radio" name="service" value="المشاركة في معرض" /><span>المشاركة في معرض</span></label>
+              <label class="chip"><input type="radio" name="service" value="استفسار آخر" /><span>أخرى</span></label>
+            </div>
+          </fieldset>
+          <fieldset class="field">
+            <legend class="lbl">طريقة التواصل المفضّلة</legend>
+            <div class="chips">
+              <label class="chip"><input type="radio" name="via" value="واتساب" checked /><span>واتساب</span></label>
+              <label class="chip"><input type="radio" name="via" value="اتصال" /><span>اتصال</span></label>
+            </div>
+          </fieldset>
+          <label class="field">
+            <span class="lbl">تفاصيل طلبك <span class="opt">(اختياري)</span></span>
+            <textarea id="lead-note" name="note" rows="3" maxlength="700"></textarea>
+          </label>
+          <!-- left empty by people; bots fill it -->
+          <input class="trap" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
+          <p class="error" data-lead-error role="alert" hidden></p>
+          <button class="btn btn-main btn-send" type="submit" data-track="lead_send">إرسال</button>
+        </form>
+        <div class="done" data-lead-done role="status" hidden>
+          <p class="txt">وصلنا طلبك، شكراً لك</p>
+          <p class="sub">سنتواصل معك على رقمك في أقرب وقت.</p>
+        </div>
+      </details>
+
       <!-- «موقعنا الرسمي»: hidden until the company has a public website. -->
 
       <section class="block" aria-labelledby="services-title">

@@ -17,6 +17,10 @@
   margin: 0;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html {
   background: var(--navy);
   -webkit-text-size-adjust: 100%;
@@ -246,4 +250,172 @@ body {
   .btn {
     transition: none;
   }
+}
+
+/* «سجّل بياناتك ونتواصل معك» — opens a short form in place. */
+.lead {
+  margin-top: 12px;
+}
+
+.btn-lead {
+  list-style: none;
+  cursor: pointer;
+  border-color: rgba(250, 99, 27, 0.55);
+}
+
+.btn-lead::-webkit-details-marker {
+  display: none;
+}
+
+.lead[open] .btn-lead {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.form,
+.done {
+  display: grid;
+  gap: 16px;
+  padding: 20px 18px 22px;
+  border: 1px solid rgba(250, 99, 27, 0.55);
+  border-top: 0;
+  border-radius: 0 0 14px 14px;
+  background: rgba(244, 238, 228, 0.03);
+}
+
+.done {
+  text-align: center;
+  gap: 4px;
+}
+
+.done .txt {
+  font-family: var(--head);
+  font-size: 18px;
+}
+
+.done .sub {
+  color: var(--mist);
+  font-size: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+
+.field .lbl {
+  font-size: 14px;
+  color: var(--ivory);
+  padding: 0;
+}
+
+.field .lbl b {
+  color: var(--orange);
+  font-weight: 500;
+}
+
+.field .opt {
+  color: var(--mist);
+  font-size: 12.5px;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--navy);
+  color: var(--ivory);
+  font: inherit;
+  font-size: 16px; /* 16px keeps iPhone from zooming in */
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.field input::placeholder {
+  color: rgba(185, 192, 212, 0.55);
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: 2px solid var(--orange);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  position: relative;
+}
+
+.chip input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+}
+
+.chip span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 14px;
+  color: var(--ivory);
+  cursor: pointer;
+}
+
+.chip input:checked + span {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.chip input:focus-visible + span {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+.trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.error {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(250, 99, 27, 0.14);
+  color: var(--ivory);
+  font-size: 14px;
+}
+
+.btn-send {
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.btn-send:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }
