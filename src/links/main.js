@@ -51,6 +51,49 @@ document.addEventListener('click', (e) => {
 
 if (SHOW_EVENTS) showEvents()
 
+// ── «سجّل بياناتك»: a request into «طلبات الحجز» (the same public function as the booking page)
+const lead = document.querySelector('[data-lead]')
+const form = document.querySelector('[data-lead-form]')
+const errorBox = document.querySelector('[data-lead-error]')
+const api = () => import('../api/publicBooking.js')
+// Start loading the sender as soon as the form opens, so pressing «إرسال» is quick.
+lead.addEventListener('toggle', () => lead.open && api())
+
+const fail = (text, field) => {
+  errorBox.textContent = text
+  errorBox.hidden = false
+  field?.focus()
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault()
+  errorBox.hidden = true
+  const f = form.elements
+  if (f.website.value) return // a bot filled the hidden field
+  const name = f.name.value.trim()
+  const phone = f.phone.value.trim()
+  const service = f.service.value
+  if (name.length < 2) return fail('اكتب اسمك', f.name)
+  if (phone.replace(/\D/g, '').length < 8) return fail('رقم الجوال غير صحيح — 8 أرقام على الأقل', f.phone)
+  if (!service) return fail('اختر الخدمة المطلوبة', f.service[0])
+  const note = f.note.value.trim()
+  const message = [`من صفحة إنستغرام — ${service}`, `التواصل المفضّل: ${f.via.value}`, note].filter(Boolean).join('\n')
+  const button = form.querySelector('button[type=submit]')
+  button.disabled = true
+  button.textContent = 'جاري الإرسال...'
+  try {
+    const { KIND_INQUIRY, submitPublicBooking } = await api()
+    await submitPublicBooking({ kind: KIND_INQUIRY, manager: name, phone, brand: f.brand.value.trim(), category: service, message })
+    form.hidden = true
+    document.querySelector('[data-lead-done]').hidden = false
+  } catch (err) {
+    fail(err.message || 'تعذّر إرسال الطلب حالياً. تواصل معنا عبر واتساب.')
+  } finally {
+    button.disabled = false
+    button.textContent = 'إرسال'
+  }
+})
+
 async function showEvents() {
   const { listPublicExhibitions } = await import('../api/publicBooking.js')
   const list = await listPublicExhibitions().catch(() => [])
