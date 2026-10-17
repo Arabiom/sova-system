@@ -1,0 +1,249 @@
+/* Instagram bio link page — the Instagram account's identity (navy, orange, ivory). */
+:root {
+  --navy: #141c33;
+  --navy-2: #1b2542;
+  --orange: #fa631b;
+  --ivory: #f4eee4;
+  --mist: #b9c0d4;
+  --line: rgba(244, 238, 228, 0.18);
+  --head: 'Reem Kufi', 'IBM Plex Sans Arabic', sans-serif;
+  --body: 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --latin: 'Cormorant Garamond', Georgia, serif;
+  --nums: 'Alexandria', 'IBM Plex Sans Arabic', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html {
+  background: var(--navy);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(120% 60% at 50% -10%, rgba(250, 99, 27, 0.1), transparent 60%),
+    var(--navy);
+  color: var(--ivory);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.bio {
+  position: relative;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 48px 20px calc(40px + env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+
+/* The eight-point star, faint, behind the header. */
+.bio::before {
+  content: '';
+  position: absolute;
+  top: -70px;
+  inset-inline-start: -70px;
+  width: 220px;
+  height: 220px;
+  background: var(--orange);
+  opacity: 0.07;
+  clip-path: polygon(50% 0, 63% 20%, 85% 15%, 80% 37%, 100% 50%, 80% 63%, 85% 85%, 63% 80%, 50% 100%, 37% 80%, 15% 85%, 20% 63%, 0 50%, 20% 37%, 15% 15%, 37% 20%);
+  pointer-events: none;
+}
+
+.head {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.logo {
+  display: block;
+  width: 220px;
+  max-width: 70%;
+  height: auto;
+  margin: 0 auto 28px;
+}
+
+.name {
+  font-family: var(--head);
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1.4;
+}
+
+.en {
+  display: block;
+  font-family: var(--latin);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--mist);
+  direction: ltr;
+  letter-spacing: 0.02em;
+}
+
+.tagline {
+  margin-top: 18px;
+  text-wrap: balance;
+  font-size: 15px;
+  color: var(--ivory);
+}
+
+.head .en + .tagline {
+  margin-top: 18px;
+  text-wrap: balance;
+}
+
+.block {
+  margin-top: 36px;
+}
+
+.title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--head);
+  font-weight: 500;
+  font-size: 18px;
+}
+
+.title .en {
+  font-size: 14px;
+}
+
+.btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  color: var(--ivory);
+  text-align: center;
+  text-decoration: none;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn + .btn {
+  margin-top: 12px;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:focus-visible {
+  outline: 3px solid var(--orange);
+  outline-offset: 3px;
+}
+
+/* Navy text on orange: readable (contrast above 4.5). */
+.btn-main {
+  flex-direction: row;
+  gap: 10px;
+  min-height: 60px;
+  background: var(--orange);
+  color: var(--navy);
+  font-weight: 600;
+  font-size: 17px;
+  box-shadow: 0 10px 30px -12px rgba(250, 99, 27, 0.6);
+}
+
+.btn-main .ico {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+.btn-line {
+  border: 1px solid var(--line);
+  background: rgba(244, 238, 228, 0.03);
+}
+
+.btn-line .txt {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.btn-line .sub {
+  font-size: 13.5px;
+  color: var(--mist);
+}
+
+.btn-line .en {
+  font-size: 13.5px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.row + .row {
+  margin-top: 12px;
+}
+
+.row .btn + .btn {
+  margin-top: 0;
+}
+
+.btn-soft {
+  background: var(--navy-2);
+  border: 1px solid transparent;
+}
+
+.btn-soft .lbl {
+  font-size: 13px;
+  color: var(--mist);
+}
+
+.num {
+  font-family: var(--nums);
+  font-size: 15px;
+}
+
+@media (hover: hover) {
+  .btn-line:hover,
+  .btn-soft:hover {
+    border-color: rgba(250, 99, 27, 0.6);
+  }
+  .btn-main:hover {
+    background: #ff7433;
+  }
+}
+
+.foot {
+  margin-top: 44px;
+  text-align: center;
+  color: var(--mist);
+  font-size: 14px;
+}
+
+.foot .star {
+  width: 20px;
+  height: 20px;
+  fill: var(--orange);
+  margin-bottom: 10px;
+}
+
+.foot p + p {
+  margin-top: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+}

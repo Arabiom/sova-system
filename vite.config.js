@@ -14,6 +14,8 @@ export default defineConfig({
   ],
   define: { __BUILD__: JSON.stringify(stamp) },
   build: {
+    // Two pages: the app, and the Instagram bio link page (/links/) — a light page of its own.
+    rollupOptions: { input: { main: 'index.html', links: 'links/index.html' } },
     // jsPDF + html2canvas form one large chunk, but it is only downloaded when a PDF is printed.
     chunkSizeWarningLimit: 700,
   },
