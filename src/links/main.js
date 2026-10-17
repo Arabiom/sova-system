@@ -51,16 +51,40 @@ document.addEventListener('click', (e) => {
 
 if (SHOW_EVENTS) showEvents()
 
-// ── «سجّل بياناتك»: a request into «طلبات الحجز» (the same public function as the booking page)
-const lead = document.querySelector('[data-lead]')
+// ── «سجّل بياناتك»: a request into «طلبات الحجز» through the public submit_booking function
+// (migration 026), called directly as a visitor: no account session, nothing else to load.
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+const REFUSED = {
+  invalid_name: 'اكتب اسمك',
+  invalid_phone: 'رقم الجوال غير صحيح — 8 أرقام على الأقل',
+  too_long: 'أحد الحقول أطول من المسموح',
+  too_many: 'استلمنا عدة طلبات من هذا الرقم خلال ساعة — سنتواصل معك قريباً',
+}
+
+async function sendLead(row) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/submit_booking`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(row),
+  })
+  if (res.ok) return
+  const body = await res.json().catch(() => ({}))
+  const known = Object.keys(REFUSED).find((k) => String(body.message || '').includes(k))
+  const err = new Error(known ? REFUSED[known] : 'تعذّر إرسال الطلب حالياً.')
+  err.code = known ? '' : body.code || String(res.status)
+  throw err
+}
+
 const form = document.querySelector('[data-lead-form]')
 const errorBox = document.querySelector('[data-lead-error]')
-const api = () => import('../api/publicBooking.js')
-// Start loading the sender as soon as the form opens, so pressing «إرسال» is quick.
-lead.addEventListener('toggle', () => lead.open && api())
+const errorText = document.querySelector('[data-lead-error-text]')
+const fallback = document.querySelector('[data-lead-wa]')
 
-const fail = (text, field) => {
-  errorBox.textContent = text
+const fail = (text, field, waText) => {
+  errorText.textContent = text
+  fallback.hidden = !waText
+  if (waText) fallback.href = wa(waText)
   errorBox.hidden = false
   field?.focus()
 }
@@ -72,6 +96,7 @@ form.addEventListener('submit', async (e) => {
   if (f.website.value) return // a bot filled the hidden field
   const name = f.name.value.trim()
   const phone = f.phone.value.trim()
+  const brand = f.brand.value.trim()
   const service = f.service.value
   if (name.length < 2) return fail('اكتب اسمك', f.name)
   if (phone.replace(/\D/g, '').length < 8) return fail('رقم الجوال غير صحيح — 8 أرقام على الأقل', f.phone)
@@ -82,12 +107,14 @@ form.addEventListener('submit', async (e) => {
   button.disabled = true
   button.textContent = 'جاري الإرسال...'
   try {
-    const { KIND_INQUIRY, submitPublicBooking } = await api()
-    await submitPublicBooking({ kind: KIND_INQUIRY, manager: name, phone, brand: f.brand.value.trim(), category: service, message })
+    await sendLead({ p_kind: 'استفسار', p_brand: brand, p_manager: name, p_phone: phone, p_email: '', p_category: service, p_exhibition_id: null, p_package: '', p_message: message })
     form.hidden = true
     document.querySelector('[data-lead-done]').hidden = false
   } catch (err) {
-    fail(err.message || 'تعذّر إرسال الطلب حالياً. تواصل معنا عبر واتساب.')
+    // Not lost: the same details can go by WhatsApp in one tap.
+    const waText = [`${FROM_INSTAGRAM} وأرغب بالاستفسار عن: ${service}`, `الاسم: ${name}`, brand && `الجهة: ${brand}`, `الجوال: ${phone}`, `التواصل المفضّل: ${f.via.value}`, note].filter(Boolean).join('\n')
+    const offline = err instanceof TypeError // no connection
+    fail(offline ? 'تعذّر الاتصال. تحقق من الإنترنت، أو أرسل بياناتك على الواتساب.' : `${err.message.replace(/\.?$/, '')}${err.code ? ` (${err.code})` : ''}. أرسل بياناتك على الواتساب وسنتواصل معك.`, null, waText)
   } finally {
     button.disabled = false
     button.textContent = 'إرسال'

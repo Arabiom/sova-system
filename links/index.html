@@ -84,7 +84,10 @@
           </label>
           <!-- left empty by people; bots fill it -->
           <input class="trap" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
-          <p class="error" data-lead-error role="alert" hidden></p>
+          <div class="error" data-lead-error role="alert" hidden>
+            <p data-lead-error-text></p>
+            <a class="btn btn-line btn-fallback" data-lead-wa target="_blank" rel="noopener noreferrer" data-track="lead_whatsapp_fallback" hidden>أرسل بياناتك على الواتساب</a>
+          </div>
           <button class="btn btn-main btn-send" type="submit" data-track="lead_send">إرسال</button>
         </form>
         <div class="done" data-lead-done role="status" hidden>
