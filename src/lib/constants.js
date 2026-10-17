@@ -8,7 +8,8 @@ export const COMPANY = {
   cr: 'CR# 1636161',
   location: 'مسقط، سلطنة عُمان',
   phone: '79450062',
-  whatsapp: '96895594980', // 95594980 with the Oman country code, for wa.me links
+  phone2: '77474767',
+  whatsapp: '96879450062', // 79450062 with the Oman country code, for wa.me links
   email: 'axis.integrated.business@gmail.com',
   instagram: '@exhibitions.om',
   bank: 'بنك مسقط — INTEGRATED BUSINESS AXIS',
