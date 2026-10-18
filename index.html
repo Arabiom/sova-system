@@ -3,8 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0F0C08" />
+    <meta name="theme-color" content="#141C33" />
     <title>محور الأعمال المتكاملة — نظام إدارة المعارض</title>
+    <script>
+      // night mode chosen before: applied before the page draws (no white flash)
+      try { var t = localStorage.getItem('sova.theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t } catch (e) {}
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="description" content="احجز مساحتك في معارض SOVA — أرسل طلب حجز أو استفسار لمحور الأعمال المتكاملة لتنظيم المعارض." />
     <!-- Link preview when the booking link (/book) is shared on WhatsApp / Instagram -->
@@ -21,7 +25,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@500;600;700&display=swap"
     />
   </head>
   <body>

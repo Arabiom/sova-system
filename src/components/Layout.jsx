@@ -6,6 +6,7 @@ import { COMPANY } from '../lib/constants.js'
 import { can, ROLES } from '../lib/permissions.js'
 import { Loading } from './Feedback.jsx'
 import LanguageSwitch from './LanguageSwitch.jsx'
+import ThemeSwitch from './ThemeSwitch.jsx'
 import { Glyph } from './Glyph.jsx'
 import Icon from './Icon.jsx'
 import { useActivityTracker } from '../lib/useActivityTracker.js'
@@ -142,6 +143,7 @@ function Topbar({ page, onMenu }) {
         </div>
       </div>
       <div className="topbar-meta">
+        <ThemeSwitch />
         <LanguageSwitch />
         <div className="topbar-date">
           <div>{now.toLocaleDateString(uiLocale(), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
