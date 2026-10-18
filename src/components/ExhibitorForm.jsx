@@ -85,6 +85,9 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
 
   const submit = async () => {
     if (!form.brand || !form.manager || !form.exhibition_id) return toast(tr('أكمل البيانات المطلوبة'), 'error')
+    if (num(form.contract) < 0) return toast(tr('قيمة العقد لا تكون سالبة'), 'error')
+    if (num(payment.amount) < 0) return toast(tr('المبلغ المدفوع لا يكون سالباً'), 'error')
+    if (num(form.referral_pct) < 0 || num(form.referral_pct) > 100) return toast(tr('نسبة العمولة بين 0 و100'), 'error')
     if (takenBooth) return toast(tr('الموقع {0} محجوز مسبقاً لـ «{1}» في هذا المعرض', [takenBooth.numbers.join(tr('، ')), takenBooth.exhibitor.brand]), 'error')
     if (newPayment > 0 && remaining < -0.0005 && !confirm(tr('الدفعة أكبر من المتبقي على العقد ({0}). متابعة؟', [formatOMR(contract - paid)]))) return
     setSaving(true) // before the check, so a second click cannot start another save

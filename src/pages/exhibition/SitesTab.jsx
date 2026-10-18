@@ -8,7 +8,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { useCan, useCanEdit } from '../../context/AuthContext.jsx'
 import { DEFAULT_TIERS } from '../../lib/constants.js'
 import { tiersOf } from '../../lib/finance.js'
-import { formatOMR } from '../../lib/format.js'
+import { formatOMR, num } from '../../lib/format.js'
 import { matchPlan, planImport, readFirstSheet } from '../../lib/importSheet.js'
 import { askNewTier, NEW_TIER, parseRanges, siteStatus, splitNumbers, tierChoices, tierColor, tiersFromSites } from '../../lib/sites.js'
 import { packagesOf } from '../../lib/packages.js'
@@ -37,6 +37,7 @@ function TierForm({ exhibitionId, tier, takenNumbers, onClose, onSaved }) {
 
   const submit = async () => {
     if (!form.name.trim()) return toast(tr('اكتب اسم الفئة'), 'error')
+    if (num(form.price) < 0) return toast(tr('السعر لا يكون سالباً'), 'error')
     if (!editing && (!preview?.length || error)) return toast(error || tr('اكتب أرقام المواقع'), 'error')
     setSaving(true)
     try {

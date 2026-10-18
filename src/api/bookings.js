@@ -23,7 +23,7 @@ export async function acceptBooking(booking) {
     brand: booking.brand,
     manager: booking.manager,
     phone: booking.phone,
-    email: booking.email || '',
+    email: (booking.email || '').trim().toLowerCase(),
     category: booking.category || '',
     exhibition_id: booking.exhibition_id,
     booth: '—',

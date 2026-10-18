@@ -151,3 +151,10 @@ describe('transfer to the company account', async () => {
     expect(validateRegistration({ ...base, method: 'نقد' })).toEqual([])
   })
 })
+
+describe('negative amounts', () => {
+  it('refuses negative other-extras fees', () => {
+    expect(validateRegistration({ otherAmount: -5 })).toContain('رسوم الإضافات الأخرى لا تكون سالبة')
+    expect(validateRegistration({ otherAmount: 5 })).not.toContain('رسوم الإضافات الأخرى لا تكون سالبة')
+  })
+})
