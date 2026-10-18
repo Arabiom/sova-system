@@ -346,7 +346,12 @@ export default function SiteMap({ path, sites, exhibitors, tiers = [], canManage
       </div>
 
       {!placing && !placed.length && canManage && (
-        <div className="alert alert-info mt-12">{tr('اضغط «تحديد المواقع على الخارطة»، ثم اضغط على مكان كل رقم في الصورة مرة واحدة فقط. بعدها يظهر كل موقع ملوّناً حسب حالته.')}</div>
+        <div className="alert alert-info mt-12 place-start">
+          <span>{tr('ابدأ من هنا: يبدأ بالموقع رقم 1 — اضغط على مكانه في الصورة، فينتقل تلقائياً للرقم التالي. كرّر حتى آخر رقم ثم اضغط «✅ تم».')}</span>
+          <Button size="sm" onClick={startPlacing}>
+            {tr('📍 تحديد المواقع على الخارطة')}
+          </Button>
+        </div>
       )}
     </Panel>
   )

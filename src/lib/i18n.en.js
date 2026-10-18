@@ -2026,4 +2026,5 @@ export default {
   "منه متأخر": "of which late",
   "الوضع النهاري": "Day mode",
   "الوضع الليلي": "Night mode",
+  "ابدأ من هنا: يبدأ بالموقع رقم 1 — اضغط على مكانه في الصورة، فينتقل تلقائياً للرقم التالي. كرّر حتى آخر رقم ثم اضغط «✅ تم».": "Start here: it begins with site 1 — click its place on the picture and it moves on to the next number. Repeat until the last one, then press «✅ Done».",
 }
