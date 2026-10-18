@@ -2024,4 +2024,6 @@ export default {
   "الأشهر الثابتة بلا تاريخ انتهاء تُعرض لثلاثة أشهر قادمة. المبالغ المدفوعة جزئياً يظهر باقيها فقط.": "Fixed expenses with no end date are shown for the next three months. Partly paid amounts show only what is left.",
   "المطلوب دفعه هذا الشهر": "To pay this month",
   "منه متأخر": "of which late",
+  "الوضع النهاري": "Day mode",
+  "الوضع الليلي": "Night mode",
 }
