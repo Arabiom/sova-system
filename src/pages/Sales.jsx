@@ -2,7 +2,7 @@ import { useState } from 'react'
 import DateInput from '../components/DateInput.jsx'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors, updateExhibitor } from '../api/exhibitors.js'
-import { attachPaymentReceipt, confirmPayment, deletePayment, listPayments, openPaymentReceipt, recordPayment, TRANSFER_NOT_YET, updatePayment } from '../api/payments.js'
+import { attachPaymentReceipt, confirmPayment, deletePayment, findSamePayment, listPayments, openPaymentReceipt, recordPayment, TRANSFER_NOT_YET, updatePayment } from '../api/payments.js'
 import { confirmIfPaid } from '../api/registration.js'
 import Button from '../components/Button.jsx'
 import ExhibitionFilter from '../components/ExhibitionFilter.jsx'
@@ -53,7 +53,11 @@ function PaymentForm({ exhibitors, payment, onClose, onSaved }) {
     if (refund && exhibitor && +form.amount > num(exhibitor.paid) + (editing ? Math.abs(num(payment.amount)) : 0)) {
       if (!confirm(tr('المبلغ المُرجَع أكبر مما دفعه {0} ({1}). متابعة؟', [exhibitor.brand, formatOMR(exhibitor.paid)]))) return
     }
-    setSaving(true)
+    setSaving(true) // before the check, so a second click cannot start another save
+    if (!editing) {
+      const same = await findSamePayment(form)
+      if (same && !confirm(tr('سُجّلت لهذا العارض دفعة بنفس المبلغ في نفس اليوم ({0}). هل هذه دفعة أخرى فعلاً؟', [same.invoice_no || formatOMR(Math.abs(num(same.amount)))]))) return setSaving(false)
+    }
     try {
       if (editing) {
         await updatePayment(payment, form)

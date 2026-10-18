@@ -6,6 +6,7 @@ import { CATEGORIES, COMPANY } from '../lib/constants.js'
 import { formatOMR } from '../lib/format.js'
 import { tr, uiLocale } from '../lib/i18n.js'
 import { whatsappUrl } from '../lib/whatsapp.js'
+import { loadAnalytics } from '../lib/analytics.js'
 
 const EMPTY = { kind: KIND_BOOKING, brand: '', manager: '', phone: '', email: '', category: '', exhibition_id: '', package: '', message: '' }
 
@@ -75,6 +76,7 @@ export default function PublicBooking() {
   }
   useEffect(() => {
     document.title = tr('احجز مساحتك في معارض {0} — {1}', [COMPANY.brand, COMPANY.name])
+    loadAnalytics('book')
     fetchList()
   }, [])
 

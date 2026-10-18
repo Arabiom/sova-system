@@ -1,5 +1,5 @@
-import { Suspense, useEffect, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { countPendingBookings, watchBookings } from '../api/bookings.js'
 import { signOut, useAuth } from '../context/AuthContext.jsx'
 import { COMPANY } from '../lib/constants.js'
@@ -9,6 +9,7 @@ import LanguageSwitch from './LanguageSwitch.jsx'
 import ThemeSwitch from './ThemeSwitch.jsx'
 import { Glyph } from './Glyph.jsx'
 import Icon from './Icon.jsx'
+import { alertsOn, askNotifications, chime, notify, setAlertsOn } from '../lib/bookingAlerts.js'
 import { useActivityTracker } from '../lib/useActivityTracker.js'
 import { useUpdateAvailable } from '../lib/useUpdateCheck.js'
 import { tr, uiLocale } from '../lib/i18n.js'
@@ -48,15 +49,72 @@ const NAV = [
   { path: '/staff', icon: '◐', label: tr('الموظفون'), desc: tr('الحسابات والصلاحيات'), sub: tr('إدارة حسابات الموظفين وصلاحياتهم'), perm: 'staff.manage' },
 ]
 
-/** Number of pending booking requests, kept live through Supabase realtime. */
+/**
+ * Number of pending booking requests: live through Supabase realtime, and checked again every
+ * minute and whenever the tab comes back into view. `fresh` is how many arrived while the page
+ * was open (a sound and, in a background tab, a notification for each new one).
+ */
 function usePendingCount() {
   const [count, setCount] = useState(0)
+  const [fresh, setFresh] = useState(0)
+  const last = useRef(null)
+  const go = useNavigate()
   useEffect(() => {
-    const refresh = () => countPendingBookings().then(setCount).catch(() => {})
+    const refresh = () =>
+      countPendingBookings()
+        .then((n) => {
+          if (last.current != null && n > last.current) {
+            setFresh((f) => f + n - last.current)
+            if (alertsOn()) {
+              chime()
+              notify(tr('📩 طلب جديد'), tr('وصل {0} طلب حجز أو استفسار جديد', [n - last.current]), () => go('/bookings'))
+            }
+          }
+          last.current = n
+          setCount(n)
+        })
+        .catch(() => {})
     refresh()
-    return watchBookings(refresh)
-  }, [])
-  return count
+    const stop = watchBookings(refresh)
+    const id = setInterval(refresh, 60_000)
+    const onShow = () => document.visibilityState === 'visible' && refresh()
+    document.addEventListener('visibilitychange', onShow)
+    return () => {
+      stop()
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onShow)
+    }
+  }, [go])
+  // pending requests show in the tab title too: «(2) …»
+  useEffect(() => {
+    const base = document.title.replace(/^\(\d+\) /, '')
+    document.title = count > 0 ? `(${count}) ${base}` : base
+  }, [count])
+  return { count, fresh, seen: () => setFresh(0) }
+}
+
+/** The bell in the top bar: new-request alerts on or off (and the browser's permission). */
+function AlertSwitch() {
+  const [on, setOn] = useState(alertsOn)
+  const flip = async () => {
+    const next = !on
+    if (next) {
+      await askNotifications()
+      chime() // a sample, and it unlocks sound in the browser
+    }
+    setAlertsOn(next)
+    setOn(next)
+  }
+  const label = on ? tr('تنبيهات الطلبات الجديدة مفعّلة — اضغط للإيقاف') : tr('تنبيهات الطلبات الجديدة متوقفة — اضغط للتفعيل')
+  return (
+    <button type="button" className={`theme-switch ${on ? '' : 'muted'}`} onClick={flip} aria-label={label} title={label} aria-pressed={on}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M6 9.5a6 6 0 0 1 12 0c0 4.5 1.8 6 1.8 6H4.2S6 14 6 9.5" />
+        <path d="M10 19a2.2 2.2 0 0 0 4 0" />
+        {!on && <path d="M4 4l16 16" />}
+      </svg>
+    </button>
+  )
 }
 
 function Sidebar({ open, onNavigate, pendingCount }) {
@@ -143,6 +201,7 @@ function Topbar({ page, onMenu }) {
         </div>
       </div>
       <div className="topbar-meta">
+        <AlertSwitch />
         <ThemeSwitch />
         <LanguageSwitch />
         <div className="topbar-date">
@@ -164,7 +223,12 @@ function Topbar({ page, onMenu }) {
 export default function Layout() {
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
-  const pendingCount = usePendingCount()
+  const pending = usePendingCount()
+  const pendingCount = pending.count
+  const onBookings = location.pathname.startsWith('/bookings')
+  useEffect(() => {
+    if (onBookings) pending.seen()
+  }, [onBookings, pending.fresh]) // eslint-disable-line react-hooks/exhaustive-deps
   const { role } = useAuth()
   useActivityTracker(Boolean(role))
   const updated = useUpdateAvailable()
@@ -176,6 +240,19 @@ export default function Layout() {
       {menuOpen && <div className="sidebar-overlay" onClick={() => setMenuOpen(false)} />}
       <div className="main">
         <Topbar page={page} onMenu={() => setMenuOpen(true)} />
+        {pending.fresh > 0 && !onBookings && (
+          <div className="update-banner new-request-banner" role="status">
+            <span>{tr('📩 وصل {0} طلب جديد من صفحة الحجز أو إنستغرام', [pending.fresh])}</span>
+            <span className="row-actions">
+              <NavLink to="/bookings" className="btn btn-sm btn-primary">
+                {tr('عرض الطلبات')}
+              </NavLink>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={pending.seen}>
+                {tr('لاحقاً')}
+              </button>
+            </span>
+          </div>
+        )}
         {updated && (
           <div className="update-banner" role="status">
             <span>{tr('🔄 صدر تحديث جديد للنظام — حدّث الصفحة لتعمل على آخر نسخة')}</span>

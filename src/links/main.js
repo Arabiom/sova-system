@@ -1,6 +1,7 @@
 // The Instagram bio link page (/links/): contact buttons only — no prices, no React, so it
 // opens instantly. Contact details come from the company constants used across the site.
 import { COMPANY } from '../lib/constants.js'
+import { loadAnalytics } from '../lib/analytics.js'
 import './links.css'
 
 /**
@@ -21,6 +22,8 @@ const MESSAGES = {
 const wa = (text) => `https://wa.me/${COMPANY.whatsapp}?text=${encodeURIComponent(text)}`
 const phones = [COMPANY.phone, COMPANY.phone2]
 const igName = COMPANY.instagram.replace('@', '')
+
+loadAnalytics('links')
 
 const all = (sel) => document.querySelectorAll(sel)
 document.querySelector('[data-logo]').src = COMPANY.logoLight

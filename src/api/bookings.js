@@ -8,8 +8,12 @@ export const PENDING = 'معلق'
 
 export const listBookings = () => unwrap(fetchAll(() => table().select('*').order('created_at', { ascending: false })))
 
-export const countPendingBookings = () =>
-  unwrap(table().select('id', { count: 'exact', head: true }).eq('status', PENDING))
+/** How many requests are still pending (a head request: the count, no rows). */
+export async function countPendingBookings() {
+  const { count, error } = await table().select('id', { count: 'exact', head: true }).eq('status', PENDING)
+  if (error) throw error
+  return count || 0
+}
 
 /** Accept a booking: create a provisional exhibitor from it, then mark the booking accepted. */
 export async function acceptBooking(booking) {

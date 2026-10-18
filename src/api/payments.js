@@ -47,6 +47,21 @@ export async function recordPayment(form, { pending = false } = {}) {
   return row
 }
 
+/**
+ * A payment already recorded for this exhibitor with the same amount on the same day — most
+ * likely the same money entered twice. null when there is none (or it cannot be read).
+ */
+export async function findSamePayment({ exhibitor_id, amount, type, date }) {
+  if (!exhibitor_id || !(num(amount) > 0)) return null
+  const { data, error } = await table()
+    .select('id, invoice_no, amount, date')
+    .eq('exhibitor_id', exhibitor_id)
+    .eq('amount', signedAmount(type || 'كامل', amount))
+    .eq('date', date || todayISO())
+    .limit(1)
+  return error ? null : data?.[0] || null
+}
+
 export const TRANSFER_DONE = 'تم التحويل'
 export const TRANSFER_NOT_YET = 'لم يُحوَّل بعد'
 
