@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { healthChecks } from '../lib/health.js'
 import { listBookings } from '../api/bookings.js'
-import { listCompanyExpenses } from '../api/companyExpenses.js'
+import { listCompanyExpenses, monthlyFixedTotal } from '../api/companyExpenses.js'
 import { listObligations } from '../api/obligations.js'
 import { listExpenses, listSites, listSponsors } from '../api/exhibitionFile.js'
 import { listStaffExpenses } from '../api/staffExpenses.js'
@@ -19,7 +19,7 @@ import { ProgressRow } from '../components/Progress.jsx'
 import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { COMPANY, DEFAULT_TIERS } from '../lib/constants.js'
-import { balanceOf, collectionAlerts, companyOverview, exhibitionFinancials, isConfirmed, isPlanning, occupancyOf, summarize, sumBy, vatEnabled, withVat, withoutPlanning } from '../lib/finance.js'
+import { balanceOf, collectionAlerts, commitments, companyOverview, exhibitionFinancials, isConfirmed, isPlanning, occupancyOf, summarize, sumBy, vatEnabled, withVat, withoutPlanning } from '../lib/finance.js'
 import { exhibitionTitle, formatDate, formatOMR, isolateLtr, monthOf } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { useAuth, useCan } from '../context/AuthContext.jsx'
@@ -119,6 +119,7 @@ export default function Dashboard() {
   const totals = summarize(live.exhibitors)
   // Every expense (exhibitions, company, staff claims) — the same figures as the finance page.
   const spend = companyOverview(live)
+  const due = commitments(live, omanDay()) // late, and what is left to pay this month
   const pending = bookings.filter((b) => b.status === 'معلق').length
   const confirmed = exhibitors.filter((e) => e.status === 'مؤكد').length
   const withBalance = exhibitors.filter((e) => balanceOf(e) > 0).length
@@ -210,7 +211,24 @@ export default function Dashboard() {
           <StatCard label={tr('الدخل الممكن من المعارض')} value={formatOMR(expectedIncome)} sub={tr('بيع كل المواقع في المعارض القادمة والجارية')} accent="var(--suc)" icon="🏆" onClick={() => go('/finance')} />
         )}
       </div>
-      <div className="grid-2 mt-16">
+      <div className="grid-3 mt-16">
+        <StatCard
+          label={tr('المطلوب دفعه هذا الشهر')}
+          value={formatOMR(due.late + due.thisMonth)}
+          sub={
+            <span className="potential-lines">
+              <span>
+                {tr('منه متأخر')} <strong className={due.late ? 'text-dng' : 'text-suc'}>{formatOMR(due.late)}</strong>
+              </span>
+              <span>
+                {tr('الالتزام الشهري الثابت')} <strong>{formatOMR(monthlyFixedTotal(live.companyExpenses || [], omanDay()))}</strong>
+              </span>
+            </span>
+          }
+          accent={due.late ? 'var(--dng)' : 'var(--wrn)'}
+          icon="📅"
+          onClick={() => go('/finance?tab=commitments')}
+        />
         <StatCard
           label={tr('إجمالي المصروفات')}
           value={formatOMR(spend.expensesAll)}
