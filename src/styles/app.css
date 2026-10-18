@@ -3548,7 +3548,7 @@ body {
 
 /* top bar: frosted glass */
 .topbar {
-  background: color-mix(in srgb, var(--card) 82%, transparent);
+  background: color-mix(in srgb, var(--card) 96%, transparent);
   backdrop-filter: saturate(1.5) blur(12px);
   -webkit-backdrop-filter: saturate(1.5) blur(12px);
 }
@@ -5037,4 +5037,12 @@ body {
 }
 .theme-switch:active svg {
   transform: rotate(40deg);
+}
+
+.place-start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
