@@ -1,0 +1,547 @@
+/* The official site («/»): the AIB identity — navy, orange for actions, ivory, calm grey-blue.
+   Its own fixed look (like the Instagram page), whatever the system's night mode. */
+.home {
+  --n: #141c33;
+  --n2: #1b2542;
+  --o: #e95c1a;
+  --o2: #ff7a3a;
+  --iv: #f4eee4;
+  --iv2: #fbf8f3;
+  --mist: #b9c0d4;
+  --ink: #141c33;
+  --ink2: #4a5574;
+  --line: #e4dccd;
+  --head: 'Reem Kufi', 'IBM Plex Sans Arabic', sans-serif;
+  --body: 'IBM Plex Sans Arabic', Cairo, system-ui, sans-serif;
+  --latin: 'Cormorant Garamond', Georgia, serif;
+  min-height: 100vh;
+  background: var(--iv2);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.75;
+  color-scheme: light;
+}
+.home *,
+.home *::before,
+.home *::after {
+  box-sizing: border-box;
+}
+.home h1,
+.home h2,
+.home h3,
+.home p,
+.home ol,
+.home ul {
+  margin: 0;
+}
+.home a {
+  color: inherit;
+}
+.h-wrap {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-inline: max(20px, env(safe-area-inset-left, 0px));
+}
+.h-skip {
+  position: absolute;
+  inset-inline-start: 12px;
+  top: -60px;
+  z-index: 20;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--o);
+  color: var(--n) !important;
+  font-weight: 600;
+}
+.h-skip:focus {
+  top: 12px;
+}
+.home :focus-visible {
+  outline: 3px solid var(--o);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* top bar */
+.h-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(20, 28, 51, 0.96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(244, 238, 228, 0.08);
+}
+.h-bar-in {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-height: 68px;
+}
+.h-brand img {
+  display: block;
+  height: 28px;
+  width: auto;
+}
+.h-nav {
+  display: flex;
+  gap: 26px;
+  margin-inline-start: auto;
+}
+.h-nav a {
+  color: var(--mist);
+  text-decoration: none;
+  font-size: 15px;
+}
+.h-nav a:hover {
+  color: var(--iv);
+}
+.h-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-inline-start: 26px;
+}
+.home .h-staff {
+  color: var(--mist);
+  font-size: 13.5px;
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(185, 192, 212, 0.5);
+}
+.home .h-staff:hover {
+  color: var(--iv);
+}
+
+/* buttons */
+.h-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 12px 26px;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 16px;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+.h-btn:active {
+  transform: scale(0.98);
+}
+.h-btn-sm {
+  min-height: 40px;
+  padding: 8px 18px;
+  font-size: 14.5px;
+  border-radius: 11px;
+}
+/* navy text on orange: readable */
+.h-btn-main {
+  background: var(--o);
+  color: var(--n) !important;
+  box-shadow: 0 10px 28px -14px rgba(233, 92, 26, 0.75);
+}
+.h-btn-main:hover {
+  background: var(--o2);
+  transform: translateY(-1px);
+}
+.h-btn-ghost {
+  border: 1px solid rgba(244, 238, 228, 0.35);
+  color: var(--iv) !important;
+}
+.h-btn-ghost:hover {
+  border-color: var(--o2);
+}
+.h-btn-line {
+  border: 1px solid var(--line);
+  color: var(--ink) !important;
+  background: #fff;
+}
+.h-btn-line:hover {
+  border-color: var(--o);
+}
+
+/* hero */
+.h-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(900px 420px at 85% -10%, rgba(233, 92, 26, 0.16), transparent 60%),
+    linear-gradient(180deg, var(--n) 0%, var(--n2) 100%);
+  color: var(--iv);
+}
+.h-hero-in {
+  position: relative;
+  padding-block: clamp(72px, 12vw, 132px) clamp(64px, 10vw, 112px);
+}
+.h-hero-star {
+  position: absolute;
+  inset-inline-start: -90px;
+  bottom: -110px;
+  width: 420px;
+  height: 420px;
+  fill: var(--o);
+  opacity: 0.07;
+}
+.h-kicker {
+  font-family: var(--latin);
+  font-style: italic;
+  font-size: 17px;
+  color: var(--o2);
+  letter-spacing: 0.02em;
+  direction: ltr;
+  text-align: right;
+  margin-bottom: 14px !important;
+}
+.h-hero h1 {
+  font-family: var(--head);
+  font-weight: 600;
+  font-size: clamp(42px, 7vw, 76px);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.h-hero h1 span {
+  color: var(--o2);
+}
+.h-lead {
+  max-width: 640px;
+  margin-top: 22px !important;
+  font-size: clamp(16px, 1.8vw, 19px);
+  color: #d6dbe7;
+}
+.h-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 34px;
+}
+
+/* sections */
+.h-section {
+  padding-block: clamp(64px, 9vw, 104px);
+}
+.h-head {
+  max-width: 640px;
+  margin-bottom: 40px;
+}
+.h-head h2,
+.h-contact h2 {
+  font-family: var(--head);
+  font-weight: 600;
+  font-size: clamp(30px, 4.2vw, 42px);
+  line-height: 1.3;
+}
+.h-sub {
+  margin-top: 10px !important;
+  color: var(--ink2);
+  font-size: 17px;
+}
+.h-services {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+.h-service {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 26px 22px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.h-service:hover {
+  transform: translateY(-4px);
+  border-color: rgba(233, 92, 26, 0.45);
+  box-shadow: 0 18px 40px -24px rgba(20, 28, 51, 0.35);
+}
+.h-service-icon {
+  display: inline-flex;
+  width: 46px;
+  height: 46px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  border-radius: 13px;
+  background: #fdf0e8;
+  color: #b8460f;
+}
+.h-service-icon svg {
+  width: 24px;
+  height: 24px;
+}
+.h-service h3 {
+  font-family: var(--head);
+  font-weight: 600;
+  font-size: 20px;
+}
+.h-en {
+  font-family: var(--latin);
+  font-style: italic;
+  color: #6b7590;
+  direction: ltr;
+  text-align: right;
+  font-size: 15px;
+}
+.h-service p:not(.h-en) {
+  color: var(--ink2);
+  font-size: 15px;
+  flex: 1;
+}
+.h-link {
+  margin-top: 12px;
+  color: #b8460f !important;
+  font-weight: 600;
+  font-size: 14.5px;
+  text-decoration: none;
+}
+.h-link:hover {
+  text-decoration: underline;
+}
+
+/* how we work */
+.h-how {
+  background: var(--iv);
+}
+.h-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+.h-steps li {
+  position: relative;
+  padding-top: 52px;
+  counter-increment: step;
+}
+.h-steps li::before {
+  content: counter(step, arabic-indic);
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--n);
+  color: var(--iv);
+  font-weight: 600;
+}
+.h-steps li::after {
+  content: '';
+  position: absolute;
+  top: 19px;
+  inset-inline-start: 50px;
+  inset-inline-end: 0;
+  height: 1px;
+  background: var(--line);
+}
+.h-steps li:last-child::after {
+  display: none;
+}
+.h-steps h3 {
+  font-family: var(--head);
+  font-weight: 600;
+  font-size: 19px;
+  margin-bottom: 6px !important;
+}
+.h-steps p {
+  color: var(--ink2);
+  font-size: 15px;
+}
+
+/* upcoming exhibitions */
+.h-event-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+}
+.h-event {
+  display: grid;
+  gap: 8px;
+  padding: 24px;
+  border-radius: 18px;
+  background: var(--n);
+  color: var(--iv);
+}
+.h-event h3 {
+  font-family: var(--head);
+  font-size: 21px;
+}
+.h-event p {
+  color: var(--mist);
+}
+
+/* contact */
+.h-contact {
+  background: var(--n);
+  color: var(--iv);
+}
+.h-contact .h-sub {
+  color: #d6dbe7;
+}
+.h-contact .h-btn-line {
+  background: transparent;
+  color: var(--iv) !important;
+  border-color: rgba(244, 238, 228, 0.35);
+}
+.h-contact-in {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: center;
+}
+.h-cards {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  list-style: none;
+}
+.h-cards li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  background: var(--n2);
+  border: 1px solid rgba(244, 238, 228, 0.08);
+}
+.h-cards li > span:first-child {
+  color: var(--mist);
+  font-size: 14px;
+}
+.h-cards a,
+.h-card-v {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: 'Alexandria', var(--body);
+  font-size: 15px;
+  text-decoration: none;
+  color: var(--iv);
+}
+.h-cards a:hover {
+  color: var(--o2);
+}
+
+/* footer */
+.h-foot {
+  background: #0d1325;
+  color: var(--iv);
+  padding-block: 36px calc(36px + env(safe-area-inset-bottom, 0px));
+  font-size: 14.5px;
+}
+.h-foot-in {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.h-foot-star {
+  width: 18px;
+  height: 18px;
+  fill: var(--o);
+  margin-bottom: 6px;
+}
+.h-foot-muted {
+  color: #8d96ad;
+  font-size: 13px;
+}
+.h-foot-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.h-foot-links a {
+  color: var(--mist);
+  text-decoration: none;
+}
+.h-foot-links a:hover {
+  color: var(--iv);
+}
+
+/* gentle entrance */
+@keyframes hRise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.h-hero-in > *,
+.h-service,
+.h-steps li {
+  animation: hRise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.h-hero-in > :nth-child(2) {
+  animation-delay: 0.06s;
+}
+.h-hero-in > :nth-child(3) {
+  animation-delay: 0.12s;
+}
+.h-hero-in > :nth-child(4),
+.h-service:nth-child(2),
+.h-steps li:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.h-service:nth-child(3),
+.h-steps li:nth-child(3) {
+  animation-delay: 0.26s;
+}
+.h-service:nth-child(4),
+.h-steps li:nth-child(4) {
+  animation-delay: 0.34s;
+}
+
+@media (max-width: 960px) {
+  .h-services,
+  .h-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .h-steps li::after {
+    display: none;
+  }
+  .h-contact-in {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 720px) {
+  .h-nav {
+    display: none;
+  }
+  .h-bar-actions {
+    margin-inline-start: auto;
+  }
+}
+@media (max-width: 560px) {
+  .h-services,
+  .h-steps {
+    grid-template-columns: 1fr;
+  }
+  .h-hero-actions .h-btn {
+    flex: 1 1 100%;
+  }
+  .h-brand img {
+    height: 24px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+/* on light sections the kicker uses the deeper orange (readable on ivory) */
+.h-section:not(.h-contact):not(.h-events) .h-kicker {
+  color: #b8460f;
+}

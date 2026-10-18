@@ -426,3 +426,14 @@ body {
   min-height: 48px;
   font-weight: 600;
 }
+
+.btn-site {
+  margin-top: 12px;
+}
+.site-link {
+  color: var(--mist);
+  text-decoration: none;
+}
+.site-link:hover {
+  color: var(--ivory);
+}

@@ -20,6 +20,7 @@ const WhatsApp = lazy(() => import('./pages/WhatsApp.jsx'))
 const Team = lazy(() => import('./pages/Team.jsx'))
 const Staff = lazy(() => import('./pages/Staff.jsx'))
 const PublicBooking = lazy(() => import('./pages/PublicBooking.jsx'))
+const Home = lazy(() => import('./pages/Home.jsx'))
 
 /** Internal system: every page requires a signed-in staff member. */
 function Protected() {
@@ -62,7 +63,16 @@ function Allow({ permission, children }) {
 export default function App() {
   return (
     <Routes>
-      {/* The only page open without an account: the public booking / contact link. */}
+      {/* Open without an account: the official site (the main link) and the booking / contact page.
+          Everything else is the internal system, behind «دخول الموظفين». */}
+      <Route
+        path="/"
+        element={
+          <Suspense fallback={<Splash />}>
+            <Home />
+          </Suspense>
+        }
+      />
       <Route
         path="/book"
         element={

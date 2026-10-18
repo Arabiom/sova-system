@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { signIn } from '../context/AuthContext.jsx'
 import { COMPANY } from '../lib/constants.js'
 import { tr } from '../lib/i18n.js'
@@ -9,6 +10,9 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  useEffect(() => {
+    document.title = `${tr('دخول الموظفين')} — ${tr(COMPANY.systemName)}`
+  }, [])
 
   const submit = async (e) => {
     e.preventDefault()
@@ -28,6 +32,9 @@ export default function Login() {
       <div className="login-glow login-glow-a" />
       <div className="login-glow login-glow-b" />
       <LanguageSwitch className="login-lang" />
+      <Link to="/" className="login-home">
+        {tr('→ الموقع الرسمي')}
+      </Link>
       <div className="login-box slide-in">
         <div className="login-brand">
           <img className="login-logo" src={COMPANY.logoLight} alt={COMPANY.nameEn} />
