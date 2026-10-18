@@ -96,23 +96,36 @@ function usePendingCount() {
 /** The bell in the top bar: new-request alerts on or off (and the browser's permission). */
 function AlertSwitch() {
   const [on, setOn] = useState(alertsOn)
+  const perm = () => ('Notification' in window ? Notification.permission : 'unsupported')
+  const [permission, setPermission] = useState(perm)
+  const ask = on && permission === 'default' // alerts on, but the browser has not been asked yet
   const flip = async () => {
+    if (ask) {
+      setPermission(await askNotifications())
+      chime()
+      return
+    }
     const next = !on
     if (next) {
-      await askNotifications()
+      setPermission(await askNotifications())
       chime() // a sample, and it unlocks sound in the browser
     }
     setAlertsOn(next)
     setOn(next)
   }
-  const label = on ? tr('تنبيهات الطلبات الجديدة مفعّلة — اضغط للإيقاف') : tr('تنبيهات الطلبات الجديدة متوقفة — اضغط للتفعيل')
+  const label = ask
+    ? tr('اضغط للسماح بإشعارات المتصفح عند وصول طلب جديد')
+    : on
+      ? tr('تنبيهات الطلبات الجديدة مفعّلة — اضغط للإيقاف')
+      : tr('تنبيهات الطلبات الجديدة متوقفة — اضغط للتفعيل')
   return (
-    <button type="button" className={`theme-switch ${on ? '' : 'muted'}`} onClick={flip} aria-label={label} title={label} aria-pressed={on}>
+    <button type="button" className={`theme-switch bell ${on ? '' : 'muted'}`} onClick={flip} aria-label={label} title={label} aria-pressed={on}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M6 9.5a6 6 0 0 1 12 0c0 4.5 1.8 6 1.8 6H4.2S6 14 6 9.5" />
         <path d="M10 19a2.2 2.2 0 0 0 4 0" />
         {!on && <path d="M4 4l16 16" />}
       </svg>
+      {ask && <span className="bell-dot" aria-hidden="true" />}
     </button>
   )
 }

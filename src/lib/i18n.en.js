@@ -2035,4 +2035,5 @@ export default {
   "عرض الطلبات": "View requests",
   "لاحقاً": "Later",
   "سُجّلت لهذا العارض دفعة بنفس المبلغ في نفس اليوم ({0}). هل هذه دفعة أخرى فعلاً؟": "A payment of the same amount was already recorded for this exhibitor today ({0}). Is this really another payment?",
+  "اضغط للسماح بإشعارات المتصفح عند وصول طلب جديد": "Click to allow browser notifications for new requests",
 }

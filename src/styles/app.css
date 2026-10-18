@@ -5047,3 +5047,21 @@ body {
   justify-content: space-between;
   gap: 10px;
 }
+
+.theme-switch.bell {
+  position: relative;
+}
+.bell-dot {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 2px var(--card);
+}
+.new-request-banner {
+  background: color-mix(in srgb, var(--gold) 10%, var(--card));
+  border-color: color-mix(in srgb, var(--gold) 35%, var(--card));
+}
