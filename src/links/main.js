@@ -2,24 +2,16 @@
 // opens instantly. Contact details come from the company constants used across the site.
 import { COMPANY } from '../lib/constants.js'
 import { loadAnalytics } from '../lib/analytics.js'
+import { askText, SERVICES, SHOW_EVENTS, waLink } from '../lib/contact.js'
 import './links.css'
 
-/**
- * «المعارض القادمة»: kept hidden until the official approvals are in. Set to true to list the
- * upcoming exhibitions from the same public list as the booking page (names, places, dates).
- */
-const SHOW_EVENTS = false
-
-const FROM_INSTAGRAM = 'السلام عليكم، أتواصل معكم من إنستغرام'
+const FROM_INSTAGRAM = 'إنستغرام'
 const MESSAGES = {
-  main: `${FROM_INSTAGRAM} وأرغب بالاستفسار عن خدماتكم`,
-  exhibition: `${FROM_INSTAGRAM} وأرغب بالاستفسار عن تنظيم معرض لجهتنا`,
-  booth: `${FROM_INSTAGRAM} وأرغب بالاستفسار عن تصميم جناح وتنفيذه`,
-  rental: `${FROM_INSTAGRAM} وأرغب بالاستفسار عن تأجير الخيام والتجهيزات`,
-  trips: `${FROM_INSTAGRAM} وأرغب بالاستفسار عن رحلات الأعمال`,
+  main: askText(FROM_INSTAGRAM),
+  ...Object.fromEntries(SERVICES.map((x) => [x.id, askText(FROM_INSTAGRAM, x.topic)])),
 }
 
-const wa = (text) => `https://wa.me/${COMPANY.whatsapp}?text=${encodeURIComponent(text)}`
+const wa = waLink
 const phones = [COMPANY.phone, COMPANY.phone2]
 const igName = COMPANY.instagram.replace('@', '')
 
@@ -33,6 +25,10 @@ all('[data-num]').forEach((el) => {
   el.textContent = phones[el.dataset.num]
   el.dir = 'ltr'
 })
+// the official site: the main link of this same site (with where the visitor came from)
+const site = new URL(`${import.meta.env.BASE_URL}?utm_source=instagram&utm_medium=bio`, location.origin)
+all('[data-site]').forEach((a) => (a.href = site.href))
+all('[data-site-text]').forEach((a) => (a.textContent = `${location.host}${import.meta.env.BASE_URL}`.replace(/\/$/, '')))
 all('[data-mail]').forEach((a) => (a.href = `mailto:${COMPANY.email}`))
 all('[data-ig]').forEach((a) => (a.href = `https://www.instagram.com/${igName}/`))
 all('[data-ig-name]').forEach((el) => {
@@ -115,7 +111,7 @@ form.addEventListener('submit', async (e) => {
     document.querySelector('[data-lead-done]').hidden = false
   } catch (err) {
     // Not lost: the same details can go by WhatsApp in one tap.
-    const waText = [`${FROM_INSTAGRAM} وأرغب بالاستفسار عن: ${service}`, `الاسم: ${name}`, brand && `الجهة: ${brand}`, `الجوال: ${phone}`, `التواصل المفضّل: ${f.via.value}`, note].filter(Boolean).join('\n')
+    const waText = [`${askText(FROM_INSTAGRAM, service)}:`, `الاسم: ${name}`, brand && `الجهة: ${brand}`, `الجوال: ${phone}`, `التواصل المفضّل: ${f.via.value}`, note].filter(Boolean).join('\n')
     const offline = err instanceof TypeError // no connection
     fail(offline ? 'تعذّر الاتصال. تحقق من الإنترنت، أو أرسل بياناتك على الواتساب.' : `${err.message.replace(/\.?$/, '')}${err.code ? ` (${err.code})` : ''}. أرسل بياناتك على الواتساب وسنتواصل معك.`, null, waText)
   } finally {
@@ -137,7 +133,7 @@ async function showEvents() {
     a.rel = 'noopener noreferrer'
     a.dataset.track = 'event'
     const title = ex.name?.trim() || `${COMPANY.brand} ${ex.city || ''}`.trim()
-    a.href = wa(`${FROM_INSTAGRAM} وأرغب بالاستفسار عن ${title}`)
+    a.href = wa(askText(FROM_INSTAGRAM, title))
     const t = document.createElement('span')
     t.className = 'txt'
     t.textContent = title

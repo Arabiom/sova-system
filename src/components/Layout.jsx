@@ -85,11 +85,6 @@ function usePendingCount() {
       document.removeEventListener('visibilitychange', onShow)
     }
   }, [go])
-  // pending requests show in the tab title too: «(2) …»
-  useEffect(() => {
-    const base = document.title.replace(/^\(\d+\) /, '')
-    document.title = count > 0 ? `(${count}) ${base}` : base
-  }, [count])
   return { count, fresh, seen: () => setFresh(0) }
 }
 
@@ -246,6 +241,10 @@ export default function Layout() {
   useActivityTracker(Boolean(role))
   const updated = useUpdateAvailable()
   const page = NAV.find((item) => item.path && location.pathname.startsWith(item.path)) || NAV[1]
+  // the tab shows the page, and pending requests first: «(2) طلبات الحجز — نظام إدارة المعارض»
+  useEffect(() => {
+    document.title = `${pendingCount > 0 ? `(${pendingCount}) ` : ''}${tr(page.label)} — ${tr(COMPANY.systemName)}`
+  }, [pendingCount, page.label])
 
   return (
     <div className="app">

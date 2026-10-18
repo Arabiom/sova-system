@@ -5065,3 +5065,20 @@ body {
   background: color-mix(in srgb, var(--gold) 10%, var(--card));
   border-color: color-mix(in srgb, var(--gold) 35%, var(--card));
 }
+
+/* back to the official site, opposite the language switch */
+.login-home {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top, 0px));
+  inset-inline-start: 16px;
+  z-index: 2;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(244, 238, 228, 0.18);
+  color: var(--on-navy);
+  font-size: 13px;
+  text-decoration: none;
+}
+.login-home:hover {
+  border-color: var(--gold);
+}
