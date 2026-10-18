@@ -67,3 +67,24 @@ export function groupCampaigns(rows) {
   }
   return [...map.values()].sort((a, b) => (a.ended < b.ended ? 1 : -1))
 }
+
+/** Payment reminders are logged under campaigns named «تذكير بالدفع — …». */
+export const PAYMENT_REMINDER = 'تذكير بالدفع'
+
+/**
+ * When each participant was last reminded to pay: { exhibitorId → sent_at } (newest), from the
+ * WhatsApp log. Marketing sees the reminders they sent; admin and finance see everyone's.
+ */
+export async function lastPaymentReminders() {
+  const { data, error } = await supabase
+    .from('whatsapp_log')
+    .select('record_id, sent_at')
+    .like('campaign_name', `${PAYMENT_REMINDER}%`)
+    .not('record_id', 'is', null)
+    .order('sent_at', { ascending: false })
+    .limit(2000)
+  if (error) return {}
+  const out = {}
+  for (const r of data || []) out[r.record_id] ||= r.sent_at
+  return out
+}

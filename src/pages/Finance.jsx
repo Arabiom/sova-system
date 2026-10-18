@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import {
   addDueMonthlyExpenses,
@@ -43,7 +43,9 @@ import { downloadCsv } from '../lib/csv.js'
 import { allExpenses, collectionAlerts, combineFinancials, commitments, companyOverview, daysBetween, exhibitionFinancials, EXPENSE_KINDS, isConfirmed, ledger, isPlanning, monthlyFlow, paymentDeadline, receivables, sumBy, vatEnabled, withoutPlanning } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatDate, formatOMR, num, percent, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
-import { openWhatsApp, paymentReminderMessage } from '../lib/whatsapp.js'
+import { normalizePhone, openWhatsApp, paymentReminderMessage, toRecipient } from '../lib/whatsapp.js'
+import { lastPaymentReminders, logMessage, PAYMENT_REMINDER } from '../api/whatsapp.js'
+import WhatsAppQueue from '../components/WhatsAppQueue.jsx'
 import { tr } from '../lib/i18n.js'
 import Expenses, { ExpenseForm as StaffExpenseForm } from './Expenses.jsx'
 import { ExpenseForm as ExhibitionExpenseForm } from './exhibition/ExpensesTab.jsx'
@@ -439,11 +441,34 @@ function DeadlineCell({ deadline, today }) {
   )
 }
 
+/** Days since a reminder (0 = today); null when never reminded. */
+const daysSince = (iso, today) => (iso ? Math.max(0, daysBetween(String(iso).slice(0, 10), today)) : null)
+/** A participant who still owes is due for a reminder after this many days without one. */
+const REMIND_EVERY_DAYS = 7
+
 function Receivables({ data, canRemind, initialScope = 'all' }) {
   const [scope, setScope] = useState(initialScope)
+  const [reminded, setReminded] = useState({}) // exhibitorId → last reminder (sent_at)
+  const [queue, setQueue] = useState(null)
   const today = omanDay()
+  const loadReminders = () => lastPaymentReminders().then(setReminded)
+  useEffect(() => {
+    loadReminders()
+  }, [])
   const rows = receivables(data.exhibitors, data.exhibitions).filter((r) => scope === 'all' || r.exhibitor.exhibition_id === scope)
   const total = rows.reduce((t, r) => t + r.remaining, 0)
+  const ago = (e) => daysSince(reminded[e.id], today)
+  const due = rows.filter((r) => r.exhibitor.phone && (ago(r.exhibitor) == null || ago(r.exhibitor) >= REMIND_EVERY_DAYS))
+  const campaign = () => ({ id: crypto.randomUUID(), name: `${PAYMENT_REMINDER} — ${formatDate(today)}` })
+  const toItem = ({ exhibitor: e, exhibition }) => ({ recipient: toRecipient('exhibitor', e), text: paymentReminderMessage(e, exhibition) })
+
+  // One reminder: open the chat and log it, so «آخر تذكير» shows it.
+  const remindOne = (r) => {
+    const c = campaign()
+    const item = toItem(r)
+    openWhatsApp(r.exhibitor.phone, item.text)
+    logMessage({ campaignId: c.id, campaignName: c.name, source: 'exhibitor', recordId: r.exhibitor.id, name: r.exhibitor.brand, phone: normalizePhone(r.exhibitor.phone), body: item.text }).then(loadReminders)
+  }
 
   const exportCsv = () =>
     downloadCsv(`المتبقي-للتحصيل-${todayISO()}.csv`, rows, [
@@ -455,6 +480,7 @@ function Receivables({ data, canRemind, initialScope = 'all' }) {
       { label: tr('المدفوع'), value: (r) => num(r.exhibitor.paid).toFixed(3) },
       { label: tr('المتبقي'), value: (r) => r.remaining.toFixed(3) },
       { label: tr('آخر موعد للتحصيل'), value: (r) => paymentDeadline(r.exhibition) },
+      { label: tr('آخر تذكير'), value: (r) => (reminded[r.exhibitor.id] ? String(reminded[r.exhibitor.id]).slice(0, 10) : '') },
     ])
 
   return (
@@ -464,50 +490,78 @@ function Receivables({ data, canRemind, initialScope = 'all' }) {
       <Button variant="outline" onClick={exportCsv} disabled={!rows.length}>
         {tr('⬇️ تصدير Excel')}
       </Button>
+      {canRemind && (
+        <Button variant="whatsapp" onClick={() => setQueue({ items: due.map(toItem), campaign: campaign() })} disabled={!due.length}>
+          {tr('📱 تذكير من يستحق ({0})', [due.length])}
+        </Button>
+      )}
       <div className="toolbar-count">{rows.length}{' '}{tr('مشارك')}</div>
     </div>
+    {canRemind && due.length > 0 && (
+      <div className="alert alert-warning mb-12">
+        {tr('{0} مشارك عليهم مبالغ ولم يُذكَّروا منذ {1} أيام أو أكثر — اضغط «تذكير من يستحق» لإرسال رسالة لكل واحد بمبلغه، واحداً تلو الآخر.', [due.length, REMIND_EVERY_DAYS])}
+      </div>
+    )}
     <Panel icon="⏳" title={tr('المتبقي للتحصيل: {0}', [formatOMR(total)])} subtitle={tr('من عليه مبلغ متبقٍ من قيمة عقده — الأكبر أولاً') + (vatEnabled() ? tr(' • قبل الضريبة') : '')}>
       <div className="table-wrap">
         <table className="table table-numbered">
           <thead>
             <tr>
-              {[tr('المشارك'), tr('الهاتف'), tr('المعرض'), tr('العقد'), tr('المدفوع'), tr('المتبقي'), tr('آخر موعد للتحصيل'), tr('الحالة'), ''].map((h) => (
+              {[tr('المشارك'), tr('الهاتف'), tr('المعرض'), tr('العقد'), tr('المدفوع'), tr('المتبقي'), tr('آخر موعد للتحصيل'), tr('آخر تذكير'), tr('الحالة'), ''].map((h) => (
                 <th key={h}>{tr(h)}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ exhibitor: e, exhibition, remaining }) => (
-              <tr key={e.id}>
-                <td>
-                  <div className="strong">{tr(e.brand)}</div>
-                  <div className="muted tiny">{tr(e.manager)}</div>
-                </td>
-                <td className="ltr small">{e.phone || '—'}</td>
-                <td className="small">{exhibition ? <Link to={`/exhibitions/${exhibition.id}`}>{exhibitionLabel(exhibition)}</Link> : '—'}</td>
-                <td className="num">{formatOMR(e.contract)}</td>
-                <td className="num text-suc">{formatOMR(e.paid)}</td>
-                <td className="num strong text-dng">{formatOMR(remaining)}</td>
-                <td className="small nowrap">
-                  <DeadlineCell deadline={paymentDeadline(exhibition)} today={today} />
-                </td>
-                <td>
-                  <StatusBadge status={e.status} />
-                </td>
-                <td>
-                  {canRemind && e.phone && (
-                    <Button size="sm" variant="whatsapp" onClick={() => openWhatsApp(e.phone, paymentReminderMessage(e, exhibition))} title={tr('تذكير بالدفع عبر واتساب')}>
-                      {tr('📱 تذكير')}
-                    </Button>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {rows.map((r) => {
+              const { exhibitor: e, exhibition, remaining } = r
+              const days = ago(e)
+              return (
+                <tr key={e.id}>
+                  <td>
+                    <div className="strong">{tr(e.brand)}</div>
+                    <div className="muted tiny">{tr(e.manager)}</div>
+                  </td>
+                  <td className="ltr small">{e.phone || '—'}</td>
+                  <td className="small">{exhibition ? <Link to={`/exhibitions/${exhibition.id}`}>{exhibitionLabel(exhibition)}</Link> : '—'}</td>
+                  <td className="num">{formatOMR(e.contract)}</td>
+                  <td className="num text-suc">{formatOMR(e.paid)}</td>
+                  <td className="num strong text-dng">{formatOMR(remaining)}</td>
+                  <td className="small nowrap">
+                    <DeadlineCell deadline={paymentDeadline(exhibition)} today={today} />
+                  </td>
+                  <td className={`small nowrap ${days == null || days >= REMIND_EVERY_DAYS ? 'text-wrn' : 'muted'}`}>
+                    {days == null ? tr('لم يُذكَّر') : days === 0 ? tr('اليوم') : tr('قبل {0} يوم', [days])}
+                  </td>
+                  <td>
+                    <StatusBadge status={e.status} />
+                  </td>
+                  <td>
+                    {canRemind && e.phone && (
+                      <Button size="sm" variant="whatsapp" onClick={() => remindOne(r)} title={tr('تذكير بالدفع عبر واتساب')}>
+                        {tr('📱 تذكير')}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
       {!rows.length && <EmptyState icon="✅" text={tr('لا توجد مبالغ متبقية')} />}
     </Panel>
+    {queue && (
+      <WhatsAppQueue
+        items={queue.items}
+        mode="wa"
+        campaign={queue.campaign}
+        onClose={() => {
+          setQueue(null)
+          loadReminders()
+        }}
+      />
+    )}
     </>
   )
 }
