@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { saveExhibitor } from '../api/exhibitors.js'
 import { listReferrers } from '../api/referrals.js'
 import { useData } from '../lib/useData.js'
-import { recordPayment } from '../api/payments.js'
+import { findSamePayment, recordPayment } from '../api/payments.js'
 import { confirmIfPaid } from '../api/registration.js'
 import { useToast } from '../context/ToastContext.jsx'
 import { BOOTH_SIZES, CATEGORIES, EXHIBITOR_STATUSES, PAYMENT_METHODS } from '../lib/constants.js'
@@ -87,7 +87,11 @@ export default function ExhibitorForm({ initial, id, exhibitions, clients = [], 
     if (!form.brand || !form.manager || !form.exhibition_id) return toast(tr('أكمل البيانات المطلوبة'), 'error')
     if (takenBooth) return toast(tr('الموقع {0} محجوز مسبقاً لـ «{1}» في هذا المعرض', [takenBooth.numbers.join(tr('، ')), takenBooth.exhibitor.brand]), 'error')
     if (newPayment > 0 && remaining < -0.0005 && !confirm(tr('الدفعة أكبر من المتبقي على العقد ({0}). متابعة؟', [formatOMR(contract - paid)]))) return
-    setSaving(true)
+    setSaving(true) // before the check, so a second click cannot start another save
+    if (id && newPayment > 0) {
+      const same = await findSamePayment({ exhibitor_id: id, amount: newPayment })
+      if (same && !confirm(tr('سُجّلت لهذا العارض دفعة بنفس المبلغ في نفس اليوم ({0}). هل هذه دفعة أخرى فعلاً؟', [same.invoice_no || formatOMR(newPayment)]))) return setSaving(false)
+    }
     try {
       const savedId = await saveExhibitor(form, id)
       if (newPayment > 0) {

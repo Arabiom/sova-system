@@ -60,7 +60,10 @@ export const updateExhibitor = (id, patch) => unwrap(table().update(patch).eq('i
 /** Number of payments (confirmed or waiting) recorded for these exhibitors. */
 export async function countPayments(exhibitorIds) {
   if (!exhibitorIds.length) return 0
-  return (await unwrap(supabase.from('payments').select('id', { count: 'exact', head: true }).in('exhibitor_id', exhibitorIds))) || 0
+  // a head request carries the count, not rows (unwrap would return its empty data)
+  const { count, error } = await supabase.from('payments').select('id', { count: 'exact', head: true }).in('exhibitor_id', exhibitorIds)
+  if (error) throw error
+  return count || 0
 }
 
 /**

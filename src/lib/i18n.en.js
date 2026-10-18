@@ -2027,4 +2027,13 @@ export default {
   "الوضع النهاري": "Day mode",
   "الوضع الليلي": "Night mode",
   "ابدأ من هنا: يبدأ بالموقع رقم 1 — اضغط على مكانه في الصورة، فينتقل تلقائياً للرقم التالي. كرّر حتى آخر رقم ثم اضغط «✅ تم».": "Start here: it begins with site 1 — click its place on the picture and it moves on to the next number. Repeat until the last one, then press «✅ Done».",
+  "📩 طلب جديد": "📩 New request",
+  "وصل {0} طلب حجز أو استفسار جديد": "{0} new booking request(s) or inquiries arrived",
+  "تنبيهات الطلبات الجديدة مفعّلة — اضغط للإيقاف": "New request alerts are on — click to turn off",
+  "تنبيهات الطلبات الجديدة متوقفة — اضغط للتفعيل": "New request alerts are off — click to turn on",
+  "📩 وصل {0} طلب جديد من صفحة الحجز أو إنستغرام": "📩 {0} new request(s) from the booking page or Instagram",
+  "عرض الطلبات": "View requests",
+  "لاحقاً": "Later",
+  "سُجّلت لهذا العارض دفعة بنفس المبلغ في نفس اليوم ({0}). هل هذه دفعة أخرى فعلاً؟": "A payment of the same amount was already recorded for this exhibitor today ({0}). Is this really another payment?",
+  "اضغط للسماح بإشعارات المتصفح عند وصول طلب جديد": "Click to allow browser notifications for new requests",
 }
