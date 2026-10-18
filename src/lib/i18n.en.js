@@ -2038,4 +2038,8 @@ export default {
   "اضغط للسماح بإشعارات المتصفح عند وصول طلب جديد": "Click to allow browser notifications for new requests",
   "دخول الموظفين": "Staff sign-in",
   "→ الموقع الرسمي": "→ Official site",
+  "آخر تذكير": "Last reminder",
+  "📱 تذكير من يستحق ({0})": "📱 Remind those due ({0})",
+  "{0} مشارك عليهم مبالغ ولم يُذكَّروا منذ {1} أيام أو أكثر — اضغط «تذكير من يستحق» لإرسال رسالة لكل واحد بمبلغه، واحداً تلو الآخر.": "{0} participants owe money and were not reminded for {1} days or more — press «Remind those due» to send each one a message with their amount, one after another.",
+  "لم يُذكَّر": "Not reminded",
 }
