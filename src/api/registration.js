@@ -45,6 +45,7 @@ export function validateRegistration(form) {
   if (!form.package) errors.push('نظام البوث')
   if (num(form.amount) < 0) errors.push('المبلغ المدفوع لا يكون سالباً')
   if (num(form.discount) < 0) errors.push('الخصم لا يكون سالباً')
+  if (num(form.otherAmount) < 0) errors.push('رسوم الإضافات الأخرى لا تكون سالبة')
   if (num(form.amount) > 0 && !form.method) errors.push('طريقة السداد')
   if (num(form.amount) > 0 && isTransfer(form.method) && !form.transferred) errors.push('هل تم التحويل لحساب الشركة؟')
   if (num(form.amount) > 0 && isTransfer(form.method) && form.transferred === 'yes' && !form.hasReceipt) errors.push('إيصال التحويل')

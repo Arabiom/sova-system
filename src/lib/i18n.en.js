@@ -2042,4 +2042,10 @@ export default {
   "📱 تذكير من يستحق ({0})": "📱 Remind those due ({0})",
   "{0} مشارك عليهم مبالغ ولم يُذكَّروا منذ {1} أيام أو أكثر — اضغط «تذكير من يستحق» لإرسال رسالة لكل واحد بمبلغه، واحداً تلو الآخر.": "{0} participants owe money and were not reminded for {1} days or more — press «Remind those due» to send each one a message with their amount, one after another.",
   "لم يُذكَّر": "Not reminded",
+  "رسوم الإضافات الأخرى لا تكون سالبة": "Other extras fees cannot be negative",
+  "قيمة العقد لا تكون سالبة": "The contract value cannot be negative",
+  "نسبة العمولة بين 0 و100": "The commission rate is between 0 and 100",
+  "الأسعار والأعداد لا تكون سالبة": "Prices and counts cannot be negative",
+  "مبلغ الرعاية لا يكون سالباً": "The sponsorship amount cannot be negative",
+  "السعر لا يكون سالباً": "The price cannot be negative",
 }

@@ -13,7 +13,7 @@ export function toExhibitorRow(form) {
     brand: form.brand,
     manager: form.manager,
     phone: form.phone || '',
-    email: form.email || '',
+    email: (form.email || '').trim().toLowerCase(),
     category: form.category || '',
     exhibition_id: form.exhibition_id,
     booth: form.booth || '—',

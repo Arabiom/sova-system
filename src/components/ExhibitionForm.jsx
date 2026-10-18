@@ -69,6 +69,8 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
   const submit = async () => {
     if (!form.city || !form.mall || !form.date_from || !form.date_to) return toast(tr('أكمل البيانات المطلوبة'), 'error')
     if (form.date_to < form.date_from) return toast(tr('تاريخ النهاية قبل تاريخ البداية'), 'error')
+    const amounts = [form.booths, ...form.tiers.flatMap((t) => [t.price, t.count]), ...form.packages.map((p) => p.price), ...(form.extras || []).map((x) => x.price)]
+    if (amounts.some((v) => num(v) < 0)) return toast(tr('الأسعار والأعداد لا تكون سالبة'), 'error')
     const unnamed = form.packages.find((p) => !String(p.name || '').trim() && (num(p.price) || String(p.includes || '').trim() || String(p.area || '').trim()))
     if (unnamed) return toast(tr('اكتب اسم كل باقة'), 'error')
     const names = cleanPackages(form.packages).map((p) => p.name)

@@ -10,7 +10,7 @@ import StatusBadge from '../../components/StatusBadge.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { SPONSOR_STATUSES } from '../../lib/constants.js'
 import { sumBy } from '../../lib/finance.js'
-import { formatOMR } from '../../lib/format.js'
+import { formatOMR, num } from '../../lib/format.js'
 import { tr } from '../../lib/i18n.js'
 
 function SponsorForm({ exhibitionId, initial, id, onClose, onSaved }) {
@@ -21,6 +21,7 @@ function SponsorForm({ exhibitionId, initial, id, onClose, onSaved }) {
 
   const submit = async () => {
     if (!form.name?.trim()) return toast(tr('اكتب اسم الراعي'), 'error')
+    if (num(form.amount) < 0) return toast(tr('مبلغ الرعاية لا يكون سالباً'), 'error')
     setSaving(true)
     try {
       await saveSponsor(form, exhibitionId, id)
