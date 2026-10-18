@@ -57,7 +57,10 @@ function BookingDetails({ booking, exhibition, onClose, onAccept, onReject, onAn
           {rows.map(([label, value]) => (
             <div key={label} className="detail-row">
               <span className="detail-label">{tr(label)}</span>
-              <strong className="detail-value">{tr(value)}</strong>
+              {/* a message keeps its lines (requests from the Instagram page come in several) */}
+              <strong className="detail-value" style={label === '💬 الرسالة' ? { whiteSpace: 'pre-line' } : undefined}>
+                {tr(value)}
+              </strong>
             </div>
           ))}
         </div>
