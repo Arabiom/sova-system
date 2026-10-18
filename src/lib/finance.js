@@ -584,3 +584,92 @@ export function withoutPlanning(data) {
     })),
   }
 }
+
+// ── What the company owes, and when ─────────────────────────────────────────
+const monthAdd = (ym, n) => {
+  const [y, m] = ym.split('-').map(Number)
+  const t = y * 12 + (m - 1) + n
+  return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`
+}
+const dayIn = (ym, day) => {
+  const [y, m] = ym.split('-').map(Number)
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  return `${ym}-${String(Math.min(Math.max(1, Number(day) || 1), last)).padStart(2, '0')}`
+}
+const dayOf = (iso) => Number(String(iso || '').slice(8, 10)) || 0
+
+/**
+ * Where an amount still owed stands on `today`:
+ *  'late'  — its due date has passed;
+ *  'now'   — its payment window is open (or it is owed already: an approved staff claim);
+ *  'month' — due later this month;  'later' — due in a coming month;  'none' — no due date.
+ */
+export function commitmentState({ from, due, kind }, today) {
+  if (due && due < today) return 'late'
+  if (kind === 'claim' || (from && from <= today)) return 'now'
+  if (!due) return 'none'
+  return due.slice(0, 7) === today.slice(0, 7) ? 'month' : 'later'
+}
+
+/**
+ * Every amount the company still has to pay, with its due date and state, and the months
+ * of fixed expenses (salaries, rent, subscriptions…) not added yet — projected from each
+ * fixed expense until it ends (open-ended ones for the next `horizon` months).
+ * Returns the items (soonest first), totals by state, and the amounts due month by month.
+ */
+export function commitments({ expenses = [], companyExpenses = [], staffExpenses = [], obligations = [] }, today, { horizon = 3 } = {}) {
+  const items = []
+  const push = (it) => items.push({ ...it, amount: baisa(it.amount), state: commitmentState(it, today) })
+
+  for (const r of allExpenses({ expenses, companyExpenses, staffExpenses, obligations })) {
+    if (r.paid || !(r.remaining > 0.0005)) continue
+    if (r.kind !== 'obligation' && !r.counted) continue // a claim still awaiting review is not owed yet
+    const x = r.source
+    const due = r.kind === 'company' ? x.pay_to || x.due_date || x.date : r.kind === 'claim' ? '' : x.due_date || ''
+    push({ key: r.key, kind: r.kind, row: r, label: r.description, category: r.category, from: r.kind === 'company' ? x.pay_from || '' : '', due: String(due || '').slice(0, 10), amount: r.remaining, partly: r.kind === 'company' && r.paidSoFar > 0, period: r.period || '' })
+  }
+
+  // Fixed expenses: the months not added yet, from each one's own record.
+  const thisMonth = today.slice(0, 7)
+  for (const o of companyExpenses) {
+    if (!o.recurring || o.series_id) continue
+    const every = Number(o.recurring_every) || 1
+    const end = o.recurring_end ? String(o.recurring_end).slice(0, 7) : monthAdd(thisMonth, horizon)
+    if (end < thisMonth) continue
+    const made = companyExpenses.filter((x) => x.series_id === o.id).map((x) => x.period).filter(Boolean)
+    const last = [String(o.generated_until || ''), String(o.date || '').slice(0, 7), ...made].filter((m) => /^\d{4}-\d{2}$/.test(m)).sort().at(-1)
+    if (!last) continue
+    for (let m = monthAdd(last, every); m <= end; m = monthAdd(m, every)) {
+      const due = dayIn(m, dayOf(o.pay_to) || dayOf(o.due_date) || dayOf(o.date))
+      push({ key: `plan:${o.id}:${m}`, kind: 'company', projected: true, source: o, label: o.description, category: o.category || '', from: o.pay_from ? dayIn(m, dayOf(o.pay_from)) : '', due, amount: num(o.amount), period: m })
+    }
+  }
+
+  const order = { late: 0, now: 1, month: 2, later: 3, none: 4 }
+  items.sort((a, b) => order[a.state] - order[b.state] || (a.due || '9').localeCompare(b.due || '9') || b.amount - a.amount)
+
+  const sum = (list) => baisa(list.reduce((t, x) => t + x.amount, 0))
+  const of = (state) => items.filter((x) => x.state === state)
+  const months = {}
+  for (const x of items) {
+    if (x.state === 'late' || x.state === 'none') continue
+    const m = x.due.slice(0, 7) || thisMonth
+    ;(months[m] ||= { month: m, items: [], total: 0, projected: 0 }).items.push(x)
+  }
+  for (const m of Object.values(months)) {
+    m.total = sum(m.items)
+    m.projected = sum(m.items.filter((x) => x.projected))
+  }
+  return {
+    items,
+    late: sum(of('late')),
+    now: sum(of('now')),
+    // the rest of this month: what is due now plus what falls due later this month
+    thisMonth: sum([...of('now'), ...of('month')]),
+    later: sum(of('later')),
+    undated: sum(of('none')),
+    total: sum(items),
+    projected: sum(items.filter((x) => x.projected)),
+    months: Object.values(months).sort((a, b) => a.month.localeCompare(b.month)),
+  }
+}

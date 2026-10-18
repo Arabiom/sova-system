@@ -40,7 +40,7 @@ import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { COMPANY, DEFAULT_TIERS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
-import { allExpenses, collectionAlerts, combineFinancials, companyOverview, daysBetween, exhibitionFinancials, EXPENSE_KINDS, isConfirmed, ledger, isPlanning, monthlyFlow, paymentDeadline, receivables, sumBy, vatEnabled, withoutPlanning } from '../lib/finance.js'
+import { allExpenses, collectionAlerts, combineFinancials, commitments, companyOverview, daysBetween, exhibitionFinancials, EXPENSE_KINDS, isConfirmed, ledger, isPlanning, monthlyFlow, paymentDeadline, receivables, sumBy, vatEnabled, withoutPlanning } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatDate, formatOMR, num, percent, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { openWhatsApp, paymentReminderMessage } from '../lib/whatsapp.js'
@@ -50,12 +50,14 @@ import { ExpenseForm as ExhibitionExpenseForm } from './exhibition/ExpensesTab.j
 import Reports from './Reports.jsx'
 import Sales from './Sales.jsx'
 import CompanyPlan from './finance/CompanyPlan.jsx'
+import Commitments, { CommitmentCards } from './finance/Commitments.jsx'
 import PayExpenseForm from './finance/PayExpenseForm.jsx'
 import TeamContracts from './finance/TeamContracts.jsx'
 import { omanDay } from '../lib/team.js'
 
 const TABS = [
   { id: 'overview', label: tr('📊 نظرة عامة') },
+  { id: 'commitments', label: tr('📅 الالتزامات والمواعيد') },
   { id: 'income', label: tr('💵 الإيرادات والدفعات') },
   { id: 'receivables', label: tr('⏳ المتبقي للتحصيل') },
   { id: 'expenses', label: tr('🧾 كل المصروفات') },
@@ -1595,9 +1597,12 @@ export default function Finance() {
         <>
           <Attention data={live} o={o} go={go} today={omanDay()} />
           <PlannedNote planned={live.planned} go={go} />
+          <div className="section-label">{tr('ما عليك دفعه')}</div>
+          <CommitmentCards c={commitments(live, omanDay())} fixed={monthlyFixedTotal(live.companyExpenses, omanDay())} go={go} />
           <Overview o={o} flow={flow} go={go} fixed={monthlyFixedTotal(live.companyExpenses)} bank={data.bankBalances} canEdit={canManage} onChanged={reload} />
         </>
       )}
+      {tab === 'commitments' && <Commitments data={live} today={omanDay()} canManage={canManage} reload={reload} go={go} />}
       {tab === 'income' && <Sales embedded onChanged={reload} />}
       {tab === 'receivables' && <Receivables key={focus.exhibition} data={live} canRemind={canRemind} initialScope={focus.exhibition} />}
       {tab === 'expenses' && <AllExpenses data={live} canManage={canManage} reload={reload} go={go} initialKind={focus.kind || ''} initialState={focus.state || ''} key={`${focus.kind || ''}|${focus.state || ''}`} />}
