@@ -5082,3 +5082,30 @@ body {
 .login-home:hover {
   border-color: var(--gold);
 }
+
+/* choice chips (several can be on) */
+.chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip-btn {
+  min-height: 34px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink-60);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.chip-btn:hover {
+  border-color: var(--gold);
+}
+.chip-btn.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--on-accent);
+  font-weight: 600;
+}

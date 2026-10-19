@@ -13,7 +13,7 @@ import PageHeader from '../components/PageHeader.jsx'
 import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { useToast } from '../context/ToastContext.jsx'
-import { CITIES, CLIENT_SOURCES, CLIENT_STATUSES, SECTOR_SUGGESTIONS } from '../lib/constants.js'
+import { CITIES, CLIENT_SOURCES, CLIENT_STATUSES, CONTACT_SOURCES, SECTOR_SUGGESTIONS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
 import { clientHistory } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatDate, formatOMR, phoneKey, todayISO } from '../lib/format.js'
@@ -96,7 +96,7 @@ function LookupBox() {
 
 function ClientForm({ initial, id, onClose, onSaved, sectors }) {
   const toast = useToast()
-  const [form, setForm] = useState(initial)
+  const [form, setForm] = useState(() => ({ ...initial, hadContactSource: Boolean(initial?.contact_source) }))
   const [saving, setSaving] = useState(false)
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const [duplicate, setDuplicate] = useState(null) // the client already registered with this number
@@ -194,6 +194,9 @@ function ClientForm({ initial, id, onClose, onSaved, sectors }) {
         <Field label={tr('مصدر العميل')}>
           <SelectOptions options={CLIENT_SOURCES} value={form.source || ''} onChange={set('source')} />
         </Field>
+        <Field label={tr('مصدر الرقم')} hint={tr('مهم قبل أي حملة واتساب: هل وافق صاحب الرقم على التواصل؟')}>
+          <SelectOptions options={CONTACT_SOURCES} placeholder={tr('غير محدد')} value={form.contact_source || ''} onChange={set('contact_source')} />
+        </Field>
         <Field label={tr('الحالة')}>
           <SelectOptions options={CLIENT_STATUSES} placeholder={null} value={form.status || 'نشط'} onChange={set('status')} />
         </Field>
@@ -218,6 +221,8 @@ function ClientDetails({ client, onClose, onEdit }) {
     ['🏷️ القطاع', client.sector],
     ['📍 المدينة', client.city],
     ['🔎 المصدر', client.source],
+    ['📥 مصدر الرقم', client.contact_source],
+    ['🕓 آخر تواصل', client.last_contact_at && formatDate(client.last_contact_at)],
     ['📝 ملاحظات', client.notes],
   ].filter(([, v]) => v)
 

@@ -21,6 +21,7 @@ const Team = lazy(() => import('./pages/Team.jsx'))
 const Staff = lazy(() => import('./pages/Staff.jsx'))
 const PublicBooking = lazy(() => import('./pages/PublicBooking.jsx'))
 const Home = lazy(() => import('./pages/Home.jsx'))
+const Digital = lazy(() => import('./pages/Digital.jsx'))
 
 /** Internal system: every page requires a signed-in staff member. */
 function Protected() {
@@ -125,6 +126,7 @@ export default function App() {
             </Allow>
           }
         />
+        <Route path="/digital" element={<Digital />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

@@ -18,6 +18,9 @@ export function toClientRow(form) {
     source: form.source || '',
     status: form.status || 'نشط',
     notes: form.notes || '',
+    // where the number came from (migration 034): sent only when set or cleared, so a database
+    // without that update still saves
+    ...(form.contact_source || form.hadContactSource ? { contact_source: form.contact_source || '' } : {}),
   }
 }
 

@@ -103,6 +103,8 @@ export const PAYMENT_METHOD_META = {
 
 export const CLIENT_STATUSES = ['نشط', 'محتمل', 'متوقف']
 export const CLIENT_SOURCES = ['إنستقرام', 'واتساب', 'توصية', 'معرض سابق', 'زيارة مباشرة', 'أخرى']
+/** Where a client's number came from (migration 034) — consent matters before any WhatsApp campaign. */
+export const CONTACT_SOURCES = ['نموذج الموقع', 'صفحة البايو', 'راسلنا بنفسه', 'عارض سابق', 'قائمة مستوردة']
 
 /** Suggestions for the free-text sector field (the business uses its own wording too). */
 export const SECTOR_SUGGESTIONS = [
