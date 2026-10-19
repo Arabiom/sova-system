@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { listClients } from '../api/clients.js'
 import { addOptOut, createCampaign, deleteCampaign, deleteFollowup, loadDigital, optOutKeys, removeOptOut, saveFollowup, setCampaignStatus, setFollowupDone } from '../api/digital.js'
+import { listStaff } from '../api/staff.js'
 import { listTemplates } from '../api/whatsapp.js'
 import Button from '../components/Button.jsx'
 import DateInput from '../components/DateInput.jsx'
@@ -15,16 +16,17 @@ import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { CLIENT_STATUSES, CONTACT_SOURCES } from '../lib/constants.js'
 import { CAMPAIGN_BADGE, campaignActions, segmentClients } from '../lib/digital.js'
-import { formatDate, todayISO } from '../lib/format.js'
+import { formatDate, phoneKey, todayISO } from '../lib/format.js'
 import { tr } from '../lib/i18n.js'
 import { omanDay } from '../lib/team.js'
 import { useData } from '../lib/useData.js'
 import { BUILTIN_TEMPLATES } from '../lib/whatsapp.js'
 
 const load = async () => {
-  const [digital, clients, saved] = await Promise.all([loadDigital(), listClients(), listTemplates().catch(() => null)])
+  // the staff list is readable by the admin, finance and viewers; others see their own name only
+  const [digital, clients, saved, staff] = await Promise.all([loadDigital(), listClients(), listTemplates().catch(() => null), listStaff().catch(() => [])])
   const templates = [...(saved || []).map((t) => ({ name: t.name, body: t.body })), ...BUILTIN_TEMPLATES.map((t) => ({ name: t.label, body: t.body }))]
-  return { ...digital, clients, templates }
+  return { ...digital, clients, templates, staff }
 }
 
 const TABS = [
@@ -249,9 +251,9 @@ function CampaignDetails({ campaign, recipients, staffName, onClose, onChanged }
   )
 }
 
-function FollowupForm({ clients, onClose, onSaved }) {
+function FollowupForm({ clients, people, uid, onClose, onSaved }) {
   const toast = useToast()
-  const [form, setForm] = useState({ client_id: '', due_date: todayISO(), note: '' })
+  const [form, setForm] = useState({ client_id: '', assigned_to: uid || '', due_date: todayISO(), note: '' })
   const [saving, setSaving] = useState(false)
   const submit = async () => {
     if (!form.client_id) return toast(tr('اختر العميل'), 'error')
@@ -293,6 +295,17 @@ function FollowupForm({ clients, onClose, onSaved }) {
           ))}
         </select>
       </Field>
+      {people.length > 1 && (
+        <Field label={tr('المكلَّف')}>
+          <select id="followup-owner" className="input" value={form.assigned_to} onChange={(e) => setForm((f) => ({ ...f, assigned_to: e.target.value }))}>
+            {people.map((p) => (
+              <option key={p.user_id} value={p.user_id}>
+                {p.user_id === uid ? tr('أنت') : p.name || p.email}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label={tr('موعد المتابعة')}>
         <DateInput value={form.due_date} onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))} />
       </Field>
@@ -309,7 +322,8 @@ function FollowupForm({ clients, onClose, onSaved }) {
  */
 export default function Digital() {
   const toast = useToast()
-  const { role } = useAuth()
+  const { role, session } = useAuth()
+  const uid = session?.user?.id
   const canWrite = useCan('data.write')
   const { data, loading, reload } = useData(load, null)
   const [tab, setTab] = useState('campaigns')
@@ -323,9 +337,16 @@ export default function Digital() {
   const byCampaign = data.recipients.reduce((m, r) => ((m[r.campaign_id] ||= []).push(r), m), {})
   const clientName = (id) => data.clients.find((c) => c.id === id)?.name || '—'
   const clientPhone = (id) => data.clients.find((c) => c.id === id)?.phone || ''
+  const clientByPhone = (phone) => data.clients.find((c) => phoneKey(c.whatsapp || c.phone) === phoneKey(phone) || phoneKey(c.phone) === phoneKey(phone))
+  const people = data.staff.length ? data.staff : uid ? [{ user_id: uid }] : []
   const count = (s) => data.campaigns.filter((c) => c.status === s).length
   const openFollowups = data.followups.filter((f) => f.status === 'مفتوحة')
-  const staffName = (id) => (id ? tr('المدير') : '—')
+  const staffName = (id) => {
+    if (!id) return '—'
+    if (id === uid) return tr('أنت')
+    const s = data.staff.find((p) => p.user_id === id)
+    return s ? s.name || s.email : tr('المدير')
+  }
   const run = async (fn, done) => {
     try {
       await fn()
@@ -409,6 +430,7 @@ export default function Digital() {
                     <thead>
                       <tr>
                         <th>{tr('العميل')}</th>
+                        <th>{tr('المكلَّف')}</th>
                         <th>{tr('الموعد')}</th>
                         <th>{tr('السبب')}</th>
                         <th>{tr('الحالة')}</th>
@@ -422,6 +444,7 @@ export default function Digital() {
                             <div className="strong">{clientName(f.client_id)}</div>
                             <div className="ltr tiny muted">{clientPhone(f.client_id)}</div>
                           </td>
+                          <td className="small nowrap">{staffName(f.assigned_to || f.created_by)}</td>
                           <td className={`small nowrap ${f.status === 'مفتوحة' && f.due_date < today ? 'text-dng strong' : ''}`}>{formatDate(f.due_date)}</td>
                           <td className="small">{f.note}</td>
                           <td>
@@ -435,7 +458,7 @@ export default function Digital() {
                                 {f.status === 'تمت' ? tr('إعادة فتح') : tr('✓ تمت')}
                               </Button>
                             )}{' '}
-                            {canWrite && (
+                            {canWrite && (role === 'admin' || f.created_by === uid) && (
                               <Button size="sm" variant="ghost" onClick={() => confirm(tr('حذف هذه المتابعة؟')) && run(() => deleteFollowup(f.id), tr('تم الحذف'))}>
                                 {tr('حذف')}
                               </Button>
@@ -464,7 +487,7 @@ export default function Digital() {
                       stop.phone.replace(/\D/g, '').length < 8
                         ? toast(tr('رقم غير صحيح'), 'error')
                         : run(async () => {
-                            await addOptOut(stop)
+                            await addOptOut({ ...stop, client_id: clientByPhone(stop.phone)?.id })
                             setStop({ phone: '', reason: '' })
                           }, tr('✅ أُضيف الرقم لقائمة الإيقاف'))
                     }
@@ -489,7 +512,7 @@ export default function Digital() {
                       {data.optOuts.map((o) => (
                         <tr key={o.id}>
                           <td className="ltr">{o.phone}</td>
-                          <td>{o.client_id ? clientName(o.client_id) : '—'}</td>
+                          <td>{o.client_id ? clientName(o.client_id) : clientByPhone(o.phone)?.name || '—'}</td>
                           <td className="small">{tr(o.reason) || '—'}</td>
                           <td className="small nowrap">{formatDate(o.created_at)}</td>
                           <td>
@@ -537,6 +560,8 @@ export default function Digital() {
       {addingFollowup && (
         <FollowupForm
           clients={data.clients}
+          people={people}
+          uid={uid}
           onClose={() => setAddingFollowup(false)}
           onSaved={() => {
             setAddingFollowup(false)

@@ -22,6 +22,7 @@ const REFUSED = {
 /** Turn a refusal from the database into a sentence; a missing table means 034 is not run. */
 function explain(error) {
   if (missing(error)) return new Error(tr('قسم الموظفين الرقميين يحتاج تحديث قاعدة البيانات 034 — شغّله في Supabase'), { cause: error })
+  if (error?.code === '23505') return new Error(tr('هذا الرقم موجود في القائمة مسبقاً'), { cause: error })
   const key = Object.keys(REFUSED).find((k) => String(error?.message || '').includes(k))
   return key ? new Error(tr(REFUSED[key]), { cause: error }) : error
 }
@@ -67,7 +68,7 @@ export const addOptOut = ({ phone, reason, client_id }) => run(supabase.from('op
 export const removeOptOut = (id) => run(supabase.from('opt_outs').delete().eq('id', id))
 
 export const saveFollowup = (f) =>
-  run(supabase.from('followups').insert({ client_id: f.client_id || null, campaign_id: f.campaign_id || null, due_date: f.due_date, note: f.note?.trim() || '' }))
+  run(supabase.from('followups').insert({ client_id: f.client_id || null, campaign_id: f.campaign_id || null, assigned_to: f.assigned_to || null, due_date: f.due_date, note: f.note?.trim() || '' }))
 export const setFollowupDone = (id, done) => run(supabase.from('followups').update({ status: done ? 'تمت' : 'مفتوحة', done_at: done ? new Date().toISOString() : null }).eq('id', id))
 export const deleteFollowup = (id) => run(supabase.from('followups').delete().eq('id', id))
 
