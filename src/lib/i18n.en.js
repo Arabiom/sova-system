@@ -2155,6 +2155,8 @@ export default {
   "📣 الحملات": "📣 Campaigns",
   "📞 المتابعات": "📞 Follow-ups",
   "⛔ قائمة الإيقاف": "⛔ Stop list",
+  "المكلَّف": "Assigned to",
+  "هذا الرقم موجود في القائمة مسبقاً": "This number is already on the list",
   "📥 مصدر الرقم": "📥 Number source",
   "🕓 آخر تواصل": "🕓 Last contact",
   "نموذج الموقع": "Website form",
