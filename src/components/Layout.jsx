@@ -26,6 +26,7 @@ const NAV_ICONS = {
   '/finance': 'briefcase',
   '/expenses': 'receipt',
   '/whatsapp': 'message',
+  '/digital': 'megaphone',
   '/staff': 'shield',
 }
 
@@ -45,6 +46,7 @@ const NAV = [
   { path: '/expenses', icon: '🧾', label: tr('مصروفاتي'), desc: tr('فواتير ما تصرفه للشركة'), sub: tr('سجّل كل مبلغ تصرفه من أجل الشركة وأرفق فاتورته'), hideFor: 'money.view' },
   { section: tr('التواصل') },
   { path: '/whatsapp', icon: '◎', label: tr('واتساب'), desc: tr('إرسال الإشعارات'), sub: tr('إرسال الإشعارات للعارضين'), perm: 'data.write' },
+  { path: '/digital', icon: '📣', label: tr('الموظفون الرقميون'), desc: tr('الحملات والمتابعات'), sub: tr('حملات تُعتمد قبل الإرسال، والمتابعات، وقائمة الإيقاف') },
   { section: tr('الإدارة'), perm: 'staff.manage' },
   { path: '/staff', icon: '◐', label: tr('الموظفون'), desc: tr('الحسابات والصلاحيات'), sub: tr('إدارة حسابات الموظفين وصلاحياتهم'), perm: 'staff.manage' },
 ]
