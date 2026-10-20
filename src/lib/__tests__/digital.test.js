@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { campaignActions, segmentClients } from '../digital.js'
+import { campaignActions, digitalEmployees, segmentClients } from '../digital.js'
 
 const clients = [
   { id: 'a', name: 'أ', phone: '91111111', contact_source: 'نموذج الموقع', status: 'نشط', city: 'نزوى', sector: 'عطور' },
@@ -46,5 +46,41 @@ describe('who may do what with a campaign', () => {
     expect(Object.values(campaignActions(at('مسودة'), { role: 'viewer', canWrite: false })).some(Boolean)).toBe(false)
     const sent = campaignActions(at('أُرسلت'), { role: 'admin', canWrite: true })
     expect([sent.cancel, sent.backToDraft, sent.remove, sent.approve]).toEqual([false, false, false, false])
+  })
+})
+
+describe('digitalEmployees', () => {
+  const today = '2026-10-20'
+  it('counts each employee from the records and lists what it needs', () => {
+    const [marketing, sales, research] = digitalEmployees({
+      campaigns: [{ status: 'بانتظار الاعتماد' }, { status: 'مسودة' }, { status: 'معتمدة' }],
+      recipients: [{}, {}, {}],
+      followups: [
+        { status: 'مفتوحة', due_date: '2026-10-18', assigned_to: 'u1' },
+        { status: 'مفتوحة', due_date: '2026-10-25' },
+        { status: 'تمت', done_at: '2026-10-19T08:00:00Z' },
+        { status: 'تمت', done_at: '2026-09-01T08:00:00Z' },
+      ],
+      prospects: [
+        { status: 'جديد', origin: 'البحث اليومي', created_at: '2026-10-20T03:00:00Z' },
+        { status: 'أصبح عميلاً', origin: 'يدوي', created_at: '2026-09-01T03:00:00Z' },
+      ],
+      role: 'admin',
+      today,
+    })
+    expect(marketing.kpis.map((k) => k.value)).toEqual([3, 1, 3])
+    expect(marketing.needs.map((n) => n.text)).toContain('اعتماد {0} حملة')
+    expect(sales.kpis.map((k) => k.value)).toEqual([2, 1, 1])
+    expect(sales.needs.map((n) => n.args[0])).toEqual([1, 1])
+    expect(research.kpis.map((k) => k.value)).toEqual([2, 1, 1])
+    expect(research.needs.map((n) => n.text)).toEqual(['مراجعة {0} فرصة جديدة', 'تفعيل البحث اليومي'])
+    expect(research.state).toBe('يدوي — البحث اليومي غير مفعّل')
+  })
+
+  it('asks a non-admin to wait for approval, not to approve, and flags a missing update', () => {
+    const [marketing, , research] = digitalEmployees({ campaigns: [{ status: 'بانتظار الاعتماد' }], prospectsReady: false, role: 'marketing', today })
+    expect(marketing.needs[0].text).toBe('{0} حملة بانتظار اعتماد المدير')
+    expect(research.tone).toBe('danger')
+    expect(research.needs[0].text).toBe('تشغيل تحديث قاعدة البيانات 035')
   })
 })

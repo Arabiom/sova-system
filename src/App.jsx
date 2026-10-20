@@ -127,6 +127,7 @@ export default function App() {
           }
         />
         <Route path="/digital" element={<Digital />} />
+        <Route path="/digital/:employee" element={<Digital />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

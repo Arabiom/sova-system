@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { listClients } from '../api/clients.js'
 import { addOptOut, createCampaign, deleteCampaign, deleteFollowup, loadDigital, optOutKeys, removeOptOut, saveFollowup, setCampaignStatus, setFollowupDone } from '../api/digital.js'
+import { loadProspects } from '../api/prospects.js'
 import { listStaff } from '../api/staff.js'
 import { listTemplates } from '../api/whatsapp.js'
 import Button from '../components/Button.jsx'
@@ -16,7 +18,7 @@ import { WhatsAppText } from '../components/WhatsAppText.jsx'
 import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { CLIENT_STATUSES, CONTACT_SOURCES } from '../lib/constants.js'
-import { CAMPAIGN_BADGE, campaignActions, segmentClients } from '../lib/digital.js'
+import { CAMPAIGN_BADGE, campaignActions, digitalEmployees, segmentClients } from '../lib/digital.js'
 import { formatDate, phoneKey, todayISO } from '../lib/format.js'
 import { tr } from '../lib/i18n.js'
 import { omanDay } from '../lib/team.js'
@@ -25,17 +27,83 @@ import { BUILTIN_TEMPLATES } from '../lib/whatsapp.js'
 
 const load = async () => {
   // the staff list is readable by the admin, finance and viewers; others see their own name only
-  const [digital, clients, saved, staff] = await Promise.all([loadDigital(), listClients(), listTemplates().catch(() => null), listStaff().catch(() => [])])
+  const [digital, clients, saved, staff, research] = await Promise.all([
+    loadDigital(),
+    listClients(),
+    listTemplates().catch(() => null),
+    listStaff().catch(() => []),
+    loadProspects().catch(() => ({
+      ready: false,
+      prospects: [],
+      feedSince: null,
+    })),
+  ])
   const templates = [...(saved || []).map((t) => ({ name: t.name, body: t.body })), ...BUILTIN_TEMPLATES.map((t) => ({ name: t.label, body: t.body }))]
-  return { ...digital, clients, templates, staff }
+  return { ...digital, clients, templates, staff, research }
 }
 
-const TABS = [
-  ['campaigns', '📣 الحملات'],
-  ['followups', '📞 المتابعات'],
-  ['optouts', '⛔ قائمة الإيقاف'],
-  ['research', '🔎 البحث والفرص'],
-]
+const TABS = {
+  campaigns: '📣 الحملات',
+  optouts: '⛔ قائمة الإيقاف',
+  followups: '📞 المتابعات',
+  research: '🔎 البحث والفرص',
+}
+
+/** The front page: each digital employee, its numbers and what it needs from the team. */
+function Overview({ employees }) {
+  const navigate = useNavigate()
+  const open = (id, tab) => navigate(`/digital/${id}${tab ? `?tab=${tab}` : ''}`)
+  return (
+    <div className="emp-grid">
+      {employees.map((e) => (
+        <article key={e.id} className="emp-card" role="link" tabIndex={0} onClick={() => open(e.id)} onKeyDown={(ev) => ev.key === 'Enter' && open(e.id)}>
+          <header className="emp-head">
+            <span className="emp-icon" aria-hidden="true">
+              {e.icon}
+            </span>
+            <div className="emp-title">
+              <h2>{tr(e.name)}</h2>
+              <span className={`badge badge-${e.tone}`}>{tr(e.state)}</span>
+            </div>
+          </header>
+          <p className="emp-role">{tr(e.role)}</p>
+          <div className="emp-kpis">
+            {e.kpis.map((k) => (
+              <div key={k.label} className="emp-kpi">
+                <div className="emp-kpi-value num">{k.value}</div>
+                <div className="emp-kpi-label">{tr(k.label)}</div>
+              </div>
+            ))}
+          </div>
+          <div className="emp-needs">
+            <div className="emp-needs-title">{tr('يحتاج منك')}</div>
+            {e.needs.length ? (
+              <ul>
+                {e.needs.map((n) => (
+                  <li key={n.text}>
+                    <button
+                      type="button"
+                      className={`emp-need emp-need-${n.tone}`}
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        open(e.id, n.tab)
+                      }}
+                    >
+                      {tr(n.text, n.args)}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="emp-ok">{tr('✓ لا شيء الآن')}</div>
+            )}
+          </div>
+          <div className="emp-open">{tr('فتح أدوات الموظف ←')}</div>
+        </article>
+      ))}
+    </div>
+  )
+}
 
 /** Toggle a value in a list (multi-choice chips). */
 const toggle = (list, v) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
@@ -46,7 +114,13 @@ function CampaignForm({ data, onClose, onSaved }) {
   const [name, setName] = useState('')
   const [template, setTemplate] = useState('')
   const [body, setBody] = useState('')
-  const [filter, setFilter] = useState({ sources: [], sectors: [], cities: [], statuses: ['نشط', 'محتمل'], notContactedDays: '' })
+  const [filter, setFilter] = useState({
+    sources: [],
+    sectors: [],
+    cities: [],
+    statuses: ['نشط', 'محتمل'],
+    notContactedDays: '',
+  })
   const [saving, setSaving] = useState(false)
   const keys = useMemo(() => optOutKeys(data.optOuts), [data.optOuts])
   const seg = segmentClients(data.clients, filter, keys, omanDay())
@@ -77,7 +151,13 @@ function CampaignForm({ data, onClose, onSaved }) {
   const chips = (k, options) => (
     <div className="chips-row">
       {options.map((o) => (
-        <button key={o || '-'} type="button" className={`chip-btn ${filter[k].includes(o) ? 'active' : ''}`} aria-pressed={filter[k].includes(o)} onClick={() => setFilter((f) => ({ ...f, [k]: toggle(f[k], o) }))}>
+        <button
+          key={o || '-'}
+          type="button"
+          className={`chip-btn ${filter[k].includes(o) ? 'active' : ''}`}
+          aria-pressed={filter[k].includes(o)}
+          onClick={() => setFilter((f) => ({ ...f, [k]: toggle(f[k], o) }))}
+        >
           {o ? tr(o) : tr('غير محدد')}
         </button>
       ))}
@@ -127,19 +207,9 @@ function CampaignForm({ data, onClose, onSaved }) {
       <Field label={tr('مصدر الرقم')} hint={tr('بدون اختيار = كل المصادر')}>
         {chips('sources', [...CONTACT_SOURCES, ''])}
       </Field>
-      <Field label={tr('حالة العميل')}>
-        {chips('statuses', CLIENT_STATUSES)}
-      </Field>
-      {values('sector').length > 0 && (
-        <Field label={tr('القطاع')}>
-          {chips('sectors', values('sector'))}
-        </Field>
-      )}
-      {values('city').length > 0 && (
-        <Field label={tr('المدينة')}>
-          {chips('cities', values('city'))}
-        </Field>
-      )}
+      <Field label={tr('حالة العميل')}>{chips('statuses', CLIENT_STATUSES)}</Field>
+      {values('sector').length > 0 && <Field label={tr('القطاع')}>{chips('sectors', values('sector'))}</Field>}
+      {values('city').length > 0 && <Field label={tr('المدينة')}>{chips('cities', values('city'))}</Field>}
       <Field label={tr('لم نتواصل معه منذ (يوم)')} hint={tr('اتركه فارغاً لكل العملاء')}>
         <input id="campaign-days" className="input" type="number" min="0" value={filter.notContactedDays} onChange={(e) => setFilter((f) => ({ ...f, notContactedDays: e.target.value }))} />
       </Field>
@@ -148,7 +218,11 @@ function CampaignForm({ data, onClose, onSaved }) {
         <strong>{tr('ستصل إلى {0} رقم', [seg.recipients.length])}</strong>
         {(seg.left.optedOut > 0 || seg.left.noPhone > 0 || seg.left.duplicate > 0) && (
           <div className="small mt-4">
-            {[seg.left.optedOut && tr('{0} في قائمة الإيقاف', [seg.left.optedOut]), seg.left.noPhone && tr('{0} بلا رقم صحيح', [seg.left.noPhone]), seg.left.duplicate && tr('{0} رقم مكرر', [seg.left.duplicate])]
+            {[
+              seg.left.optedOut && tr('{0} في قائمة الإيقاف', [seg.left.optedOut]),
+              seg.left.noPhone && tr('{0} بلا رقم صحيح', [seg.left.noPhone]),
+              seg.left.duplicate && tr('{0} رقم مكرر', [seg.left.duplicate]),
+            ]
               .filter(Boolean)
               .join(tr(' • '))}{' '}
             — {tr('استُبعدوا تلقائياً')}
@@ -227,7 +301,13 @@ function CampaignDetails({ campaign, recipients, staffName, onClose, onChanged }
           <WhatsAppText text={campaign.body} />
         </div>
       </Panel>
-      <Panel icon="👥" title={tr('المستلمون ({0})', [recipients.length])} subtitle={Object.entries(counts).map(([s, n]) => `${tr(s)} ${n}`).join(' • ')}>
+      <Panel
+        icon="👥"
+        title={tr('المستلمون ({0})', [recipients.length])}
+        subtitle={Object.entries(counts)
+          .map(([s, n]) => `${tr(s)} ${n}`)
+          .join(' • ')}
+      >
         <div className="table-wrap" style={{ maxHeight: 320 }}>
           <table className="table table-compact">
             <thead>
@@ -255,7 +335,12 @@ function CampaignDetails({ campaign, recipients, staffName, onClose, onChanged }
 
 function FollowupForm({ clients, people, uid, onClose, onSaved }) {
   const toast = useToast()
-  const [form, setForm] = useState({ client_id: '', assigned_to: uid || '', due_date: todayISO(), note: '' })
+  const [form, setForm] = useState({
+    client_id: '',
+    assigned_to: uid || '',
+    due_date: todayISO(),
+    note: '',
+  })
   const [saving, setSaving] = useState(false)
   const submit = async () => {
     if (!form.client_id) return toast(tr('اختر العميل'), 'error')
@@ -328,7 +413,8 @@ export default function Digital() {
   const uid = session?.user?.id
   const canWrite = useCan('data.write')
   const { data, loading, reload } = useData(load, null)
-  const [tab, setTab] = useState('campaigns')
+  const { employee: employeeId } = useParams()
+  const [search, setSearch] = useSearchParams()
   const [creating, setCreating] = useState(false)
   const [open, setOpen] = useState(null)
   const [addingFollowup, setAddingFollowup] = useState(false)
@@ -336,6 +422,20 @@ export default function Digital() {
   if (loading || !data) return <Loading />
 
   const today = omanDay()
+  const employees = digitalEmployees({
+    campaigns: data.campaigns,
+    recipients: data.recipients,
+    followups: data.followups,
+    optOuts: data.optOuts,
+    prospects: data.research.prospects,
+    prospectsReady: data.research.ready,
+    feedSince: data.research.feedSince,
+    role,
+    today,
+  })
+  const employee = employees.find((e) => e.id === employeeId)
+  const tab = employee?.tabs.includes(search.get('tab')) ? search.get('tab') : employee?.tabs[0]
+  const setTab = (t) => setSearch(t === employee.tabs[0] ? {} : { tab: t }, { replace: true })
   const byCampaign = data.recipients.reduce((m, r) => ((m[r.campaign_id] ||= []).push(r), m), {})
   const clientName = (id) => data.clients.find((c) => c.id === id)?.name || '—'
   const clientPhone = (id) => data.clients.find((c) => c.id === id)?.phone || ''
@@ -359,184 +459,227 @@ export default function Digital() {
     }
   }
 
+  if (!data.ready)
+    return (
+      <>
+        <PageHeader title={tr('الموظفون الرقميون')} />
+        <div className="alert alert-warning">{tr('هذا القسم يحتاج تحديث قاعدة البيانات 034. شغّل ملف التحديث في Supabase ثم حدّث الصفحة.')}</div>
+      </>
+    )
+
+  if (!employee)
+    return (
+      <>
+        <PageHeader title={tr('الموظفون الرقميون')} subtitle={tr('فريق يعمل معكم: كل موظف رقمي، أداؤه، وما يحتاجه منكم الآن')} />
+        <Overview employees={employees} />
+      </>
+    )
+
   return (
     <>
-      <PageHeader title={tr('الموظفون الرقميون')} subtitle={tr('حملات واتساب تُجهَّز من قاعدة العملاء وتُعتمد قبل الإرسال، والمتابعات، وقائمة الإيقاف')}>
-        {canWrite && data.ready && tab === 'campaigns' && <Button onClick={() => setCreating(true)}>{tr('+ حملة جديدة')}</Button>}
-        {canWrite && data.ready && tab === 'followups' && <Button onClick={() => setAddingFollowup(true)}>{tr('+ متابعة')}</Button>}
+      <div className="mb-16">
+        <Link to="/digital" className="back-link">
+          {tr('→ كل الموظفين الرقميين')}
+        </Link>
+      </div>
+      <PageHeader title={`${employee.icon} ${tr(employee.name)}`} subtitle={tr(employee.role)}>
+        {canWrite && tab === 'campaigns' && <Button onClick={() => setCreating(true)}>{tr('+ حملة جديدة')}</Button>}
+        {canWrite && tab === 'followups' && <Button onClick={() => setAddingFollowup(true)}>{tr('+ متابعة')}</Button>}
       </PageHeader>
 
-      {!data.ready ? (
-        <div className="alert alert-warning">{tr('هذا القسم يحتاج تحديث قاعدة البيانات 034. شغّل ملف التحديث في Supabase ثم حدّث الصفحة.')}</div>
-      ) : (
+      {employee.id === 'marketing' && (
         <>
-          <div className="alert alert-info mb-16">{tr('المرحلة الأولى: تجهيز الحملات واعتمادها والمتابعات فقط — لا يُرسل أي شيء من هنا بعد.')}</div>
+          <div className="alert alert-info mb-16">{tr('المرحلة الأولى: تجهيز الحملات واعتمادها فقط — الإرسال الفعلي يُفعَّل بعد ربط LetsBot.')}</div>
           <div className="grid-4 mb-16">
             <StatCard flat label={tr('مسودات')} value={count('مسودة')} icon="📝" accent="var(--ink)" onClick={() => setTab('campaigns')} />
             <StatCard flat label={tr('بانتظار الاعتماد')} value={count('بانتظار الاعتماد')} icon="⏳" accent="var(--wrn)" onClick={() => setTab('campaigns')} />
-            <StatCard flat label={tr('متابعات مفتوحة')} value={openFollowups.length} sub={tr('{0} متأخرة', [openFollowups.filter((f) => f.due_date < today).length])} icon="📞" accent="var(--info)" onClick={() => setTab('followups')} />
+            <StatCard flat label={tr('معتمدة')} value={count('معتمدة')} icon="✅" accent="var(--suc)" onClick={() => setTab('campaigns')} />
             <StatCard flat label={tr('في قائمة الإيقاف')} value={data.optOuts.length} icon="⛔" accent="var(--dng)" onClick={() => setTab('optouts')} />
           </div>
-
-          <div className="tabs tabs-underline mb-16">
-            {TABS.map(([id, label]) => (
-              <button key={id} type="button" className={`tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>
-                {tr(label)}
-              </button>
-            ))}
-          </div>
-
-          {tab === 'campaigns' && (
-            <Panel icon="📣" title={tr('الحملات')}>
-              {data.campaigns.length ? (
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>{tr('الحملة')}</th>
-                        <th>{tr('الحالة')}</th>
-                        <th>{tr('المستلمون')}</th>
-                        <th>{tr('أُنشئت')}</th>
-                        <th>{tr('الاعتماد')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.campaigns.map((c) => (
-                        <tr key={c.id} className="clickable" onClick={() => setOpen(c)}>
-                          <td>
-                            <div className="strong">{c.name}</div>
-                            {c.template_name && <div className="muted tiny">{tr(c.template_name)}</div>}
-                          </td>
-                          <td>
-                            <span className={`badge ${CAMPAIGN_BADGE[c.status]}`}>{tr(c.status)}</span>
-                          </td>
-                          <td className="num">{(byCampaign[c.id] || []).length}</td>
-                          <td className="small nowrap">{formatDate(c.created_at)}</td>
-                          <td className="small nowrap">{c.approved_at ? formatDate(c.approved_at) : '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <EmptyState icon="📣" text={tr('لا توجد حملات بعد — اضغط «+ حملة جديدة»')} />
-              )}
-            </Panel>
-          )}
-
-          {tab === 'followups' && (
-            <Panel icon="📞" title={tr('المتابعات')} subtitle={tr('من نتصل به، ومتى، ولماذا')}>
-              {data.followups.length ? (
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>{tr('العميل')}</th>
-                        <th>{tr('المكلَّف')}</th>
-                        <th>{tr('الموعد')}</th>
-                        <th>{tr('السبب')}</th>
-                        <th>{tr('الحالة')}</th>
-                        <th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...openFollowups, ...data.followups.filter((f) => f.status !== 'مفتوحة')].map((f) => (
-                        <tr key={f.id} className={f.status === 'تمت' ? 'muted' : ''}>
-                          <td>
-                            <div className="strong">{clientName(f.client_id)}</div>
-                            <div className="ltr tiny muted">{clientPhone(f.client_id)}</div>
-                          </td>
-                          <td className="small nowrap">{staffName(f.assigned_to || f.created_by)}</td>
-                          <td className={`small nowrap ${f.status === 'مفتوحة' && f.due_date < today ? 'text-dng strong' : ''}`}>{formatDate(f.due_date)}</td>
-                          <td className="small">{f.note}</td>
-                          <td>
-                            <span className={`badge ${f.status === 'تمت' ? 'badge-success' : f.due_date < today ? 'badge-danger' : 'badge-warning'}`}>
-                              {f.status === 'مفتوحة' && f.due_date < today ? tr('متأخرة') : tr(f.status)}
-                            </span>
-                          </td>
-                          <td className="nowrap">
-                            {canWrite && (
-                              <Button size="sm" variant="outline" onClick={() => run(() => setFollowupDone(f.id, f.status !== 'تمت'), f.status === 'تمت' ? tr('أُعيد فتحها') : tr('✅ تمت المتابعة'))}>
-                                {f.status === 'تمت' ? tr('إعادة فتح') : tr('✓ تمت')}
-                              </Button>
-                            )}{' '}
-                            {canWrite && (role === 'admin' || f.created_by === uid) && (
-                              <Button size="sm" variant="ghost" onClick={() => confirm(tr('حذف هذه المتابعة؟')) && run(() => deleteFollowup(f.id), tr('تم الحذف'))}>
-                                {tr('حذف')}
-                              </Button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <EmptyState icon="📞" text={tr('لا توجد متابعات بعد')} />
-              )}
-            </Panel>
-          )}
-
-          {tab === 'research' && <Prospects />}
-
-          {tab === 'optouts' && (
-            <Panel icon="⛔" title={tr('قائمة الإيقاف')} subtitle={tr('أرقام طلبت الإيقاف — لا تُضاف لأي حملة، وتُحذف تلقائياً من الحملات التي لم تُرسل')}>
-              {canWrite && (
-                <div className="toolbar panel-pad">
-                  <input id="optout-phone" className="input" dir="ltr" placeholder="9XXXXXXX" value={stop.phone} onChange={(e) => setStop((s) => ({ ...s, phone: e.target.value }))} />
-                  <input id="optout-reason" className="input" placeholder={tr('السبب (اختياري)')} value={stop.reason} onChange={(e) => setStop((s) => ({ ...s, reason: e.target.value }))} />
-                  <Button
-                    variant="danger"
-                    onClick={() =>
-                      stop.phone.replace(/\D/g, '').length < 8
-                        ? toast(tr('رقم غير صحيح'), 'error')
-                        : run(async () => {
-                            await addOptOut({ ...stop, client_id: clientByPhone(stop.phone)?.id })
-                            setStop({ phone: '', reason: '' })
-                          }, tr('✅ أُضيف الرقم لقائمة الإيقاف'))
-                    }
-                  >
-                    {tr('+ إيقاف هذا الرقم')}
-                  </Button>
-                </div>
-              )}
-              {data.optOuts.length ? (
-                <div className="table-wrap">
-                  <table className="table table-compact">
-                    <thead>
-                      <tr>
-                        <th>{tr('الرقم')}</th>
-                        <th>{tr('العميل')}</th>
-                        <th>{tr('السبب')}</th>
-                        <th>{tr('التاريخ')}</th>
-                        <th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.optOuts.map((o) => (
-                        <tr key={o.id}>
-                          <td className="ltr">{o.phone}</td>
-                          <td>{o.client_id ? clientName(o.client_id) : clientByPhone(o.phone)?.name || '—'}</td>
-                          <td className="small">{tr(o.reason) || '—'}</td>
-                          <td className="small nowrap">{formatDate(o.created_at)}</td>
-                          <td>
-                            {role === 'admin' && (
-                              <Button size="sm" variant="ghost" onClick={() => confirm(tr('إزالة {0} من قائمة الإيقاف؟ سيصبح ممكناً مراسلته مرة أخرى.', [o.phone])) && run(() => removeOptOut(o.id), tr('أُزيل من القائمة'))}>
-                                {tr('إزالة')}
-                              </Button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <EmptyState icon="✅" text={tr('القائمة فارغة')} />
-              )}
-            </Panel>
-          )}
         </>
+      )}
+      {employee.id === 'sales' && (
+        <div className="grid-4 mb-16">
+          {employee.kpis.map((k, i) => (
+            <StatCard key={k.label} flat label={tr(k.label)} value={k.value} icon={['📞', '⏰', '✅'][i]} accent={['var(--info)', 'var(--dng)', 'var(--suc)'][i]} />
+          ))}
+          <StatCard flat label={tr('عملاء في القاعدة')} value={data.clients.length} icon="👥" accent="var(--ink)" />
+        </div>
+      )}
+      {employee.id === 'research' && (
+        <div className="grid-4 mb-16">
+          {[...employee.kpis, ...employee.extra.slice(0, 1)].map((k, i) => (
+            <StatCard key={k.label} flat label={tr(k.label)} value={k.value} icon={['🔎', '🆕', '🤝', '📅'][i]} accent={['var(--ink)', 'var(--info)', 'var(--suc)', 'var(--wrn)'][i]} />
+          ))}
+        </div>
+      )}
+
+      {employee.tabs.length > 1 && (
+        <div className="tabs tabs-underline mb-16">
+          {employee.tabs.map((id) => (
+            <button key={id} type="button" className={`tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>
+              {tr(TABS[id])}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === 'campaigns' && (
+        <Panel icon="📣" title={tr('الحملات')}>
+          {data.campaigns.length ? (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>{tr('الحملة')}</th>
+                    <th>{tr('الحالة')}</th>
+                    <th>{tr('المستلمون')}</th>
+                    <th>{tr('أُنشئت')}</th>
+                    <th>{tr('الاعتماد')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.campaigns.map((c) => (
+                    <tr key={c.id} className="clickable" onClick={() => setOpen(c)}>
+                      <td>
+                        <div className="strong">{c.name}</div>
+                        {c.template_name && <div className="muted tiny">{tr(c.template_name)}</div>}
+                      </td>
+                      <td>
+                        <span className={`badge ${CAMPAIGN_BADGE[c.status]}`}>{tr(c.status)}</span>
+                      </td>
+                      <td className="num">{(byCampaign[c.id] || []).length}</td>
+                      <td className="small nowrap">{formatDate(c.created_at)}</td>
+                      <td className="small nowrap">{c.approved_at ? formatDate(c.approved_at) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState icon="📣" text={tr('لا توجد حملات بعد — اضغط «+ حملة جديدة»')} />
+          )}
+        </Panel>
+      )}
+
+      {tab === 'followups' && (
+        <Panel icon="📞" title={tr('المتابعات')} subtitle={tr('من نتصل به، ومتى، ولماذا')}>
+          {data.followups.length ? (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>{tr('العميل')}</th>
+                    <th>{tr('المكلَّف')}</th>
+                    <th>{tr('الموعد')}</th>
+                    <th>{tr('السبب')}</th>
+                    <th>{tr('الحالة')}</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...openFollowups, ...data.followups.filter((f) => f.status !== 'مفتوحة')].map((f) => (
+                    <tr key={f.id} className={f.status === 'تمت' ? 'muted' : ''}>
+                      <td>
+                        <div className="strong">{clientName(f.client_id)}</div>
+                        <div className="ltr tiny muted">{clientPhone(f.client_id)}</div>
+                      </td>
+                      <td className="small nowrap">{staffName(f.assigned_to || f.created_by)}</td>
+                      <td className={`small nowrap ${f.status === 'مفتوحة' && f.due_date < today ? 'text-dng strong' : ''}`}>{formatDate(f.due_date)}</td>
+                      <td className="small">{f.note}</td>
+                      <td>
+                        <span className={`badge ${f.status === 'تمت' ? 'badge-success' : f.due_date < today ? 'badge-danger' : 'badge-warning'}`}>
+                          {f.status === 'مفتوحة' && f.due_date < today ? tr('متأخرة') : tr(f.status)}
+                        </span>
+                      </td>
+                      <td className="nowrap">
+                        {canWrite && (
+                          <Button size="sm" variant="outline" onClick={() => run(() => setFollowupDone(f.id, f.status !== 'تمت'), f.status === 'تمت' ? tr('أُعيد فتحها') : tr('✅ تمت المتابعة'))}>
+                            {f.status === 'تمت' ? tr('إعادة فتح') : tr('✓ تمت')}
+                          </Button>
+                        )}{' '}
+                        {canWrite && (role === 'admin' || f.created_by === uid) && (
+                          <Button size="sm" variant="ghost" onClick={() => confirm(tr('حذف هذه المتابعة؟')) && run(() => deleteFollowup(f.id), tr('تم الحذف'))}>
+                            {tr('حذف')}
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState icon="📞" text={tr('لا توجد متابعات بعد')} />
+          )}
+        </Panel>
+      )}
+
+      {tab === 'research' && <Prospects />}
+
+      {tab === 'optouts' && (
+        <Panel icon="⛔" title={tr('قائمة الإيقاف')} subtitle={tr('أرقام طلبت الإيقاف — لا تُضاف لأي حملة، وتُحذف تلقائياً من الحملات التي لم تُرسل')}>
+          {canWrite && (
+            <div className="toolbar panel-pad">
+              <input id="optout-phone" className="input" dir="ltr" placeholder="9XXXXXXX" value={stop.phone} onChange={(e) => setStop((s) => ({ ...s, phone: e.target.value }))} />
+              <input id="optout-reason" className="input" placeholder={tr('السبب (اختياري)')} value={stop.reason} onChange={(e) => setStop((s) => ({ ...s, reason: e.target.value }))} />
+              <Button
+                variant="danger"
+                onClick={() =>
+                  stop.phone.replace(/\D/g, '').length < 8
+                    ? toast(tr('رقم غير صحيح'), 'error')
+                    : run(async () => {
+                        await addOptOut({
+                          ...stop,
+                          client_id: clientByPhone(stop.phone)?.id,
+                        })
+                        setStop({ phone: '', reason: '' })
+                      }, tr('✅ أُضيف الرقم لقائمة الإيقاف'))
+                }
+              >
+                {tr('+ إيقاف هذا الرقم')}
+              </Button>
+            </div>
+          )}
+          {data.optOuts.length ? (
+            <div className="table-wrap">
+              <table className="table table-compact">
+                <thead>
+                  <tr>
+                    <th>{tr('الرقم')}</th>
+                    <th>{tr('العميل')}</th>
+                    <th>{tr('السبب')}</th>
+                    <th>{tr('التاريخ')}</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.optOuts.map((o) => (
+                    <tr key={o.id}>
+                      <td className="ltr">{o.phone}</td>
+                      <td>{o.client_id ? clientName(o.client_id) : clientByPhone(o.phone)?.name || '—'}</td>
+                      <td className="small">{tr(o.reason) || '—'}</td>
+                      <td className="small nowrap">{formatDate(o.created_at)}</td>
+                      <td>
+                        {role === 'admin' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => confirm(tr('إزالة {0} من قائمة الإيقاف؟ سيصبح ممكناً مراسلته مرة أخرى.', [o.phone])) && run(() => removeOptOut(o.id), tr('أُزيل من القائمة'))}
+                          >
+                            {tr('إزالة')}
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState icon="✅" text={tr('القائمة فارغة')} />
+          )}
+        </Panel>
       )}
 
       {creating && (
