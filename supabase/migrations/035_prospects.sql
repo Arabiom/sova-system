@@ -134,6 +134,7 @@ as $$
 $$;
 
 -- What is already on the list (names, accounts, sites — no phone numbers), so the research skips them.
+drop function if exists public.known_prospects(text);
 create or replace function public.known_prospects(p_token text)
 returns table (name text, instagram text, website text)
 language plpgsql
