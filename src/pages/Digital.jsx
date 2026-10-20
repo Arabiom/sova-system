@@ -36,6 +36,8 @@ const load = async () => {
       ready: false,
       prospects: [],
       feedSince: null,
+      plan: null,
+      runs: [],
     })),
   ])
   const templates = [...(saved || []).map((t) => ({ name: t.name, body: t.body })), ...BUILTIN_TEMPLATES.map((t) => ({ name: t.label, body: t.body }))]
@@ -46,7 +48,8 @@ const TABS = {
   campaigns: '📣 الحملات',
   optouts: '⛔ قائمة الإيقاف',
   followups: '📞 المتابعات',
-  research: '🔎 البحث والفرص',
+  research: '🔎 الفرص',
+  plan: '🧭 خطة البحث والسجل',
 }
 
 /** The front page: each digital employee, its numbers and what it needs from the team. */
@@ -430,6 +433,7 @@ export default function Digital() {
     prospects: data.research.prospects,
     prospectsReady: data.research.ready,
     feedSince: data.research.feedSince,
+    runs: data.research.runs,
     role,
     today,
   })
@@ -616,6 +620,7 @@ export default function Digital() {
       )}
 
       {tab === 'research' && <Prospects />}
+      {tab === 'plan' && <Prospects view="plan" />}
 
       {tab === 'optouts' && (
         <Panel icon="⛔" title={tr('قائمة الإيقاف')} subtitle={tr('أرقام طلبت الإيقاف — لا تُضاف لأي حملة، وتُحذف تلقائياً من الحملات التي لم تُرسل')}>

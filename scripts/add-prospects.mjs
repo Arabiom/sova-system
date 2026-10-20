@@ -1,6 +1,9 @@
-// The daily research's only door into the system (migration 035):
+// The daily research's only door into the system (migrations 035–036):
+//   node scripts/add-prospects.mjs brief            → the plan: focus, cities, kinds, sectors, the day's
+//                                                     remaining limit, and the upcoming exhibitions
 //   node scripts/add-prospects.mjs known            → the names / accounts / sites already on file
 //   node scripts/add-prospects.mjs add found.json   → add the day's findings (an array, ≤ 50)
+//   node scripts/add-prospects.mjs log run.json     → report the run: {added, skipped, rejected, focus, summary}
 // The secret code is read from the SOVA_RESEARCH_TOKEN environment variable — never from a file
 // in the repository. The Supabase address and public key come from .env (public by design).
 import { readFileSync } from 'node:fs'
@@ -30,11 +33,16 @@ async function rpc(name, body) {
     console.error(`${name} failed (${res.status}): ${text.slice(0, 300)}`)
     process.exit(1)
   }
-  return JSON.parse(text)
+  return text ? JSON.parse(text) : null
 }
 
 const [cmd, file] = process.argv.slice(2)
-if (cmd === 'known') {
+if (cmd === 'brief') {
+  console.log(JSON.stringify(await rpc('research_brief', {}), null, 2))
+} else if (cmd === 'log' && file) {
+  await rpc('log_research_run', { p_run: JSON.parse(readFileSync(file, 'utf8')) })
+  console.log('logged')
+} else if (cmd === 'known') {
   console.log(JSON.stringify(await rpc('known_prospects', {})))
 } else if (cmd === 'add' && file) {
   const rows = JSON.parse(readFileSync(file, 'utf8'))
@@ -44,6 +52,6 @@ if (cmd === 'known') {
   }
   console.log(JSON.stringify(await rpc('add_prospects', { p_rows: rows })))
 } else {
-  console.error('Usage: node scripts/add-prospects.mjs known | add <file.json>')
+  console.error('Usage: node scripts/add-prospects.mjs brief | known | add <file.json> | log <run.json>')
   process.exit(1)
 }
