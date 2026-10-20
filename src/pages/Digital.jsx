@@ -9,6 +9,7 @@ import { EmptyState, Loading } from '../components/Feedback.jsx'
 import Field from '../components/Field.jsx'
 import Modal from '../components/Modal.jsx'
 import PageHeader from '../components/PageHeader.jsx'
+import Prospects from '../components/Prospects.jsx'
 import Panel from '../components/Panel.jsx'
 import StatCard from '../components/StatCard.jsx'
 import { WhatsAppText } from '../components/WhatsAppText.jsx'
@@ -33,6 +34,7 @@ const TABS = [
   ['campaigns', '📣 الحملات'],
   ['followups', '📞 المتابعات'],
   ['optouts', '⛔ قائمة الإيقاف'],
+  ['research', '🔎 البحث والفرص'],
 ]
 
 /** Toggle a value in a list (multi-choice chips). */
@@ -474,6 +476,8 @@ export default function Digital() {
               )}
             </Panel>
           )}
+
+          {tab === 'research' && <Prospects />}
 
           {tab === 'optouts' && (
             <Panel icon="⛔" title={tr('قائمة الإيقاف')} subtitle={tr('أرقام طلبت الإيقاف — لا تُضاف لأي حملة، وتُحذف تلقائياً من الحملات التي لم تُرسل')}>
