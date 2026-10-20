@@ -3,7 +3,9 @@
 // (statuses, sectors, payment methods…) stay Arabic; only their display goes through tr().
 // Invoices, contracts and WhatsApp messages to participants stay Arabic.
 
-import EN from './i18n.en.js'
+// The English dictionary is large; it is downloaded only by those who chose English
+// (loadDictionary, before the app starts).
+let EN = {}
 
 export const LANGUAGES = [
   { id: 'ar', label: 'العربية', dir: 'rtl' },
@@ -23,6 +25,11 @@ function readLang() {
 let lang = readLang()
 
 export const currentLang = () => lang
+
+/** Load the English dictionary when English is chosen. Resolves at once in Arabic. */
+export async function loadDictionary() {
+  if (lang === 'en') EN = (await import('./i18n.en.js')).default
+}
 
 /** Build something (an Arabic document) with the interface in Arabic, whatever the chosen language. */
 export function inArabic(build) {

@@ -344,6 +344,12 @@ function FollowupForm({ clients, people, uid, onClose, onSaved }) {
     due_date: todayISO(),
     note: '',
   })
+  // thousands of clients: the list shows the first 50 matching what is typed (and the chosen one)
+  const [find, setFind] = useState('')
+  const needle = find.trim().toLowerCase()
+  const matches = clients
+    .filter((c) => c.id === form.client_id || !needle || [c.name, c.contact_name, c.phone].some((v) => String(v || '').toLowerCase().includes(needle)))
+    .slice(0, 50)
   const [saving, setSaving] = useState(false)
   const submit = async () => {
     if (!form.client_id) return toast(tr('اختر العميل'), 'error')
@@ -374,10 +380,11 @@ function FollowupForm({ clients, people, uid, onClose, onSaved }) {
         </>
       }
     >
-      <Field label={tr('العميل')} required>
+      <Field label={tr('العميل')} required hint={tr('اكتب جزءاً من الاسم أو الرقم')}>
+        <input id="followup-client-search" className="input mb-8" value={find} placeholder={tr('بحث...')} onChange={(e) => setFind(e.target.value)} />
         <select id="followup-client" className="input" value={form.client_id} onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}>
-          <option value="">{tr('اختر...')}</option>
-          {clients.map((c) => (
+          <option value="">{matches.length ? tr('اختر...') : tr('لا نتائج')}</option>
+          {matches.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
               {c.phone ? ` — ${c.phone}` : ''}

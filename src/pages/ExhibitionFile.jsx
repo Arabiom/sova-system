@@ -40,7 +40,7 @@ const TABS = [
 ]
 
 async function loadFile(id) {
-  const [exhibition, sites, expenses, sponsors, exhibitors, payments, exhibitions, clients] = await Promise.all([
+  const [exhibition, sites, expenses, sponsors, exhibitors, payments, exhibitions, clients, staffExpenses] = await Promise.all([
     getExhibition(id),
     listSites(id),
     listExpenses(id),
@@ -49,9 +49,9 @@ async function loadFile(id) {
     listPayments('id,exhibitor_id,amount'),
     listExhibitions(),
     listClients(),
+    // staff claims tied to this exhibition count in its costs (only readable by finance roles)
+    listStaffExpenses().catch(() => []),
   ])
-  // Staff claims tied to this exhibition count in its costs (only readable by finance roles).
-  const staffExpenses = await listStaffExpenses().catch(() => [])
   return { exhibition, sites, expenses, sponsors, exhibitors, payments, exhibitions, clients, staffExpenses }
 }
 

@@ -1,7 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Splash } from './components/Feedback.jsx'
-import Layout from './components/Layout.jsx'
 import { signOut, useAuth, useCan } from './context/AuthContext.jsx'
 import Login from './pages/Login.jsx'
 import { tr } from './lib/i18n.js'
@@ -22,6 +21,8 @@ const Staff = lazy(() => import('./pages/Staff.jsx'))
 const PublicBooking = lazy(() => import('./pages/PublicBooking.jsx'))
 const Home = lazy(() => import('./pages/Home.jsx'))
 const Digital = lazy(() => import('./pages/Digital.jsx'))
+// The internal frame (menu, alerts) and everything behind it load only once someone signs in.
+const Layout = lazy(() => import('./components/Layout.jsx'))
 
 /** Internal system: every page requires a signed-in staff member. */
 function Protected() {
@@ -29,7 +30,11 @@ function Protected() {
   if (loading) return <Splash />
   if (!session) return <Login />
   if (!role) return <NoAccess error={staffError} />
-  return <Layout />
+  return (
+    <Suspense fallback={<Splash />}>
+      <Layout />
+    </Suspense>
+  )
 }
 
 /** Finance roles review claims inside the finance centre; everyone else records their own here. */
