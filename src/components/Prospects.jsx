@@ -4,7 +4,7 @@ import { listExhibitions } from '../api/exhibitions.js'
 import { deleteProspect, importProspects, loadProspects, makeClient, revokeFeedToken, rotateFeedToken, saveProspect, saveResearchPlan, setProspectStatus } from '../api/prospects.js'
 import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
-import { parseCsv } from '../lib/clientImport.js'
+import { columnOptions, parseCsv } from '../lib/clientImport.js'
 import { CATEGORIES, CITIES, FORM_SECTORS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
 import { exhibitionTitle, formatDate } from '../lib/format.js'
@@ -13,6 +13,7 @@ import { readFirstSheet } from '../lib/importSheet.js'
 import {
   CLIENT_KINDS,
   classifyProspects,
+  detectProspectColumns,
   downloadProspectTemplate,
   FIT_LABELS,
   FIT_STARS,
@@ -40,6 +41,8 @@ const load = async () => {
 const EMPTY = { kind: PROSPECT_KINDS[0], name: '', category: '', city: '', instagram: '', website: '', phone: '', email: '', source_url: '', notes: '' }
 const STATE_LABEL = { new: 'جديد', duplicate: 'مكرر في الملف', exists: 'موجود مسبقاً', invalid: 'ناقص' }
 const STATE_BADGE = { new: 'badge-success', duplicate: 'badge-warning', exists: 'badge-neutral', invalid: 'badge-danger' }
+/** Days left before an unreviewed Google Maps find is removed (Google's 30-day rule), else null. */
+const mapsDaysLeft = (p) => (p.origin === 'خرائط جوجل' && p.status === 'جديد' ? Math.max(0, 30 - Math.floor((Date.now() - new Date(p.created_at)) / 864e5)) : null)
 const link = (url) => (/^https?:\/\//i.test(url) ? url : `https://${url}`)
 
 function ProspectForm({ prospect, withFit, onClose, onSaved }) {
@@ -126,27 +129,72 @@ function ProspectForm({ prospect, withFit, onClose, onSaved }) {
   )
 }
 
+const GUESSED_LABEL = { kind: 'النوع', category: 'النشاط', city: 'المدينة', instagram: 'إنستغرام' }
+
+/**
+ * «فرز ملف Excel»: give it any list (shops, companies, factories…). It finds the columns (or you
+ * pick them), sorts every row — kind, activity, town, Instagram, from the row's own words where
+ * the file leaves them empty — sets aside repeated rows and names already on file, and saves the
+ * rows you keep.
+ */
 function ProspectImport({ prospects, clients, onClose, onDone }) {
   const toast = useToast()
-  const [rows, setRows] = useState(null)
+  const [sheet, setSheet] = useState(null) // { name, rows, headerRow }
+  const [cols, setCols] = useState({})
+  const [mapping, setMapping] = useState(false)
+  const [picked, setPicked] = useState({}) // line → include
+  const [kinds, setKinds] = useState({}) // line → kind chosen by hand
+  const [show, setShow] = useState('new')
   const [progress, setProgress] = useState(null)
   const choose = async (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
     try {
-      const sheet = /\.csv$/i.test(file.name) || file.type === 'text/csv' ? parseCsv(await file.text()) : await readFirstSheet(file)
-      setRows(classifyProspects(readProspectRows(sheet), prospects, clients))
+      const raw = /\.csv$/i.test(file.name) || file.type === 'text/csv' ? parseCsv(await file.text()) : await readFirstSheet(file)
+      if (!raw.length) return toast(tr('الملف فارغ'), 'error')
+      const found = detectProspectColumns(raw)
+      setSheet({ name: file.name, rows: raw, headerRow: found.headerRow })
+      setCols(found.cols)
+      setPicked({})
+      setKinds({})
+      setMapping(found.headerRow < 0)
+      if (found.headerRow < 0) toast(tr('لم أتعرف على أسماء الأعمدة — اختر عمود كل حقل'), 'warn')
     } catch (err) {
       toast(tr('تعذّر قراءة الملف: {0}', [err.message]), 'error')
     }
   }
-  const fresh = rows?.filter((r) => r.state === 'new') || []
-  const count = (s) => rows?.filter((r) => r.state === s).length || 0
+  let rows = []
+  let readError = ''
+  if (sheet && cols.name !== undefined) {
+    try {
+      rows = classifyProspects(readProspectRows(sheet.rows, { headerRow: sheet.headerRow, cols }), prospects, clients).map((r) => ({ ...r, kind: kinds[r.line] || r.kind }))
+    } catch (err) {
+      readError = err.message
+    }
+  }
+  const included = (r) => r.state !== 'invalid' && (r.line in picked ? picked[r.line] : r.state === 'new')
+  const chosen = rows.filter(included)
+  const count = (st) => rows.filter((r) => r.state === st).length
+  const visible = show === 'all' ? rows : rows.filter((r) => r.state === show)
+  const byKind = PROSPECT_KINDS.map((k) => [k, chosen.filter((r) => r.kind === k).length]).filter(([, n]) => n)
+  const sectors = Object.entries(chosen.reduce((m, r) => ((m[r.category || tr('بدون نشاط')] = (m[r.category || tr('بدون نشاط')] || 0) + 1), m), {})).sort((a, b) => b[1] - a[1])
+  const options = sheet ? columnOptions(sheet.rows, sheet.headerRow) : []
+  const setCol = (key) => (e) =>
+    setCols((c) => {
+      const next = { ...c }
+      if (e.target.value === '') delete next[key]
+      else next[key] = +e.target.value
+      return next
+    })
   const save = async () => {
     setProgress(0)
     try {
-      const res = await importProspects(fresh, setProgress)
+      const notes = (r) => [r.notes, tr('من ملف: {0}', [sheet.name])].filter(Boolean).join(' — ')
+      const res = await importProspects(
+        chosen.map((r) => ({ ...r, notes: notes(r) })),
+        setProgress,
+      )
       toast(tr('✅ أُضيفت {0} فرصة', [res.added]) + (res.skipped ? ` • ${tr('{0} موجودة مسبقاً', [res.skipped])}` : ''))
       onDone()
     } catch (err) {
@@ -157,8 +205,8 @@ function ProspectImport({ prospects, clients, onClose, onDone }) {
   }
   return (
     <Modal
-      title={tr('استيراد فرص من ملف')}
-      subtitle={tr('Excel أو CSV — يُضاف الجديد فقط، والمكرر والموجود يُتجاهل')}
+      title={tr('📥 فرز ملف Excel')}
+      subtitle={tr('أعطه أي قائمة (محلات، شركات، مصانع…) — يتعرف على الأعمدة، ويفرز كل صف، ويستبعد المكرر والموجود، ثم يحفظ ما تختاره')}
       onClose={onClose}
       size="lg"
       footer={
@@ -166,8 +214,8 @@ function ProspectImport({ prospects, clients, onClose, onDone }) {
           <Button variant="outline" onClick={onClose}>
             {tr('إلغاء')}
           </Button>
-          <Button onClick={save} disabled={!fresh.length || progress !== null}>
-            {progress !== null ? tr('جاري... {0}/{1}', [progress, fresh.length]) : tr('إضافة {0} فرصة', [fresh.length])}
+          <Button onClick={save} disabled={!chosen.length || progress !== null}>
+            {progress !== null ? tr('جاري... {0}/{1}', [progress, chosen.length]) : tr('إضافة {0} فرصة', [chosen.length])}
           </Button>
         </>
       }
@@ -177,33 +225,119 @@ function ProspectImport({ prospects, clients, onClose, onDone }) {
         <Button variant="ghost" onClick={downloadProspectTemplate}>
           {tr('⬇ نموذج الملف')}
         </Button>
+        {sheet && (
+          <Button variant="ghost" onClick={() => setMapping((m) => !m)}>
+            {mapping ? tr('إخفاء الأعمدة') : tr('تعديل الأعمدة')}
+          </Button>
+        )}
       </div>
-      {rows && (
+
+      {sheet && mapping && (
+        <div className="form-grid mb-16">
+          {PROSPECT_FIELDS.map((f) => (
+            <Field key={f.key} label={tr(f.label)} required={f.key === 'name'}>
+              <select id={`map-${f.key}`} className="input" value={cols[f.key] ?? ''} onChange={setCol(f.key)}>
+                <option value="">{tr('— لا يوجد —')}</option>
+                {options.map((o) => (
+                  <option key={o.index} value={o.index}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ))}
+        </div>
+      )}
+
+      {sheet && cols.name === undefined && <div className="alert alert-warning">{tr('اختر عمود «الاسم» على الأقل')}</div>}
+      {readError && <div className="alert alert-danger">{readError}</div>}
+
+      {rows.length > 0 && (
         <>
-          <div className="small mb-16">
-            {Object.keys(STATE_LABEL)
-              .map((s) => `${tr(STATE_LABEL[s])}: ${count(s)}`)
-              .join(' • ')}
-            {fresh.some((r) => r.noSource) && <div className="muted mt-4">{tr('⚠️ بعض الصفوف بلا رابط مصدر — يُنصح بإضافته للتحقق لاحقاً')}</div>}
+          <div className="emp-kpis mb-16">
+            <div className="emp-kpi">
+              <div className="emp-kpi-value num">{chosen.length}</div>
+              <div className="emp-kpi-label">{tr('ستُضاف')}</div>
+            </div>
+            <div className="emp-kpi">
+              <div className="emp-kpi-value num">{count('duplicate') + count('exists')}</div>
+              <div className="emp-kpi-label">{tr('مكرر أو موجود — استُبعد')}</div>
+            </div>
+            <div className="emp-kpi">
+              <div className="emp-kpi-value num">{count('invalid')}</div>
+              <div className="emp-kpi-label">{tr('ناقص (بلا اسم)')}</div>
+            </div>
           </div>
-          <div className="table-wrap" style={{ maxHeight: 360 }}>
+          <div className="small mb-16">
+            <div>
+              <strong>{tr('حسب النوع:')}</strong> {byKind.map(([k, n]) => `${tr(k)} ${n}`).join(' • ') || '—'}
+            </div>
+            <div>
+              <strong>{tr('حسب النشاط:')}</strong> {sectors.map(([k, n]) => `${tr(k)} ${n}`).join(' • ') || '—'}
+            </div>
+            <div className="muted">{tr('✨ = اقتراح من كلمات الصف لأن الملف تركه فارغاً — راجعه، ويمكنك تغيير النوع من القائمة')}</div>
+          </div>
+          <div className="chips-row mb-16">
+            {[
+              ['new', tr('جديد')],
+              ['duplicate', tr('مكرر في الملف')],
+              ['exists', tr('موجود مسبقاً')],
+              ['invalid', tr('ناقص')],
+              ['all', tr('الكل')],
+            ].map(([id, label]) => (
+              <button key={id} type="button" className={`chip-btn ${show === id ? 'active' : ''}`} onClick={() => setShow(id)}>
+                {label} ({id === 'all' ? rows.length : count(id)})
+              </button>
+            ))}
+          </div>
+          <div className="table-wrap" style={{ maxHeight: 380 }}>
             <table className="table table-compact">
               <thead>
                 <tr>
-                  <th>{tr('السطر')}</th>
+                  <th />
                   <th>{tr('الاسم')}</th>
                   <th>{tr('النوع')}</th>
+                  <th>{tr('النشاط')}</th>
                   <th>{tr('المدينة')}</th>
+                  <th>{tr('الهاتف')}</th>
                   <th>{tr('الحالة')}</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.line}>
-                    <td className="num small">{r.line}</td>
-                    <td>{r.name || '—'}</td>
-                    <td className="small">{tr(r.kind)}</td>
-                    <td className="small">{r.city || '—'}</td>
+                {visible.map((r) => (
+                  <tr key={r.line} className={included(r) ? '' : 'muted'}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        aria-label={tr('إضافة السطر {0}', [r.line])}
+                        checked={included(r)}
+                        disabled={r.state === 'invalid'}
+                        onChange={(e) => setPicked((m) => ({ ...m, [r.line]: e.target.checked }))}
+                      />
+                    </td>
+                    <td>
+                      <div>{r.name || '—'}</div>
+                      <div className="tiny muted">{tr('السطر {0}', [r.line])}</div>
+                    </td>
+                    <td>
+                      <select className="input input-compact" aria-label={tr('النوع')} value={r.kind} onChange={(e) => setKinds((m) => ({ ...m, [r.line]: e.target.value }))}>
+                        {PROSPECT_KINDS.map((k) => (
+                          <option key={k} value={k}>
+                            {tr(k)}
+                          </option>
+                        ))}
+                      </select>
+                      {r.guessed.includes('kind') && !kinds[r.line] && <span title={tr(GUESSED_LABEL.kind)}> ✨</span>}
+                    </td>
+                    <td className="small">
+                      {r.category ? tr(r.category) : '—'}
+                      {r.guessed.includes('category') && ' ✨'}
+                    </td>
+                    <td className="small">
+                      {r.city ? tr(r.city) : '—'}
+                      {r.guessed.includes('city') && ' ✨'}
+                    </td>
+                    <td className="small ltr">{r.phone || '—'}</td>
                     <td>
                       <span className={`badge ${STATE_BADGE[r.state]}`}>{tr(STATE_LABEL[r.state])}</span> <span className="tiny muted">{r.reason}</span>
                     </td>
@@ -488,7 +622,7 @@ export default function Prospects({ view = 'list' }) {
           {canWrite && <Button onClick={() => setEditing({})}>{tr('+ فرصة')}</Button>}
           {canWrite && (
             <Button variant="outline" onClick={() => setImporting(true)}>
-              {tr('استيراد ملف')}
+              {tr('📥 فرز ملف Excel')}
             </Button>
           )}
           <Button variant="ghost" onClick={exportCsv} disabled={!shown.length}>
@@ -516,7 +650,7 @@ export default function Prospects({ view = 'list' }) {
                     <td>
                       <div className="strong">{p.name}</div>
                       <div className="tiny muted">
-                        {[p.category, p.origin !== 'يدوي' && tr(p.origin)].filter(Boolean).join(' • ')}
+                        {[p.category, p.origin !== 'يدوي' && tr(p.origin), mapsDaysLeft(p) !== null && tr('يُحذف بعد {0} يوم إن لم يُراجَع', [mapsDaysLeft(p)])].filter(Boolean).join(' • ')}
                         {p.source_url && (
                           <>
                             {' • '}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyProspects, instagramHandle, prospectToClient, readProspectRows, researchHealth, sortProspects } from '../prospects.js'
+import { classifyProspects, detectProspectColumns, guessCity, guessKind, guessSector, instagramHandle, prospectToClient, readProspectRows, researchHealth, sortProspects } from '../prospects.js'
 
 describe('instagramHandle', () => {
   it('keeps the handle only, in lower case, whatever was written', () => {
@@ -81,5 +81,42 @@ describe('researchHealth', () => {
   it('counts from when the code was made until the first report', () => {
     expect(researchHealth([], '2026-10-20T21:00:00Z', now).state).toBe('ok')
     expect(researchHealth([], '2026-10-15T21:00:00Z', now).state).toBe('late')
+  })
+})
+
+describe('sorting an imported sheet', () => {
+  it('guesses the kind, sector and town from the words', () => {
+    expect(guessKind('نزوى جراند مول')).toBe('موقع أو فعالية')
+    expect(guessKind('Bank Dhofar')).toBe('راعٍ أو شريك')
+    expect(guessKind('عبايات الريم')).toBe('عارض محتمل')
+    expect(guessSector('بخور ودخون أم سالم')).toBe('عطور وبخور')
+    expect(guessSector('Sweet Dates Bakery')).toBe('حلويات وقهوة')
+    expect(guessSector('شيء آخر')).toBe('')
+    expect(guessCity('شارع السلطان قابوس، صحار')).toBe('صحار')
+    expect(guessCity('Al Khuwair, Muscat')).toBe('مسقط')
+    expect(guessCity('Surabaya')).toBe('') // a whole word only
+  })
+
+  it('reads a shop list with its own headers, fills only the empty fields, and lists what it guessed', () => {
+    const sheet = [
+      ['اسم المحل', 'رقم الواتساب', 'العنوان', 'ملاحظة'],
+      ['عطور الريم', '91234567', 'سوق نزوى', 'instagram.com/Reem.Oud'],
+      ['مول العريمي', '', 'مسقط', ''],
+      ['خياطة النخبة', '92222222', 'صلالة', ''],
+    ]
+    const found = detectProspectColumns(sheet)
+    expect(found.headerRow).toBe(0)
+    const rows = readProspectRows(sheet, found)
+    expect(rows[0]).toMatchObject({ name: 'عطور الريم', phone: '91234567', city: 'نزوى', category: 'عطور وبخور', instagram: 'reem.oud', kind: 'عارض محتمل' })
+    expect(rows[0].guessed).toEqual(expect.arrayContaining(['category', 'instagram']))
+    expect(rows[1]).toMatchObject({ kind: 'موقع أو فعالية', city: 'مسقط' })
+    expect(rows[2]).toMatchObject({ category: 'أزياء', city: 'صلالة' })
+  })
+
+  it('takes columns chosen by hand when the sheet has no header row', () => {
+    const sheet = [['متجر ورد', '93333333']]
+    expect(detectProspectColumns(sheet).headerRow).toBe(-1)
+    const rows = readProspectRows(sheet, { headerRow: -1, cols: { name: 0, phone: 1 } })
+    expect(rows[0]).toMatchObject({ line: 1, name: 'متجر ورد', phone: '93333333', category: 'زهور وهدايا' })
   })
 })

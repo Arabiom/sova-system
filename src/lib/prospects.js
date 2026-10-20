@@ -21,20 +21,24 @@ export const CLIENT_KINDS = ['عارض محتمل', 'راعٍ أو شريك']
 
 /** Fields a file can fill, with the header names each is recognised by. */
 export const PROSPECT_FIELDS = [
-  { key: 'name', headers: ['الاسم', 'اسم المشروع', 'المشروع', 'اسم الجهة', 'الجهة', 'name', 'business'] },
-  { key: 'kind', headers: ['النوع', 'نوع الفرصة', 'kind', 'type'] },
-  { key: 'category', headers: ['النشاط', 'القطاع', 'التصنيف', 'category', 'sector'] },
-  { key: 'city', headers: ['المدينة', 'الولاية', 'city'] },
-  { key: 'instagram', headers: ['إنستغرام', 'انستغرام', 'إنستقرام', 'انستقرام', 'instagram'] },
-  { key: 'website', headers: ['الموقع', 'الموقع الإلكتروني', 'website', 'site'] },
-  { key: 'phone', headers: ['الهاتف', 'رقم الهاتف', 'الجوال', 'phone'] },
-  { key: 'email', headers: ['البريد', 'البريد الإلكتروني', 'email'] },
-  { key: 'source_url', headers: ['المصدر', 'رابط المصدر', 'مصدر المعلومة', 'source', 'source_url'] },
-  { key: 'notes', headers: ['ملاحظات', 'ملاحظة', 'notes'] },
+  {
+    key: 'name',
+    label: 'الاسم',
+    headers: ['الاسم', 'اسم المشروع', 'المشروع', 'اسم الجهة', 'الجهة', 'اسم المحل', 'المحل', 'اسم المتجر', 'المتجر', 'العلامة التجارية', 'البراند', 'اسم الشركة', 'الشركة', 'اسم المصنع', 'المصنع', 'name', 'business', 'company', 'company name', 'store', 'brand'],
+  },
+  { key: 'kind', label: 'النوع', headers: ['النوع', 'نوع الفرصة', 'kind', 'type'] },
+  { key: 'category', label: 'النشاط', headers: ['النشاط', 'القطاع', 'التصنيف', 'المجال', 'نوع النشاط', 'المنتجات', 'category', 'sector', 'activity', 'products'] },
+  { key: 'city', label: 'المدينة', headers: ['المدينة', 'الولاية', 'المحافظة', 'المنطقة', 'العنوان', 'city', 'area', 'address', 'location'] },
+  { key: 'instagram', label: 'إنستغرام', headers: ['إنستغرام', 'انستغرام', 'إنستقرام', 'انستقرام', 'الحساب', 'instagram', 'insta'] },
+  { key: 'website', label: 'الموقع الإلكتروني', headers: ['الموقع', 'الموقع الإلكتروني', 'website', 'site', 'web'] },
+  { key: 'phone', label: 'الهاتف', headers: ['الهاتف', 'رقم الهاتف', 'الجوال', 'رقم الجوال', 'واتساب', 'رقم الواتساب', 'رقم التواصل', 'التواصل', 'الرقم', 'phone', 'mobile', 'whatsapp', 'tel'] },
+  { key: 'email', label: 'البريد', headers: ['البريد', 'البريد الإلكتروني', 'الإيميل', 'الايميل', 'email', 'e-mail'] },
+  { key: 'source_url', label: 'رابط المصدر', headers: ['المصدر', 'رابط المصدر', 'مصدر المعلومة', 'الرابط', 'source', 'source_url', 'link', 'url'] },
+  { key: 'notes', label: 'ملاحظات', headers: ['ملاحظات', 'ملاحظة', 'notes', 'note'] },
 ]
 
 const clean = (v) => (v === null || v === undefined ? '' : String(v).replace(/\s+/g, ' ').trim())
-const normHeader = (v) => clean(v).replace(/[:：*]/g, '').toLowerCase()
+const normHeader = (v) => clean(v).replace(/[:\uFF1A*]/g, '').replace(/\s*\(.*?\)\s*/g, '').trim().toLowerCase()
 
 /** An Instagram account as stored: the handle only, lower case, from "@x", "x" or a profile link. */
 export function instagramHandle(value) {
@@ -44,32 +48,98 @@ export function instagramHandle(value) {
   return (fromUrl ? fromUrl[1] : v.replace(/^@/, '')).toLowerCase()
 }
 
-/** Rows of a sheet → prospects (the first row naming at least two known fields is the header). */
-export function readProspectRows(rows) {
-  let headerRow = -1
-  let cols = {}
-  for (let r = 0; r < Math.min(rows.length, 15) && headerRow < 0; r++) {
+/**
+ * Which column holds each field: the first of the first 15 rows naming the name column and at
+ * least one other. Without one, headerRow is -1 and the columns are chosen by hand.
+ */
+export function detectProspectColumns(rows) {
+  for (let r = 0; r < Math.min(rows.length, 15); r++) {
     const cells = rows[r].map(normHeader)
     const found = {}
     for (const f of PROSPECT_FIELDS) {
-      const idx = cells.findIndex((c, i) => c && f.headers.map(normHeader).includes(c) && !Object.values(found).includes(i))
+      const wanted = f.headers.map(normHeader)
+      const idx = cells.findIndex((c, i) => c && wanted.includes(c) && !Object.values(found).includes(i))
       if (idx >= 0) found[f.key] = idx
     }
-    if (found.name !== undefined && Object.keys(found).length >= 2) {
-      headerRow = r
-      cols = found
-    }
+    if (found.name !== undefined && Object.keys(found).length >= 2) return { headerRow: r, cols: found }
   }
-  if (headerRow < 0) throw new Error(tr('لم أجد صف العناوين — يجب أن يحتوي الملف على عمود «الاسم» وعمود آخر على الأقل'))
+  return { headerRow: -1, cols: {} }
+}
+
+// ── Sorting each row (only where the file leaves a field empty — what it says is kept) ──────
+const KIND_WORDS = [
+  ['موقع أو فعالية', ['مول', 'مجمع تجاري', 'قاعة', 'فندق', 'مركز المعارض', 'مركز عمان للمؤتمرات', 'مهرجان', 'mall', 'hall', 'hotel', 'festival', 'convention']],
+  ['راعٍ أو شريك', ['بنك', 'مصرف', 'اتصالات', 'عمانتل', 'أوريدو', 'تأمين', 'هيئة', 'وزارة', 'غرفة تجارة', 'bank', 'telecom', 'insurance', 'authority', 'ministry']],
+]
+const SECTOR_WORDS = [
+  ['عطور وبخور', ['عطر', 'عطور', 'بخور', 'عود', 'لبان', 'دخون', 'perfume', 'oud', 'incense', 'fragrance']],
+  ['أزياء', ['عباي', 'أزياء', 'ازياء', 'ملابس', 'فساتين', 'فستان', 'خياط', 'جلابي', 'دشداش', 'مصار', 'fashion', 'abaya', 'cloth', 'dress', 'tailor']],
+  ['أقمشة', ['قماش', 'أقمشة', 'اقمشة', 'fabric', 'textile']],
+  ['تجميل', ['تجميل', 'مكياج', 'صالون', 'عناية', 'بشرة', 'رموش', 'أظافر', 'beauty', 'salon', 'cosmetic', 'makeup', 'skin']],
+  ['حلويات وقهوة', ['حلوى', 'حلويات', 'حلاوة', 'كيك', 'قهوة', 'مخبز', 'تمور', 'تمر', 'شوكولا', 'sweets', 'cake', 'coffee', 'bakery', 'dates', 'chocolate', 'halwa']],
+  ['زهور وهدايا', ['زهور', 'ورد', 'هدايا', 'هدية', 'تغليف', 'flower', 'gift']],
+  ['إكسسوار', ['إكسسوار', 'اكسسوار', 'مجوهرات', 'ذهب', 'فضة', 'ساعات', 'شنط', 'حقائب', 'accessor', 'jewel', 'gold', 'bag']],
+  ['منتجات أطفال', ['أطفال', 'اطفال', 'ألعاب', 'العاب', 'مواليد', 'kids', 'toys', 'baby']],
+  ['حرف يدوية', ['يدوي', 'حرف', 'فخار', 'سعف', 'تطريز', 'handmade', 'craft', 'pottery']],
+  ['منتجات منزلية', ['منزلي', 'منزلية', 'أسر منتجة', 'الأسر المنتجة', 'home made', 'homemade']],
+  ['تصوير وطباعة', ['تصوير', 'طباعة', 'print', 'photo']],
+]
+const PLACES = ['مسقط', 'مطرح', 'السيب', 'بوشر', 'العامرات', 'قريات', 'نزوى', 'بهلاء', 'إزكي', 'سمائل', 'صحار', 'صلالة', 'البريمي', 'عبري', 'إبراء', 'صور', 'الرستاق', 'بركاء', 'المصنعة', 'السويق', 'خصب']
+const PLACES_EN = { muscat: 'مسقط', muttrah: 'مطرح', seeb: 'السيب', bawshar: 'بوشر', nizwa: 'نزوى', bahla: 'بهلاء', sohar: 'صحار', salalah: 'صلالة', buraimi: 'البريمي', ibri: 'عبري', ibra: 'إبراء', sur: 'صور', rustaq: 'الرستاق', barka: 'بركاء' }
+const firstMatch = (text, table) => table.find(([, words]) => words.some((w) => text.includes(w)))?.[0] || ''
+
+/** The kind a row looks like from its words (exhibitor when nothing says otherwise). */
+export const guessKind = (text) => firstMatch(String(text).toLowerCase(), KIND_WORDS) || 'عارض محتمل'
+/** The sector a row looks like from its words, or ''. */
+export const guessSector = (text) => firstMatch(String(text).toLowerCase(), SECTOR_WORDS)
+/** The Omani town named anywhere in the text, or ''. */
+export function guessCity(text) {
+  const t = String(text)
+  const ar = PLACES.find((p) => t.includes(p))
+  if (ar) return ar
+  const lower = t.toLowerCase()
+  const en = Object.keys(PLACES_EN).find((k) => new RegExp(`\\b${k}\\b`).test(lower))
+  return en ? PLACES_EN[en] : ''
+}
+
+/**
+ * Rows of a sheet → prospects, sorted: each empty kind, activity, city or Instagram account is
+ * filled from the row's own words (and listed in `guessed`); what the file says is kept as is.
+ */
+export function readProspectRows(rows, found = detectProspectColumns(rows)) {
+  const { headerRow, cols } = found
+  if (cols.name === undefined) throw new Error(tr('لم أجد صف العناوين — يجب أن يحتوي الملف على عمود «الاسم» وعمود آخر على الأقل'))
   const out = []
   rows.forEach((row, i) => {
     if (i <= headerRow) return
     const p = { line: i + 1 }
-    for (const f of PROSPECT_FIELDS) p[f.key] = cols[f.key] === undefined ? '' : clean(row[cols[f.key]])
+    for (const f of PROSPECT_FIELDS) p[f.key] = cols[f.key] === undefined || cols[f.key] === '' ? '' : clean(row[cols[f.key]])
+    if (!Object.values(p).slice(1).some(Boolean)) return
+    const all = row.map(clean).filter(Boolean).join(' ')
+    const guessed = []
+    if (!PROSPECT_KINDS.includes(p.kind)) {
+      p.kind = guessKind(`${p.name} ${p.category} ${p.notes}`)
+      if (p.kind !== PROSPECT_KINDS[0]) guessed.push('kind')
+    }
+    if (!p.category) {
+      p.category = guessSector(`${p.name} ${p.notes} ${all}`)
+      if (p.category) guessed.push('category')
+    }
+    const city = guessCity(p.city || all)
+    if (city && city !== p.city) {
+      if (!p.city) guessed.push('city')
+      p.city = p.city && !PLACES.includes(p.city) ? city : p.city || city
+    }
+    if (!p.instagram) {
+      const handle = all.match(/instagram\.com\/[A-Za-z0-9._]+/i)?.[0]
+      if (handle) {
+        p.instagram = handle
+        guessed.push('instagram')
+      }
+    }
     p.instagram = instagramHandle(p.instagram)
     p.email = p.email.toLowerCase()
-    if (!Object.values(p).slice(1).some(Boolean)) return
-    if (!PROSPECT_KINDS.includes(p.kind)) p.kind = PROSPECT_KINDS[0]
+    p.guessed = guessed
     out.push(p)
   })
   return out
