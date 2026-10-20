@@ -203,6 +203,8 @@ function Composer({ data, reload, seed }) {
   const [exhibitionId, setExhibitionId] = useState(presetList?.exhibition ? presetList.exhibition(ctx) : preset.exhibitionId || '')
   const [filters, setFilters] = useState(NO_FILTERS)
   const [smart, setSmart] = useState(presetList?.id || '')
+  // a long list is drawn 300 rows at a time («تحديد الكل» still covers everyone)
+  const [shown, setShown] = useState({ key: '', n: 300 })
   const [selected, setSelected] = useState(() => {
     if (!presetList) return new Set(preset.keys || [])
     const start = { audience: presetList.audience, exhibitionId: presetList.exhibition ? presetList.exhibition(ctx) : '', filters: NO_FILTERS, smart: presetList.id, manualText: '' }
@@ -232,6 +234,8 @@ function Composer({ data, reload, seed }) {
 
   // Everyone who can be picked for the current audience, before selection.
   const pool = buildPool({ audience, exhibitionId, filters, smart, manualText }, ctx)
+  const poolKey = JSON.stringify([audience, exhibitionId, filters, smart])
+  const shownCount = shown.key === poolKey ? shown.n : 300
   const smartCount = (l) =>
     buildPool({ audience: l.audience, exhibitionId: l.exhibition ? l.exhibition(ctx) : '', filters: NO_FILTERS, smart: l.id, manualText: '' }, ctx).filter((r) => !phoneProblem(r.phone)).length
   const pickSmart = (l) => {
@@ -502,7 +506,7 @@ function Composer({ data, reload, seed }) {
                 <span className="select-count">{chosen.length}{' '}{tr('محدد')}</span>
               </div>
               <div className="pick-list pick-list-tall">
-                {pool.map((r) => {
+                {pool.slice(0, shownCount).map((r) => {
                   const problem = phoneProblem(r.phone)
                   const last = contacts[phoneKey(r.phone)]
                   const ex = r.exhibition_id && exhibitionOf(r.exhibition_id)
@@ -532,6 +536,11 @@ function Composer({ data, reload, seed }) {
                     </label>
                   )
                 })}
+                {pool.length > shownCount && (
+                  <button type="button" className="btn btn-outline btn-sm btn-full" onClick={() => setShown({ key: poolKey, n: shownCount + 300 })}>
+                    {tr('عرض المزيد ({0} من {1}) — «تحديد الكل» يشمل الجميع', [shownCount, pool.length])}
+                  </button>
+                )}
                 {!pool.length && <div className="empty-inline">{tr('لا يوجد أحد بهذه الشروط')}</div>}
               </div>
             </>

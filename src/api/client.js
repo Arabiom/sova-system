@@ -46,13 +46,18 @@ export async function unwrap(query) {
  * a fresh query (select + filters + order); `tie` keeps the paging order stable.
  * Resolves to `{ data, error }` like a single query.
  */
-export async function fetchAll(build, { tie = 'id', pageSize = 1000 } = {}) {
+export async function fetchAll(build, { tie = 'id', pageSize = 1000, parallel = 4 } = {}) {
+  const page = (from) => build().order(tie, { ascending: true }).range(from, from + pageSize - 1)
   const rows = []
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await build().order(tie, { ascending: true }).range(from, from + pageSize - 1)
-    if (error) return { data: null, error }
-    rows.push(...(data || []))
-    if (!data || data.length < pageSize) return { data: rows, error: null }
+  // The first page answers most lists; a long one (thousands of clients) is then read a few
+  // pages at a time, side by side, instead of one request after another.
+  for (let from = 0, batch = 1; ; from += batch * pageSize, batch = parallel) {
+    const results = await Promise.all(Array.from({ length: batch }, (_, i) => page(from + i * pageSize)))
+    for (const { data, error } of results) {
+      if (error) return { data: null, error }
+      rows.push(...(data || []))
+      if (!data || data.length < pageSize) return { data: rows, error: null }
+    }
   }
 }
 

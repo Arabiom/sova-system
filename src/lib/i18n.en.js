@@ -2335,4 +2335,9 @@ export default {
   "يُستخدم في الحملات لمعرفة من وافق على التواصل — قائمة المشاركين السابقين: «عارض سابق»": "Used by campaigns to know who agreed to be contacted — a list of past participants: «Previous exhibitor»",
   "يُعرض أول {0} من {1} سطر — كلها تُضاف حسب اختيارك": "Showing the first {0} of {1} rows — all are added as you choose",
   "مطاعم وأغذية": "Restaurants & food",
+  "عرض المزيد ({0} من {1})": "Show more ({0} of {1})",
+  "عرض المزيد ({0} من {1}) — «تحديد الكل» يشمل الجميع": "Show more ({0} of {1}) — «Select all» covers everyone",
+  "اكتب جزءاً من الاسم أو الرقم": "Type part of the name or number",
+  "بحث...": "Search...",
+  "لا نتائج": "No results",
 }

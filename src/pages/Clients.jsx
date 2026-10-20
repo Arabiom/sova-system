@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useDeferredValue, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { clientWithPhone, deleteClient, findClient, listClients, saveClient } from '../api/clients.js'
 import { listStaff } from '../api/staff.js'
@@ -15,7 +15,7 @@ import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { CITIES, CLIENT_SOURCES, CLIENT_STATUSES, CONTACT_SOURCES, SECTOR_SUGGESTIONS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
-import { clientHistory } from '../lib/finance.js'
+import { clientHistories } from '../lib/finance.js'
 import { exhibitionLabel, exhibitionTitle, formatDate, formatOMR, phoneKey, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { openWhatsApp } from '../lib/whatsapp.js'
@@ -23,12 +23,12 @@ import { useAuth, useCan, useCanEdit } from '../context/AuthContext.jsx'
 import { tr } from '../lib/i18n.js'
 
 const load = async () => {
-  const [clients, exhibitors, exhibitions] = await Promise.all([
+  const [clients, exhibitors, exhibitions, staff] = await Promise.all([
     listClients(),
     listExhibitors({ columns: 'id,client_id,exhibition_id,brand,booth,contract,paid,status' }),
     listExhibitions(),
+    listStaff().catch(() => []), // names of who added each client (admin/finance)
   ])
-  const staff = await listStaff().catch(() => []) // names of who added each client (admin/finance)
   return { clients, exhibitors, exhibitions, staff }
 }
 
@@ -300,6 +300,9 @@ function ClientDetails({ client, onClose, onEdit }) {
   )
 }
 
+/** Rows drawn at a time — the rest come with «عرض المزيد». */
+const PAGE = 200
+
 export default function Clients() {
   const toast = useToast()
   const canDelete = useCan('records.delete')
@@ -317,9 +320,31 @@ export default function Clients() {
   const [shows, setShows] = useState([]) // exhibitions whose clients to show (none = everyone)
   const [importing, setImporting] = useState(false)
   const navigate = useNavigate()
+  // a long database: the table grows by PAGE rows; typing in the search never waits for it
+  const [limit, setLimit] = useState({ key: '', n: PAGE })
+  const deferredSearch = useDeferredValue(search)
 
-  if (loading || !data) return <Loading />
-  const { clients, exhibitors, exhibitions, staff } = data
+  // Worked out once per load, not on every keypress (thousands of clients).
+  const prepared = useMemo(() => {
+    if (!data) return null
+    const { clients, exhibitors, exhibitions } = data
+    const histories = clientHistories(clients, exhibitors, exhibitions)
+    return {
+      enriched: clients.map((c) => ({ ...c, h: histories.get(c.id) })),
+      sectors: distinct([...SECTOR_SUGGESTIONS, ...clients.map((c) => c.sector)]),
+      cities: distinct(clients.map((c) => c.city)),
+      duplicateGroups: Object.values(
+        clients.reduce((groups, c) => {
+          const key = phoneKey(c.phone)
+          if (key) (groups[key] ||= []).push(c)
+          return groups
+        }, {}),
+      ).filter((g) => g.length > 1),
+    }
+  }, [data])
+
+  if (loading || !data || !prepared) return <Loading />
+  const { clients, exhibitions, staff } = data
   const addedBy = (c) => {
     if (!c.created_by) return '—'
     if (c.created_by === session?.user?.id) return tr('أنت')
@@ -327,19 +352,8 @@ export default function Clients() {
     return s?.name || s?.email || '—'
   }
   // Numbers registered more than once before duplicates were blocked (manager's clean-up list).
-  const duplicateGroups = everyone
-    ? Object.values(
-        clients.reduce((groups, c) => {
-          const key = phoneKey(c.phone)
-          if (key) (groups[key] ||= []).push(c)
-          return groups
-        }, {}),
-      ).filter((g) => g.length > 1)
-    : []
-
-  const enriched = clients.map((c) => ({ ...c, h: clientHistory(c, exhibitors, exhibitions) }))
-  const sectors = distinct([...SECTOR_SUGGESTIONS, ...clients.map((c) => c.sector)])
-  const cities = distinct(clients.map((c) => c.city))
+  const duplicateGroups = everyone ? prepared.duplicateGroups : []
+  const { enriched, sectors, cities } = prepared
   const setFilter = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target.value }))
 
   // Clients of the chosen exhibitions (any of them); everyone when none is chosen.
@@ -356,7 +370,7 @@ export default function Clients() {
   }
   const only = (patch) => setFilters({ sector: '', city: '', status: '', source: '', participation: '', ...patch })
 
-  const q = search.trim().toLowerCase()
+  const q = deferredSearch.trim().toLowerCase()
   const visible = base
     .filter(
       (c) =>
@@ -374,6 +388,8 @@ export default function Clients() {
     .sort(SORTS[sort].fn)
 
   const active = Object.values(filters).some(Boolean) || q || shows.length > 0
+  const viewKey = JSON.stringify([q, filters, sort, shows])
+  const shownCount = limit.key === viewKey ? limit.n : PAGE
 
   const remove = async (c) => {
     const note = c.h.count ? ` ${tr('(سجل مشاركاته في المعارض يبقى، لكن بدون ربط بالعميل)')}` : ''
@@ -533,7 +549,7 @@ export default function Clients() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((c) => (
+              {visible.slice(0, shownCount).map((c) => (
                 <tr key={c.id} className="clickable" onClick={() => setViewing(c)}>
                   <td>
                     <div className="strong">{tr(c.name)}</div>
@@ -573,6 +589,13 @@ export default function Clients() {
             </tbody>
           </table>
         </div>
+        {visible.length > shownCount && (
+          <div className="panel-pad center">
+            <Button variant="outline" onClick={() => setLimit({ key: viewKey, n: shownCount + PAGE })}>
+              {tr('عرض المزيد ({0} من {1})', [shownCount, visible.length])}
+            </Button>
+          </div>
+        )}
         {!visible.length && <EmptyState icon="👥" text={clients.length ? tr('لا توجد نتائج مطابقة للفلاتر') : tr('لا يوجد عملاء بعد — أضف عميلاً أو استورد ملف مشاركين من ملف المعرض')} />}
       </div>
 

@@ -26,17 +26,16 @@ import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { tr } from '../lib/i18n.js'
 
 const load = async () => {
-  const [exhibitions, exhibitors, payments, bookings, sites, expenses] = await Promise.all([
+  // Everything is asked for at once (one wait, not three).
+  const [exhibitions, exhibitors, payments, bookings, sites, expenses, tasks, sponsors, staffExpenses, companyExpenses, obligations] = await Promise.all([
     listExhibitions(),
     listExhibitors(),
     listPayments('*', { includePending: true }),
     listBookings(),
     listSites(),
     listExpenses(),
-  ])
-  const tasks = await listTasks().catch(() => null)
-  // For each exhibition's verdict (finance roles; others simply get nothing back).
-  const [sponsors, staffExpenses, companyExpenses, obligations] = await Promise.all([
+    listTasks().catch(() => null),
+    // for each exhibition's verdict (finance roles; others simply get nothing back)
     listSponsors().catch(() => []),
     listStaffExpenses().catch(() => []),
     listCompanyExpenses().catch(() => []),

@@ -227,9 +227,30 @@ export function exhibitionFinancials({ exhibition, sites = [], exhibitors = [], 
 
 /** A client's history across exhibitions. */
 export function clientHistory(client, exhibitors, exhibitions) {
-  const rows = exhibitors
-    .filter((e) => e.client_id === client.id)
-    .map((e) => ({ ...e, exhibition: exhibitions.find((x) => x.id === e.exhibition_id) }))
+  return historyOf(
+    exhibitors.filter((e) => e.client_id === client.id),
+    new Map(exhibitions.map((x) => [x.id, x])),
+  )
+}
+
+/**
+ * clientHistory for every client at once — the exhibitors are grouped by client in one pass, so
+ * a database of thousands of clients is not scanned once per client. Returns Map(id → history).
+ */
+export function clientHistories(clients, exhibitors, exhibitions) {
+  const byId = new Map(exhibitions.map((x) => [x.id, x]))
+  const byClient = new Map()
+  for (const e of exhibitors) {
+    if (!e.client_id) continue
+    if (!byClient.has(e.client_id)) byClient.set(e.client_id, [])
+    byClient.get(e.client_id).push(e)
+  }
+  return new Map(clients.map((c) => [c.id, historyOf(byClient.get(c.id) || [], byId)]))
+}
+
+function historyOf(own, exhibitionsById) {
+  const rows = own
+    .map((e) => ({ ...e, exhibition: exhibitionsById.get(e.exhibition_id) }))
     .sort((a, b) => String(b.exhibition?.date_from || '').localeCompare(String(a.exhibition?.date_from || '')))
   const contract = sumBy(rows, 'contract')
   const paid = sumBy(rows, 'paid')
