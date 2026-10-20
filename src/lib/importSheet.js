@@ -134,6 +134,26 @@ export function planImport(rows) {
 }
 
 /** Read the first sheet of an .xlsx File into a 2-D array (library loaded on demand). */
+/** Every sheet of a workbook: [{ name, rows }]. */
+export async function readSheets(file) {
+  const { default: readExcelFile } = await import('read-excel-file/browser')
+  const sheets = await readExcelFile(file)
+  if (!sheets.length) throw new Error(tr('الملف لا يحتوي على أوراق.'))
+  return sheets.map((s) => ({ name: s.sheet, rows: s.data }))
+}
+
+/**
+ * The sheet that holds the data: the one whose detected header row leads the most rows (a
+ * summary sheet before the data is skipped). `detect(rows)` → { headerRow, cols }.
+ */
+export function pickSheet(sheets, detect) {
+  const score = (s) => {
+    const found = detect(s.rows)
+    return found.headerRow < 0 ? 0 : Object.keys(found.cols).length * 1e6 + (s.rows.length - found.headerRow)
+  }
+  return sheets.reduce((best, s, i) => (score(s) > score(sheets[best]) ? i : best), 0)
+}
+
 export async function readFirstSheet(file) {
   const { default: readExcelFile } = await import('read-excel-file/browser')
   const sheets = await readExcelFile(file)

@@ -1,20 +1,24 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { importClients } from '../api/clients.js'
 import { useToast } from '../context/ToastContext.jsx'
 import { CLIENT_FIELDS, classifyClients, columnOptions, countStates, detectColumns, downloadClientTemplate, IMPORT_STATES, parseCsv, readClientRows } from '../lib/clientImport.js'
 import { downloadCsv } from '../lib/csv.js'
 import { tr } from '../lib/i18n.js'
-import { readFirstSheet } from '../lib/importSheet.js'
+import { CONTACT_SOURCES } from '../lib/constants.js'
+import { pickSheet, readSheets } from '../lib/importSheet.js'
 import Button from './Button.jsx'
 import Modal from './Modal.jsx'
 
 const STATE_TONE = { new: 'success', duplicate: 'warning', exists: 'neutral', invalid: 'danger' }
 
-/** Read an .xlsx or .csv file into rows of cells. */
+/** Read an .xlsx (every sheet) or .csv file: [{ name, rows }]. */
 async function readFile(file) {
-  if (/\.csv$/i.test(file.name) || file.type === 'text/csv') return parseCsv(await file.text())
-  return readFirstSheet(file)
+  if (/\.csv$/i.test(file.name) || file.type === 'text/csv') return [{ name: file.name, rows: parseCsv(await file.text()) }]
+  return readSheets(file)
 }
+
+/** Rows shown at once — a list of thousands is reviewed by its totals and tabs, not row by row. */
+const SHOWN = 300
 
 /**
  * Import clients from a file: pick the file, check the columns, review every row (new, repeated
@@ -22,7 +26,8 @@ async function readFile(file) {
  */
 export default function ClientImport({ existing, onClose, onDone }) {
   const toast = useToast()
-  const [sheet, setSheet] = useState(null) // { name, rows, headerRow }
+  const [sheet, setSheet] = useState(null) // { name, rows, headerRow, sheets, index }
+  const [numberSource, setNumberSource] = useState('')
   const [cols, setCols] = useState({})
   const [picked, setPicked] = useState({}) // line → include (overrides the default)
   const [show, setShow] = useState('all')
@@ -34,19 +39,25 @@ export default function ClientImport({ existing, onClose, onDone }) {
     e.target.value = ''
     if (!file) return
     try {
-      const rows = await readFile(file)
-      if (!rows.length) return toast(tr('الملف فارغ'), 'error')
-      const found = detectColumns(rows)
-      setSheet({ name: file.name, rows, headerRow: found.headerRow })
-      setCols(found.cols)
-      setPicked({})
-      if (found.headerRow < 0) toast(tr('لم أتعرف على أسماء الأعمدة — اختر عمود كل حقل بالأسفل'), 'warn')
+      const sheets = (await readFile(file)).filter((s) => s.rows.length)
+      if (!sheets.length) return toast(tr('الملف فارغ'), 'error')
+      openSheet({ name: file.name, sheets }, pickSheet(sheets, detectColumns))
     } catch (err) {
       toast(tr('تعذّر قراءة الملف: {0}', [err.message]), 'error')
     }
   }
 
-  const rows = sheet ? classifyClients(readClientRows(sheet.rows, sheet.headerRow, cols), existing) : []
+  /** Read one sheet of the workbook (the one with the data is chosen first). */
+  function openSheet(book, index) {
+    const { rows } = book.sheets[index]
+    const found = detectColumns(rows)
+    setSheet({ ...book, index, rows, headerRow: found.headerRow })
+    setCols(found.cols)
+    setPicked({})
+    if (found.headerRow < 0) toast(tr('لم أتعرف على أسماء الأعمدة — اختر عمود كل حقل بالأسفل'), 'warn')
+  }
+
+  const rows = useMemo(() => (sheet ? classifyClients(readClientRows(sheet.rows, sheet.headerRow, cols), existing) : []), [sheet, cols, existing])
   const included = (r) => (r.line in picked ? picked[r.line] : r.include)
   const chosen = rows.filter((r) => included(r) && r.state !== 'invalid')
   const counts = countStates(rows)
@@ -68,7 +79,7 @@ export default function ClientImport({ existing, onClose, onDone }) {
     if (cols.name === undefined && cols.contact_name === undefined) return toast(tr('اختر عمود اسم المشروع أو اسم المسؤول'), 'error')
     setProgress(0)
     try {
-      const outcome = await importClients(chosen, (done) => setProgress(done))
+      const outcome = await importClients(numberSource ? chosen.map((r) => ({ ...r, contact_source: numberSource })) : chosen, (done) => setProgress(done))
       setResult(outcome)
       onDone()
     } catch (err) {
@@ -156,6 +167,32 @@ export default function ClientImport({ existing, onClose, onDone }) {
 
       {sheet && (
         <>
+          {sheet.sheets.length > 1 && (
+            <div className="mb-12">
+              <div className="field-label">{tr('الورقة — اخترتُ التي فيها البيانات:')}</div>
+              <div className="chips-row">
+                {sheet.sheets.map((s, i) => (
+                  <button key={s.name + i} type="button" className={`chip-btn ${sheet.index === i ? 'active' : ''}`} onClick={() => openSheet(sheet, i)}>
+                    {s.name} ({s.rows.length})
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="mb-12">
+            <label className="field-label" htmlFor="import-number-source">
+              {tr('مصدر الأرقام في هذا الملف (لكل الأسطر):')}
+            </label>
+            <select id="import-number-source" className="input input-compact" value={numberSource} onChange={(e) => setNumberSource(e.target.value)}>
+              <option value="">{tr('غير محدد')}</option>
+              {CONTACT_SOURCES.map((c) => (
+                <option key={c} value={c}>
+                  {tr(c)}
+                </option>
+              ))}
+            </select>
+            <div className="tiny muted">{tr('يُستخدم في الحملات لمعرفة من وافق على التواصل — قائمة المشاركين السابقين: «عارض سابق»')}</div>
+          </div>
           <div className="field-label">{tr('الأعمدة — تأكد أن كل حقل مربوط بالعمود الصحيح:')}</div>
           <div className="import-map mb-12">
             {CLIENT_FIELDS.map((f) => (
@@ -199,7 +236,7 @@ export default function ClientImport({ existing, onClose, onDone }) {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((r) => (
+                {visible.slice(0, SHOWN).map((r) => (
                   <tr key={r.line} className={included(r) && r.state !== 'invalid' ? '' : 'row-muted'}>
                     <td>
                       <input
@@ -214,7 +251,10 @@ export default function ClientImport({ existing, onClose, onDone }) {
                     <td className="strong">{r.name || '—'}</td>
                     <td>{r.contact_name || '—'}</td>
                     <td dir="ltr" className="nowrap">{r.phone || '—'}</td>
-                    <td className="small">{r.sector || '—'}</td>
+                    <td className="small">
+                      {r.sector || '—'}
+                      {r.sectorGuessed && <span title={tr('فُرز تلقائياً — ما كتبه الملف محفوظ في الملاحظات')}> ✨</span>}
+                    </td>
                     <td className="small">{r.city || '—'}</td>
                     <td>
                       <span className={`badge badge-${STATE_TONE[r.state]}`}>{tr(IMPORT_STATES[r.state])}</span>
@@ -231,6 +271,7 @@ export default function ClientImport({ existing, onClose, onDone }) {
             </table>
           </div>
           {!visible.length && <div className="empty-inline">{tr('لا توجد أسطر هنا')}</div>}
+          {visible.length > SHOWN && <div className="muted tiny mt-10">{tr('يُعرض أول {0} من {1} سطر — كلها تُضاف حسب اختيارك', [SHOWN, visible.length])}</div>}
           <div className="muted tiny mt-10">
             {tr('المكرر والموجود مسبقاً لا يُضاف إلا إذا اخترته بنفسك، وقاعدة البيانات ترفض أي رقم مسجل عند الحفظ. يُسجَّل العملاء باسمك في خانة «أضافه».')}
           </div>

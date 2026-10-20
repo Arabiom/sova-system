@@ -19,7 +19,7 @@ describe('reading a client file', () => {
     expect(headerRow).toBe(2)
     expect(cols).toMatchObject({ name: 1, contact_name: 2, phone: 3, sector: 4, city: 5 })
     const [client] = readClientRows(rows, headerRow, cols)
-    expect(client).toMatchObject({ line: 4, name: 'دخونك', contact_name: 'ام يوسف', phone: '71499700', sector: 'عطور', city: 'نزوى' })
+    expect(client).toMatchObject({ line: 4, name: 'دخونك', contact_name: 'ام يوسف', phone: '71499700', sector: 'عطور وبخور', city: 'نزوى' })
   })
 
   it('leaves the columns to the user when no header is recognised', () => {
@@ -58,5 +58,29 @@ describe('sorting rows before saving', () => {
     expect(phoneWarning('91234567')).toBe('')
     expect(phoneWarning('9063699')).toBe('رقم ناقص')
     expect(phoneWarning('+971 50 123 4567')).toBe('')
+  })
+})
+
+describe('a merged client list (combined headers, free-text products, a second number)', () => {
+  const rows = [
+    ['م', 'الاسم', 'اسم المشروع / النشاط', 'رقم التواصل', 'رقم إضافي', 'البريد الإلكتروني', 'نوع المنتجات', 'المعارض / المصادر', 'عدد المصادر'],
+    [1, 'منى الجابري', 'بوتيك الاركان', '92183456', null, null, 'ازياْء', 'معرض نزوى جراند مول', 1],
+    [2, 'ميساء / عبدالله', 'Maysa collection', '97878059', '92161138', null, 'عبايات - مشروبات', 'معرض ليالي مسقط', 1],
+    [3, 'جسر العذيبة', 'فطر عمان', '98288620', null, null, 'شركة فطر عمان', 'قائمة مشاركين', 1],
+  ]
+  it('finds every column, sorts the products into sectors and keeps what the file said', () => {
+    const { headerRow, cols } = detectColumns(rows)
+    expect(headerRow).toBe(0)
+    expect(cols).toMatchObject({ contact_name: 1, name: 2, phone: 3, email: 5, sector: 6, source: 7, phone2: 4 })
+    const [a, b, c] = readClientRows(rows, headerRow, cols)
+    expect(a).toMatchObject({ name: 'بوتيك الاركان', contact_name: 'منى الجابري', phone: '92183456', sector: 'أزياء', source: 'معرض نزوى جراند مول' })
+    expect(b.sector).toBe('أزياء')
+    expect(b.notes).toContain('عبايات - مشروبات')
+    expect(b.notes).toContain('92161138')
+    expect(c.sector).toBe('شركة فطر عمان') // nothing to sort it into: kept as written
+    expect(c).not.toHaveProperty('phone2')
+    const [d, e] = readClientRows([rows[0], [4, 'x', 'مطعم الريف', '91111111', null, null, 'Restaurant'], [5, 'y', 'ز', '92222222', null, null, '8']], 0, cols)
+    expect(d.sector).toBe('مطاعم وأغذية')
+    expect(e.sector).toBe('')
   })
 })
