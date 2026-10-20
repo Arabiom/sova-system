@@ -58,7 +58,10 @@ export function detectProspectColumns(rows) {
     const found = {}
     for (const f of PROSPECT_FIELDS) {
       const wanted = f.headers.map(normHeader)
-      const idx = cells.findIndex((c, i) => c && wanted.includes(c) && !Object.values(found).includes(i))
+      const free = (i) => !Object.values(found).includes(i)
+      let idx = cells.findIndex((c, i) => c && wanted.includes(c) && free(i))
+      // a combined header such as «اسم المشروع / النشاط» is known by its parts
+      if (idx < 0) idx = cells.findIndex((c, i) => c && free(i) && c.split(/\s*[/|،,]\s*/).some((part) => wanted.includes(part)))
       if (idx >= 0) found[f.key] = idx
     }
     if (found.name !== undefined && Object.keys(found).length >= 2) return { headerRow: r, cols: found }
@@ -77,6 +80,7 @@ const SECTOR_WORDS = [
   ['أقمشة', ['قماش', 'أقمشة', 'اقمشة', 'fabric', 'textile']],
   ['تجميل', ['تجميل', 'مكياج', 'صالون', 'عناية', 'بشرة', 'رموش', 'أظافر', 'beauty', 'salon', 'cosmetic', 'makeup', 'skin']],
   ['حلويات وقهوة', ['حلوى', 'حلويات', 'حلاوة', 'كيك', 'قهوة', 'مخبز', 'تمور', 'تمر', 'شوكولا', 'sweets', 'cake', 'coffee', 'bakery', 'dates', 'chocolate', 'halwa']],
+  ['مطاعم وأغذية', ['مطعم', 'مطاعم', 'وجبات', 'اكل', 'مأكولات', 'مواد غذائية', 'غذائية', 'كافيه', 'كوفي', 'restaurant', 'café', 'cafe', 'food', 'grill']],
   ['زهور وهدايا', ['زهور', 'ورد', 'هدايا', 'هدية', 'تغليف', 'flower', 'gift']],
   ['إكسسوار', ['إكسسوار', 'اكسسوار', 'مجوهرات', 'ذهب', 'فضة', 'ساعات', 'شنط', 'حقائب', 'accessor', 'jewel', 'gold', 'bag']],
   ['منتجات أطفال', ['أطفال', 'اطفال', 'ألعاب', 'العاب', 'مواليد', 'kids', 'toys', 'baby']],
@@ -86,7 +90,18 @@ const SECTOR_WORDS = [
 ]
 const PLACES = ['مسقط', 'مطرح', 'السيب', 'بوشر', 'العامرات', 'قريات', 'نزوى', 'بهلاء', 'إزكي', 'سمائل', 'صحار', 'صلالة', 'البريمي', 'عبري', 'إبراء', 'صور', 'الرستاق', 'بركاء', 'المصنعة', 'السويق', 'خصب']
 const PLACES_EN = { muscat: 'مسقط', muttrah: 'مطرح', seeb: 'السيب', bawshar: 'بوشر', nizwa: 'نزوى', bahla: 'بهلاء', sohar: 'صحار', salalah: 'صلالة', buraimi: 'البريمي', ibri: 'عبري', ibra: 'إبراء', sur: 'صور', rustaq: 'الرستاق', barka: 'بركاء' }
-const firstMatch = (text, table) => table.find(([, words]) => words.some((w) => text.includes(w)))?.[0] || ''
+/** Arabic compared loosely: no diacritics or tatweel, one alef, ى as ي, ة as ه. */
+const loose = (t) =>
+  String(t)
+    .toLowerCase()
+    .replace(/[\u064B-\u0652\u0640]/g, '')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+const firstMatch = (text, table) => {
+  const t = loose(text)
+  return table.find(([, words]) => words.some((w) => t.includes(loose(w))))?.[0] || ''
+}
 
 /** The kind a row looks like from its words (exhibitor when nothing says otherwise). */
 export const guessKind = (text) => firstMatch(String(text).toLowerCase(), KIND_WORDS) || 'عارض محتمل'

@@ -6,6 +6,7 @@ import { CLIENT_STATUSES } from './constants.js'
 import { downloadCsv } from './csv.js'
 import { phoneKey } from './format.js'
 import { tr } from './i18n.js'
+import { guessSector } from './prospects.js'
 
 /** Client fields a file can fill, with the header names each is recognised by. */
 export const CLIENT_FIELDS = [
@@ -15,11 +16,12 @@ export const CLIENT_FIELDS = [
   { key: 'whatsapp', label: 'واتساب', headers: ['واتساب', 'رقم الواتساب', 'الواتساب', 'whatsapp'] },
   { key: 'email', label: 'البريد', headers: ['البريد', 'البريد الإلكتروني', 'الإيميل', 'الايميل', 'email', 'e-mail'] },
   { key: 'instagram', label: 'إنستقرام', headers: ['إنستقرام', 'انستقرام', 'انستغرام', 'إنستغرام', 'الحساب', 'instagram', 'insta'] },
-  { key: 'sector', label: 'القطاع', headers: ['القطاع', 'النشاط', 'نوع النشاط', 'التصنيف', 'المجال', 'sector', 'category', 'activity'] },
+  { key: 'sector', label: 'القطاع', headers: ['القطاع', 'النشاط', 'نوع النشاط', 'التصنيف', 'المجال', 'نوع المنتجات', 'المنتجات', 'sector', 'category', 'activity', 'products'] },
   { key: 'city', label: 'المدينة', headers: ['المدينة', 'الولاية', 'المنطقة', 'city'] },
-  { key: 'source', label: 'المصدر', headers: ['المصدر', 'مصدر العميل', 'source'] },
+  { key: 'source', label: 'المصدر', headers: ['المصدر', 'مصدر العميل', 'المصادر', 'المعارض', 'source'] },
   { key: 'status', label: 'الحالة', headers: ['الحالة', 'status'] },
   { key: 'notes', label: 'ملاحظات', headers: ['ملاحظات', 'ملاحظة', 'notes', 'note'] },
+  { key: 'phone2', label: 'رقم إضافي', headers: ['رقم إضافي', 'رقم اضافي', 'رقم آخر', 'رقم ثاني', 'هاتف آخر', 'phone 2', 'other phone'] },
 ]
 
 export const IMPORT_STATES = {
@@ -79,7 +81,10 @@ export function detectColumns(rows) {
     const cols = {}
     for (const field of CLIENT_FIELDS) {
       const wanted = field.headers.map(normHeader)
-      const idx = cells.findIndex((c, i) => c && wanted.includes(c) && !Object.values(cols).includes(i))
+      const free = (i) => !Object.values(cols).includes(i)
+      let idx = cells.findIndex((c, i) => c && wanted.includes(c) && free(i))
+      // a combined header such as «اسم المشروع / النشاط» is known by its parts
+      if (idx < 0) idx = cells.findIndex((c, i) => c && free(i) && c.split(/\s*[/|،,]\s*/).some((part) => wanted.includes(part)))
       if (idx >= 0) cols[field.key] = idx
     }
     if (Object.keys(cols).length >= 2) return { headerRow: r, cols }
@@ -105,7 +110,17 @@ export function readClientRows(rows, headerRow, cols) {
     const client = { line: i + 1 }
     for (const f of CLIENT_FIELDS) client[f.key] = get(f.key)
     client.email = client.email.toLowerCase()
-    if (Object.values(client).slice(1).some(Boolean)) out.push(client)
+    if (!Object.values(client).slice(1).some(Boolean)) return
+    // sorting: the activity written freely («ازياْء», «عبايات - مشروبات») becomes one of the
+    // standard sectors; what the file said is kept in the notes when it says more
+    const raw = /^[\d\s.,-]+$/.test(client.sector) ? '' : client.sector // a number in the activity column says nothing
+    const sorted = guessSector(raw || client.name)
+    client.sectorGuessed = Boolean(sorted && sorted !== raw)
+    client.sector = sorted || raw
+    const extra = [raw && raw !== sorted && client.sectorGuessed && `${tr('المنتجات')}: ${raw}`, client.phone2 && `${tr('رقم إضافي')}: ${client.phone2}`].filter(Boolean)
+    if (extra.length) client.notes = [client.notes, ...extra].filter(Boolean).join(' — ')
+    delete client.phone2
+    out.push(client)
   })
   return out
 }

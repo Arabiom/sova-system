@@ -9,7 +9,7 @@ import { CATEGORIES, CITIES, FORM_SECTORS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
 import { exhibitionTitle, formatDate } from '../lib/format.js'
 import { tr } from '../lib/i18n.js'
-import { readFirstSheet } from '../lib/importSheet.js'
+import { pickSheet, readSheets } from '../lib/importSheet.js'
 import {
   CLIENT_KINDS,
   classifyProspects,
@@ -151,8 +151,9 @@ function ProspectImport({ prospects, clients, onClose, onDone }) {
     e.target.value = ''
     if (!file) return
     try {
-      const raw = /\.csv$/i.test(file.name) || file.type === 'text/csv' ? parseCsv(await file.text()) : await readFirstSheet(file)
-      if (!raw.length) return toast(tr('الملف فارغ'), 'error')
+      const sheets = (/\.csv$/i.test(file.name) || file.type === 'text/csv' ? [{ name: file.name, rows: parseCsv(await file.text()) }] : await readSheets(file)).filter((x) => x.rows.length)
+      if (!sheets.length) return toast(tr('الملف فارغ'), 'error')
+      const raw = sheets[pickSheet(sheets, detectProspectColumns)].rows
       const found = detectProspectColumns(raw)
       setSheet({ name: file.name, rows: raw, headerRow: found.headerRow })
       setCols(found.cols)

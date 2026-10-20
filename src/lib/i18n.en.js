@@ -2327,4 +2327,12 @@ export default {
   "✨ = اقتراح من كلمات الصف لأن الملف تركه فارغاً — راجعه، ويمكنك تغيير النوع من القائمة": "✨ = suggested from the row's words because the file left it empty — check it; you can change the kind from the list",
   "📥 فرز ملف Excel": "📥 Sort an Excel file",
   "خرائط جوجل": "Google Maps",
+  "المنتجات": "Products",
+  "الورقة — اخترتُ التي فيها البيانات:": "Sheet — the one with the data is chosen:",
+  "رقم إضافي": "Extra number",
+  "فُرز تلقائياً — ما كتبه الملف محفوظ في الملاحظات": "Sorted automatically — what the file said is kept in the notes",
+  "مصدر الأرقام في هذا الملف (لكل الأسطر):": "Where this file's numbers came from (all rows):",
+  "يُستخدم في الحملات لمعرفة من وافق على التواصل — قائمة المشاركين السابقين: «عارض سابق»": "Used by campaigns to know who agreed to be contacted — a list of past participants: «Previous exhibitor»",
+  "يُعرض أول {0} من {1} سطر — كلها تُضاف حسب اختيارك": "Showing the first {0} of {1} rows — all are added as you choose",
+  "مطاعم وأغذية": "Restaurants & food",
 }
