@@ -1,14 +1,30 @@
 import { useState } from 'react'
 import { listClients } from '../api/clients.js'
-import { deleteProspect, importProspects, loadProspects, makeClient, revokeFeedToken, rotateFeedToken, saveProspect, setProspectStatus } from '../api/prospects.js'
+import { listExhibitions } from '../api/exhibitions.js'
+import { deleteProspect, importProspects, loadProspects, makeClient, revokeFeedToken, rotateFeedToken, saveProspect, saveResearchPlan, setProspectStatus } from '../api/prospects.js'
 import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { parseCsv } from '../lib/clientImport.js'
+import { CATEGORIES, CITIES, FORM_SECTORS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
-import { formatDate } from '../lib/format.js'
+import { exhibitionTitle, formatDate } from '../lib/format.js'
 import { tr } from '../lib/i18n.js'
 import { readFirstSheet } from '../lib/importSheet.js'
-import { CLIENT_KINDS, classifyProspects, downloadProspectTemplate, instagramHandle, PROSPECT_BADGE, PROSPECT_FIELDS, PROSPECT_KINDS, PROSPECT_STATUSES, readProspectRows } from '../lib/prospects.js'
+import {
+  CLIENT_KINDS,
+  classifyProspects,
+  downloadProspectTemplate,
+  FIT_LABELS,
+  FIT_STARS,
+  instagramHandle,
+  PROSPECT_BADGE,
+  PROSPECT_FIELDS,
+  PROSPECT_KINDS,
+  PROSPECT_STATUSES,
+  readProspectRows,
+  researchHealth,
+  sortProspects,
+} from '../lib/prospects.js'
 import { useData } from '../lib/useData.js'
 import Button from './Button.jsx'
 import { EmptyState, Loading } from './Feedback.jsx'
@@ -17,8 +33,8 @@ import Modal from './Modal.jsx'
 import Panel from './Panel.jsx'
 
 const load = async () => {
-  const [list, clients] = await Promise.all([loadProspects(), listClients()])
-  return { ...list, clients }
+  const [list, clients, exhibitions] = await Promise.all([loadProspects(), listClients(), listExhibitions('id, name, city, mall, date_from, date_to, status').catch(() => [])])
+  return { ...list, clients, exhibitions }
 }
 
 const EMPTY = { kind: PROSPECT_KINDS[0], name: '', category: '', city: '', instagram: '', website: '', phone: '', email: '', source_url: '', notes: '' }
@@ -26,7 +42,7 @@ const STATE_LABEL = { new: 'جديد', duplicate: 'مكرر في الملف', ex
 const STATE_BADGE = { new: 'badge-success', duplicate: 'badge-warning', exists: 'badge-neutral', invalid: 'badge-danger' }
 const link = (url) => (/^https?:\/\//i.test(url) ? url : `https://${url}`)
 
-function ProspectForm({ prospect, onClose, onSaved }) {
+function ProspectForm({ prospect, withFit, onClose, onSaved }) {
   const toast = useToast()
   const [form, setForm] = useState(() => ({ ...EMPTY, ...(prospect || {}) }))
   const [saving, setSaving] = useState(false)
@@ -35,7 +51,11 @@ function ProspectForm({ prospect, onClose, onSaved }) {
     if (!form.name.trim()) return toast(tr('اكتب الاسم'), 'error')
     setSaving(true)
     try {
-      await saveProspect({ ...form, instagram: instagramHandle(form.instagram) }, prospect?.id)
+      const row = { ...form, instagram: instagramHandle(form.instagram) }
+      if (withFit) row.fit = form.fit ? Number(form.fit) : null
+      else delete row.fit
+      if (!withFit) delete row.fit_reason
+      await saveProspect(row, prospect?.id)
       toast(tr('✅ حُفظت'))
       onSaved()
     } catch (err) {
@@ -81,6 +101,21 @@ function ProspectForm({ prospect, onClose, onSaved }) {
         <Field label={tr('الهاتف')}>{input('phone', { dir: 'ltr' })}</Field>
         <Field label={tr('البريد')}>{input('email', { dir: 'ltr', type: 'email' })}</Field>
       </div>
+      {withFit && (
+        <div className="form-grid">
+          <Field label={tr('مدى المناسبة')}>
+            <select id="prospect-fit" className="input" value={form.fit || ''} onChange={set('fit')}>
+              <option value="">{tr('غير مقيّم')}</option>
+              {[3, 2, 1].map((f) => (
+                <option key={f} value={f}>
+                  {FIT_STARS[f]} {tr(FIT_LABELS[f])}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label={tr('سبب التقييم')}>{input('fit_reason')}</Field>
+        </div>
+      )}
       <Field label={tr('رابط المصدر')} hint={tr('أين وجدت هذه المعلومة — حتى يمكن التحقق منها')}>
         {input('source_url', { dir: 'ltr', placeholder: 'https://' })}
       </Field>
@@ -184,7 +219,7 @@ function ProspectImport({ prospects, clients, onClose, onDone }) {
 }
 
 /** The code the scheduled daily research uses — shown once to the admin. */
-function FeedPanel({ since, onChanged }) {
+function FeedPanel({ since, runs, onChanged }) {
   const toast = useToast()
   const [token, setToken] = useState('')
   const rotate = async () => {
@@ -209,6 +244,7 @@ function FeedPanel({ since, onChanged }) {
   return (
     <Panel icon="🤖" title={tr('البحث اليومي')} subtitle={since ? tr('مفعّل منذ {0} — يضيف ما يجده بحالة «جديد» لتراجعه', [formatDate(since)]) : tr('غير مفعّل')} className="mb-16">
       <div className="panel-pad">
+        <HealthLine since={since} runs={runs} />
         <div className="toolbar">
           <Button variant="outline" onClick={rotate}>
             {since ? tr('رمز جديد') : tr('إنشاء رمز البحث اليومي')}
@@ -236,11 +272,138 @@ function FeedPanel({ since, onChanged }) {
   )
 }
 
+/** One line: is the daily research working, and when did it last report? */
+function HealthLine({ since, runs }) {
+  const h = researchHealth(runs, since)
+  if (h.state === 'off') return null
+  return (
+    <div className={`alert ${h.state === 'late' ? 'alert-warning' : 'alert-success'} mb-16`}>
+      {h.state === 'late'
+        ? tr('⚠️ لم يصل تقرير من البحث اليومي منذ {0} يوم — تأكد من إعدادات البيئة (الرمز و *.supabase.co)', [Math.max(h.days, 1)])
+        : h.last
+          ? tr('✓ آخر تقرير: {0}', [formatDate(h.last)])
+          : tr('✓ مفعّل — أول تقرير يصل بعد أول تشغيل صباحي')}
+    </div>
+  )
+}
+
+const SECTOR_OPTIONS = [...new Set([...FORM_SECTORS, ...CATEGORIES.filter((c) => c !== 'أخرى'), 'حلويات وقهوة', 'منتجات منزلية', 'حرف يدوية', 'منتجات أطفال'])]
+
+/** What the daily research looks for. The admin edits it; everyone sees it. */
+function ResearchPlan({ plan, exhibitions, editable, onSaved }) {
+  const toast = useToast()
+  const [form, setForm] = useState(() => ({ focus: plan.focus || '', cities: plan.cities || [], kinds: plan.kinds || [], sectors: plan.sectors || [], daily_limit: plan.daily_limit || 20 }))
+  const [saving, setSaving] = useState(false)
+  const toggle = (k, v) => setForm((f) => ({ ...f, [k]: f[k].includes(v) ? f[k].filter((x) => x !== v) : [...f[k], v] }))
+  const today = new Date().toISOString().slice(0, 10)
+  const upcoming = exhibitions.filter((e) => e.date_to >= today && !['منتهي', 'ملغى'].includes(e.status))
+  const chips = (k, options) => (
+    <div className="chips-row">
+      {options.map((o) => (
+        <button key={o} type="button" className={`chip-btn ${form[k].includes(o) ? 'active' : ''}`} aria-pressed={form[k].includes(o)} disabled={!editable} onClick={() => toggle(k, o)}>
+          {tr(o)}
+        </button>
+      ))}
+    </div>
+  )
+  const save = async () => {
+    setSaving(true)
+    try {
+      await saveResearchPlan(form)
+      toast(tr('✅ حُفظت خطة البحث — تُطبَّق من التشغيل القادم'))
+      onSaved()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <Panel icon="🧭" title={tr('خطة البحث')} subtitle={tr('ما يبحث عنه الموظف كل صباح. بدون اختيار = الكل')} className="mb-16">
+      <div className="panel-pad">
+        <Field label={tr('التركيز هذه الفترة')} hint={tr('مثال: عارضون لمعرض نزوى في ديسمبر — عطور وأزياء ومشاريع منزلية')}>
+          <textarea id="research-focus" className="input" rows={2} value={form.focus} disabled={!editable} onChange={(e) => setForm((f) => ({ ...f, focus: e.target.value }))} />
+        </Field>
+        <Field label={tr('المدن')}>{chips('cities', CITIES)}</Field>
+        <Field label={tr('الأنواع')}>{chips('kinds', PROSPECT_KINDS)}</Field>
+        <Field label={tr('القطاعات')}>{chips('sectors', SECTOR_OPTIONS)}</Field>
+        <Field label={tr('الحد اليومي')} hint={tr('من 1 إلى 30 — النظام يرفض ما يزيد عنه')}>
+          <input
+            id="research-limit"
+            className="input"
+            type="number"
+            min="1"
+            max="30"
+            value={form.daily_limit}
+            disabled={!editable}
+            onChange={(e) => setForm((f) => ({ ...f, daily_limit: e.target.value }))}
+          />
+        </Field>
+        <div className="section-label">{tr('المعارض القادمة — يبحث لها الموظف عن عارضين')}</div>
+        {upcoming.length ? (
+          <ul className="small">
+            {upcoming.map((e) => (
+              <li key={e.id}>
+                {exhibitionTitle(e)} — {[tr(e.city), e.mall].filter(Boolean).join('، ')} • {formatDate(e.date_from)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="muted small">{tr('لا توجد معارض قادمة مسجلة')}</div>
+        )}
+        {editable && (
+          <div className="mt-4">
+            <Button onClick={save} disabled={saving}>
+              {saving ? tr('جاري...') : tr('حفظ الخطة')}
+            </Button>
+          </div>
+        )}
+      </div>
+    </Panel>
+  )
+}
+
+/** Every daily run: when, how many it added, and what it reported. */
+function RunsLog({ runs }) {
+  return (
+    <Panel icon="📒" title={tr('سجل البحث اليومي')} subtitle={tr('آخر {0} تشغيل', [runs.length])}>
+      {runs.length ? (
+        <div className="table-wrap">
+          <table className="table table-compact">
+            <thead>
+              <tr>
+                <th>{tr('التاريخ')}</th>
+                <th>{tr('أُضيفت')}</th>
+                <th>{tr('مكرر')}</th>
+                <th>{tr('التركيز')}</th>
+                <th>{tr('الملخص')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {runs.map((r) => (
+                <tr key={r.id}>
+                  <td className="small nowrap">{formatDate(r.run_at)}</td>
+                  <td className="num">{r.added}</td>
+                  <td className="num">{r.skipped}</td>
+                  <td className="small">{r.focus || '—'}</td>
+                  <td className="small">{r.summary || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyState icon="📒" text={tr('لا توجد تقارير بعد — تظهر هنا بعد أول تشغيل صباحي')} />
+      )}
+    </Panel>
+  )
+}
+
 /**
  * «البحث والفرص»: possible exhibitors, sponsors and partners, venues and events — each with the
  * link it was found at — checked by the team and turned into clients when they fit.
  */
-export default function Prospects() {
+export default function Prospects({ view = 'list' }) {
   const toast = useToast()
   const { role, session } = useAuth()
   const uid = session?.user?.id
@@ -248,7 +411,7 @@ export default function Prospects() {
   const { data, loading, reload } = useData(load, null)
   const [q, setQ] = useState('')
   const [kind, setKind] = useState('')
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState('') // '' = everything but «غير مناسب»
   const [editing, setEditing] = useState(null) // null | {} (new) | prospect
   const [importing, setImporting] = useState(false)
   if (loading || !data) return <Loading />
@@ -264,11 +427,32 @@ export default function Prospects() {
     }
   }
   const needle = q.trim().toLowerCase()
-  const shown = data.prospects.filter(
+  const withFit = data.plan !== null
+  if (view === 'plan')
+    return (
+      <>
+        {role === 'admin' && <FeedPanel since={data.feedSince} runs={data.runs} onChanged={reload} />}
+        {data.plan ? (
+          <>
+            <ResearchPlan key={data.plan.updated_at} plan={data.plan} exhibitions={data.exhibitions} editable={role === 'admin'} onSaved={reload} />
+            <RunsLog runs={data.runs} />
+          </>
+        ) : (
+          <div className="alert alert-warning">{tr('خطة البحث وسجله يحتاجان تحديث قاعدة البيانات 036. شغّل ملف التحديث في Supabase ثم حدّث الصفحة.')}</div>
+        )}
+      </>
+    )
+
+  const shown = sortProspects(data.prospects).filter(
     (p) =>
       (!kind || p.kind === kind) &&
-      (!status || p.status === status) &&
-      (!needle || [p.name, p.category, p.city, p.instagram, p.phone, p.notes].some((v) => String(v || '').toLowerCase().includes(needle))),
+      (status === 'all' || (status ? p.status === status : p.status !== 'غير مناسب')) &&
+      (!needle ||
+        [p.name, p.category, p.city, p.instagram, p.phone, p.notes].some((v) =>
+          String(v || '')
+            .toLowerCase()
+            .includes(needle),
+        )),
   )
   const byKind = (k) => data.prospects.filter((p) => p.kind === k).length
   const fresh = data.prospects.filter((p) => p.status === 'جديد').length
@@ -281,12 +465,7 @@ export default function Prospects() {
 
   return (
     <>
-      {role === 'admin' && <FeedPanel since={data.feedSince} onChanged={reload} />}
-      <Panel
-        icon="🔎"
-        title={tr('البحث والفرص')}
-        subtitle={[...PROSPECT_KINDS.map((k) => `${tr(k)} ${byKind(k)}`), tr('{0} بانتظار المراجعة', [fresh])].join(' • ')}
-      >
+      <Panel icon="🔎" title={tr('البحث والفرص')} subtitle={[...PROSPECT_KINDS.map((k) => `${tr(k)} ${byKind(k)}`), tr('{0} بانتظار المراجعة', [fresh])].join(' • ')}>
         <div className="toolbar panel-pad">
           <input id="prospect-search" className="input toolbar-search" placeholder={tr('بحث بالاسم أو النشاط أو المدينة...')} value={q} onChange={(e) => setQ(e.target.value)} />
           <select id="prospect-kind-filter" className="input toolbar-select" value={kind} onChange={(e) => setKind(e.target.value)}>
@@ -298,7 +477,8 @@ export default function Prospects() {
             ))}
           </select>
           <select id="prospect-status-filter" className="input toolbar-select" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">{tr('كل الحالات')}</option>
+            <option value="">{tr('كل الحالات (بدون غير المناسب)')}</option>
+            <option value="all">{tr('الكل')}</option>
             {PROSPECT_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {tr(s)}
@@ -321,6 +501,7 @@ export default function Prospects() {
               <thead>
                 <tr>
                   <th>{tr('الاسم')}</th>
+                  {withFit && <th>{tr('المناسبة')}</th>}
                   <th>{tr('النوع')}</th>
                   <th>{tr('المدينة')}</th>
                   <th>{tr('التواصل')}</th>
@@ -346,6 +527,20 @@ export default function Prospects() {
                         )}
                       </div>
                     </td>
+                    {withFit && (
+                      <td className="nowrap" title={p.fit_reason || ''}>
+                        {p.fit ? (
+                          <>
+                            <span className="fit-stars" aria-label={tr(FIT_LABELS[p.fit])}>
+                              {FIT_STARS[p.fit]}
+                            </span>
+                            {p.fit_reason && <div className="tiny muted fit-reason">{p.fit_reason}</div>}
+                          </>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
+                    )}
                     <td className="small">{tr(p.kind)}</td>
                     <td className="small">{p.city || '—'}</td>
                     <td className="small ltr">
@@ -366,13 +561,8 @@ export default function Prospects() {
                     </td>
                     <td>
                       {canWrite && p.status !== 'أصبح عميلاً' ? (
-                        <select
-                          className="input input-compact"
-                          aria-label={tr('الحالة')}
-                          value={p.status}
-                          onChange={(e) => run(() => setProspectStatus(p.id, e.target.value))}
-                        >
-                          {PROSPECT_STATUSES.filter((s) => s !== 'أصبح عميلاً').map((s) => (
+                        <select className="input input-compact" aria-label={tr('الحالة')} value={p.status} onChange={(e) => run(() => setProspectStatus(p.id, e.target.value))}>
+                          {PROSPECT_STATUSES.filter((s) => s !== 'أصبح عميلاً' && (withFit || s !== 'غير مناسب')).map((s) => (
                             <option key={s} value={s}>
                               {tr(s)}
                             </option>
@@ -384,17 +574,30 @@ export default function Prospects() {
                     </td>
                     <td className="small nowrap">{formatDate(p.created_at)}</td>
                     <td className="nowrap">
+                      {canWrite && p.status === 'جديد' && (
+                        <>
+                          <Button size="sm" variant="outline" title={tr('راجعتها وهي مناسبة')} onClick={() => run(() => setProspectStatus(p.id, 'تم التحقق'), tr('✓ نُقلت إلى «تم التحقق»'))}>
+                            {tr('✓ مناسب')}
+                          </Button>
+                          {withFit && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              title={tr('لا تناسب معارضنا — لن يضيفها البحث مرة أخرى')}
+                              onClick={() => run(() => setProspectStatus(p.id, 'غير مناسب'), tr('نُقلت إلى «غير مناسب»'))}
+                            >
+                              {tr('✗ غير مناسب')}
+                            </Button>
+                          )}
+                        </>
+                      )}
                       {canWrite && (
                         <Button size="sm" variant="ghost" onClick={() => setEditing(p)}>
                           {tr('تعديل')}
                         </Button>
                       )}
                       {canWrite && CLIENT_KINDS.includes(p.kind) && !p.client_id && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => confirm(tr('إضافة «{0}» إلى العملاء بحالة «محتمل»؟', [p.name])) && run(() => makeClient(p), tr('✅ أُضيف إلى العملاء'))}
-                        >
+                        <Button size="sm" variant="outline" onClick={() => confirm(tr('إضافة «{0}» إلى العملاء بحالة «محتمل»؟', [p.name])) && run(() => makeClient(p), tr('✅ أُضيف إلى العملاء'))}>
                           {tr('← عميل')}
                         </Button>
                       )}
@@ -417,6 +620,7 @@ export default function Prospects() {
       {editing && (
         <ProspectForm
           prospect={editing.id ? editing : null}
+          withFit={withFit}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null)

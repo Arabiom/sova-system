@@ -18,16 +18,27 @@ const run = async (query) => {
   return data
 }
 
-const FIELDS = ['kind', 'name', 'category', 'city', 'instagram', 'website', 'phone', 'email', 'source_url', 'notes', 'status']
+const FIELDS = ['kind', 'name', 'category', 'city', 'instagram', 'website', 'phone', 'email', 'source_url', 'notes', 'status', 'fit', 'fit_reason']
 const toRow = (p) => Object.fromEntries(FIELDS.filter((k) => p[k] !== undefined).map((k) => [k, typeof p[k] === 'string' ? p[k].trim() : p[k]]))
 
 /** The list; `ready: false` before migration 035. */
 export async function loadProspects() {
   const res = await fetchAll(() => supabase.from('prospects').select('*').order('created_at', { ascending: false }))
-  if (missing(res.error)) return { ready: false, prospects: [], feedSince: null }
+  if (missing(res.error)) return { ready: false, prospects: [], feedSince: null, plan: null, runs: [] }
   if (res.error) throw explain(res.error)
-  const feed = await supabase.rpc('prospect_feed_status')
-  return { ready: true, prospects: res.data, feedSince: !feed.error && typeof feed.data === 'string' ? feed.data : null }
+  const [feed, plan, runs] = await Promise.all([
+    supabase.rpc('prospect_feed_status'),
+    supabase.from('research_settings').select('*').eq('id', 1).maybeSingle(),
+    supabase.from('research_runs').select('*').order('run_at', { ascending: false }).limit(30),
+  ])
+  return {
+    ready: true,
+    prospects: res.data,
+    feedSince: !feed.error && typeof feed.data === 'string' ? feed.data : null,
+    // the plan and the run log come with migration 036; without it the section still works
+    plan: plan.error ? null : plan.data,
+    runs: runs.error ? [] : runs.data || [],
+  }
 }
 
 export const saveProspect = (p, id) => run(id ? supabase.from('prospects').update(toRow(p)).eq('id', id) : supabase.from('prospects').insert(toRow(p)))
@@ -65,3 +76,7 @@ export async function makeClient(p) {
 /** A new code for the daily research (shown once); the old one stops working. */
 export const rotateFeedToken = () => run(supabase.rpc('rotate_prospect_feed_token'))
 export const revokeFeedToken = () => run(supabase.rpc('revoke_prospect_feed_token'))
+
+/** The research plan (the admin only, migration 036). */
+export const saveResearchPlan = ({ focus, cities, kinds, sectors, daily_limit }) =>
+  run(supabase.from('research_settings').update({ focus: focus.trim(), cities, kinds, sectors, daily_limit: Number(daily_limit) || 20 }).eq('id', 1))

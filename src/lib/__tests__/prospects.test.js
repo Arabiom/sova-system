@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyProspects, instagramHandle, prospectToClient, readProspectRows } from '../prospects.js'
+import { classifyProspects, instagramHandle, prospectToClient, readProspectRows, researchHealth, sortProspects } from '../prospects.js'
 
 describe('instagramHandle', () => {
   it('keeps the handle only, in lower case, whatever was written', () => {
@@ -52,5 +52,34 @@ describe('prospectToClient', () => {
     const c = prospectToClient({ name: 'عطور الوادي', phone: '91234567', email: '', instagram: 'wadi.perfume', category: 'عطور', city: 'نزوى', notes: '', source_url: 'https://x.com' })
     expect(c).toMatchObject({ status: 'محتمل', contact_source: 'قائمة مستوردة', instagram: '@wadi.perfume', sector: 'عطور' })
     expect(c.notes).toContain('https://x.com')
+  })
+})
+
+describe('sortProspects', () => {
+  it('puts the best fit first, unrated after, and rejected or converted ones last', () => {
+    const list = [
+      { id: 'a', fit: 1, status: 'جديد', created_at: '2026-10-20' },
+      { id: 'b', fit: 3, status: 'غير مناسب', created_at: '2026-10-20' },
+      { id: 'c', fit: null, status: 'جديد', created_at: '2026-10-21' },
+      { id: 'd', fit: 3, status: 'جديد', created_at: '2026-10-19' },
+      { id: 'e', fit: 2, status: 'أصبح عميلاً', created_at: '2026-10-22' },
+    ]
+    expect(sortProspects(list).map((p) => p.id)).toEqual(['d', 'a', 'c', 'b', 'e'])
+  })
+})
+
+describe('researchHealth', () => {
+  const now = new Date('2026-10-21T08:00:00Z')
+  it('is off without a code', () => {
+    expect(researchHealth([], null, now).state).toBe('off')
+  })
+  it('is fine when the last report is recent, late after 36 hours', () => {
+    expect(researchHealth([{ run_at: '2026-10-21T03:00:00Z' }], '2026-10-01T00:00:00Z', now).state).toBe('ok')
+    const late = researchHealth([{ run_at: '2026-10-18T03:00:00Z' }, { run_at: '2026-10-17T03:00:00Z' }], '2026-10-01T00:00:00Z', now)
+    expect(late).toMatchObject({ state: 'late', last: '2026-10-18T03:00:00Z', days: 3 })
+  })
+  it('counts from when the code was made until the first report', () => {
+    expect(researchHealth([], '2026-10-20T21:00:00Z', now).state).toBe('ok')
+    expect(researchHealth([], '2026-10-15T21:00:00Z', now).state).toBe('late')
   })
 })

@@ -5235,3 +5235,13 @@ body {
   font-weight: 600;
   color: var(--gold);
 }
+
+/* research prospects: how well each fits */
+.fit-stars {
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+.fit-reason {
+  max-width: 220px;
+  white-space: normal;
+}

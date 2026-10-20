@@ -6,13 +6,14 @@ import { phoneKey } from './format.js'
 import { tr } from './i18n.js'
 
 export const PROSPECT_KINDS = ['عارض محتمل', 'راعٍ أو شريك', 'موقع أو فعالية', 'أخرى']
-export const PROSPECT_STATUSES = ['جديد', 'تم التحقق', 'تم التواصل', 'مهتم', 'غير مهتم', 'أصبح عميلاً']
+export const PROSPECT_STATUSES = ['جديد', 'تم التحقق', 'تم التواصل', 'مهتم', 'غير مهتم', 'غير مناسب', 'أصبح عميلاً']
 export const PROSPECT_BADGE = {
   جديد: 'badge-info',
   'تم التحقق': 'badge-neutral',
   'تم التواصل': 'badge-warning',
   مهتم: 'badge-success',
   'غير مهتم': 'badge-danger',
+  'غير مناسب': 'badge-neutral',
   'أصبح عميلاً': 'badge-success',
 }
 /** Only these can become clients (a venue or an event is not one). */
@@ -124,3 +125,25 @@ export const prospectToClient = (p) => ({
   notes: [p.notes, p.source_url && `${tr('المصدر')}: ${p.source_url}`].filter(Boolean).join('\n'),
   contact_source: 'قائمة مستوردة',
 })
+
+/** How well a prospect fits our exhibitions (1–3, from the research), as shown. */
+export const FIT_LABELS = { 3: 'مناسب جداً', 2: 'مناسب', 1: 'ضعيف' }
+export const FIT_STARS = { 3: '★★★', 2: '★★☆', 1: '★☆☆' }
+
+/** Best first: the fit (unrated last), then the newest; «غير مناسب» and clients at the end. */
+export function sortProspects(list) {
+  const late = (p) => (p.status === 'غير مناسب' || p.status === 'أصبح عميلاً' ? 1 : 0)
+  return [...list].sort((a, b) => late(a) - late(b) || (b.fit || 0) - (a.fit || 0) || String(b.created_at).localeCompare(String(a.created_at)))
+}
+
+/**
+ * Is the daily research working? Off without a code; «late» when it has a code but has not
+ * reported for more than 36 hours (it runs every morning).
+ */
+export function researchHealth(runs = [], feedSince = null, now = new Date()) {
+  const last = runs.reduce((m, r) => (!m || r.run_at > m ? r.run_at : m), null)
+  if (!feedSince) return { state: 'off', last }
+  const since = last || feedSince
+  const hours = (now - new Date(since)) / 36e5
+  return { state: hours > 36 ? 'late' : 'ok', last, days: Math.floor(hours / 24) }
+}

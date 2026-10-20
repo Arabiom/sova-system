@@ -89,7 +89,7 @@ begin
     jsonb_build_object('name', 'بدون مصدر'),
     jsonb_build_object('name', 'مول للمعارض', 'kind', 'موقع أو فعالية', 'source_url', 'http://e.com/3')
   ));
-  if res <> '{"added": 2, "skipped": 2, "rejected": 1}'::jsonb then
+  if (res->>'added')::int <> 2 or (res->>'skipped')::int <> 2 or (res->>'rejected')::int <> 1 then
     raise exception 'add_prospects gave %', res;
   end if;
   if (select count(*) from public.known_prospects(tok)) < 4 then raise exception 'known list too short'; end if;
