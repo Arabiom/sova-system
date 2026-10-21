@@ -3,6 +3,7 @@
 /** The usual papers of an Omani company (another kind can be typed). */
 export const DOC_TYPES = [
   'السجل التجاري',
+  'ترخيص السجل التجاري',
   'شهادة الانتساب لغرفة تجارة وصناعة عُمان',
   'الشهادة الضريبية',
   'ترخيص البلدية',
