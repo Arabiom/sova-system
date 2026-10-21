@@ -18,6 +18,7 @@ const toRow = (f) => ({
   details: (f.details || '').trim(),
   due_date: f.due_date || null,
   link: (f.link || '').trim(),
+  ...(f.ref ? { ref: f.ref } : {}), // a finding of the live review, added once
 })
 
 export const saveAdvisorItem = (form, id) => unwrap(id ? table().update(toRow(form)).eq('id', id) : table().insert(toRow(form)))

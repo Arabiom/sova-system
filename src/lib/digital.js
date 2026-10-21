@@ -1,6 +1,7 @@
 // «الموظفون الرقميون» — the parts that need no database: choosing a campaign's recipients from
 // the client base, and the campaign statuses (the database enforces the same rules, migration 034).
 import { phoneKey } from './format.js'
+import { isOpen } from './advisor.js'
 import { clientSectors } from './matching.js'
 import { researchHealth, researchSwitch } from './prospects.js'
 
@@ -75,7 +76,7 @@ const daysBetween = (a, b) => Math.floor((Date.parse(String(b).slice(0, 10)) - D
  * Every number is counted from the records themselves; nothing is estimated.
  * needs: [{ text, args, tab, tone }] — tone 'action' (someone must act) or 'setup' (not set up yet).
  */
-export function digitalEmployees({ campaigns = [], recipients = [], followups = [], optOuts = [], prospects = [], prospectsReady = true, feedSince = null, runs = [], plan = null, role, today, now = new Date() }) {
+export function digitalEmployees({ campaigns = [], recipients = [], followups = [], optOuts = [], prospects = [], prospectsReady = true, feedSince = null, runs = [], plan = null, advisorItems = [], advisorReady = true, review = [], role, today, now = new Date() }) {
   const admin = role === 'admin'
   const pending = campaigns.filter((c) => c.status === 'بانتظار الاعتماد').length
   const approved = campaigns.filter((c) => c.status === 'معتمدة').length
@@ -91,6 +92,33 @@ export function digitalEmployees({ campaigns = [], recipients = [], followups = 
   const sw = researchSwitch(plan, runs)
 
   const need = (cond, text, args, tab, tone = 'action') => (cond ? [{ text, args, tab, tone }] : [])
+  const openItems = advisorItems.filter(isOpen)
+  const urgent = openItems.filter((i) => i.priority === 'عاجلة').length
+  const late = openItems.filter((i) => i.due_date && i.due_date < today).length
+  const problems = review.filter((r) => r.tone === 'danger').length
+  const waiting = review.filter((r) => r.tone === 'warning').length
+  // the owner's follow-up employee: their list, and the live review of the site (admin only)
+  const advisor = {
+    id: 'advisor',
+    icon: '🧠',
+    name: 'موظف المتابعة والاقتراحات والحلول',
+    role: 'يراجع الموقع كل يوم مع Claude، ويكتب مهامك واقتراحاته وحلول المشاكل حتى لا يُنسى شيء',
+    state: !advisorReady ? 'يحتاج تحديث قاعدة البيانات' : problems ? 'وجد مشاكل تحتاج حلاً' : 'يعمل — يراجع الموقع يومياً',
+    tone: !advisorReady || problems ? 'danger' : 'success',
+    tabs: ['tasks', 'review'],
+    kpis: [
+      { label: 'مهام مفتوحة', value: openItems.length },
+      { label: 'عاجلة', value: urgent },
+      { label: 'ملاحظات المراجعة', value: review.length },
+    ],
+    needs: [
+      ...need(!advisorReady, 'تشغيل تحديث قاعدة البيانات 040', [], 'tasks', 'setup'),
+      ...need(problems > 0, '{0} مشكلة في الموقع تحتاج حلاً', [problems], 'review'),
+      ...need(urgent > 0, '{0} مهمة عاجلة', [urgent], 'tasks'),
+      ...need(late > 0, '{0} مهمة تجاوزت موعدها', [late], 'tasks'),
+      ...need(waiting > 0, '{0} أمر ينتظر رداً أو متابعة', [waiting], 'review'),
+    ],
+  }
   return [
     {
       id: 'marketing',
@@ -168,5 +196,6 @@ export function digitalEmployees({ campaigns = [], recipients = [], followups = 
         { label: 'من البحث اليومي', value: daily },
       ],
     },
+    ...(admin ? [advisor] : []),
   ]
 }

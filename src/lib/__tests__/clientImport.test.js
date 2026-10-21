@@ -75,12 +75,19 @@ describe('a merged client list (combined headers, free-text products, a second n
     const [a, b, c] = readClientRows(rows, headerRow, cols)
     expect(a).toMatchObject({ name: 'بوتيك الاركان', contact_name: 'منى الجابري', phone: '92183456', sector: 'أزياء', source: 'معرض نزوى جراند مول' })
     expect(b.sector).toBe('أزياء')
-    expect(b.notes).toContain('عبايات - مشروبات')
+    expect(b.products).toBe('عبايات - مشروبات') // what the file said becomes the products note
     expect(b.notes).toContain('92161138')
     expect(c.sector).toBe('شركة فطر عمان') // nothing to sort it into: kept as written
     expect(c).not.toHaveProperty('phone2')
     const [d, e] = readClientRows([rows[0], [4, 'x', 'مطعم الريف', '91111111', null, null, 'Restaurant'], [5, 'y', 'ز', '92222222', null, null, '8']], 0, cols)
     expect(d.sector).toBe('مطاعم وأغذية')
     expect(e.sector).toBe('')
+  })
+  it('reads a products column and sorts the sector from it', () => {
+    const file = [['اسم المشروع', 'رقم الهاتف', 'نبذة عن المنتجات'], ['لبان ظفار', '93334444', 'لبان وبخور ومخمرية']]
+    const found = detectColumns(file)
+    expect(found.cols).toMatchObject({ name: 0, phone: 1, products: 2 })
+    const [row] = readClientRows(file, found.headerRow, found.cols)
+    expect(row).toMatchObject({ sector: 'عطور وبخور', products: 'لبان وبخور ومخمرية' })
   })
 })
