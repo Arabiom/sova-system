@@ -57,6 +57,8 @@ export function toExhibitionRow(form) {
     row.booth_extras = form.extrasSet ? cleanExtras(form.extras) : null
     row.booth_note = form.booth_note?.trim() || ''
   }
+  // Target sectors (migration 040): sent only when chosen or cleared, so older databases still save.
+  if (form.sectors?.length || form.hadSectors) row.sectors = form.sectors || []
   // Attached map image (only sent when the form has the field, so older databases still save).
   if ('map_path' in form) row.map_path = form.map_path || null
   // The total typed on the form wins; otherwise the tiers add up to it.

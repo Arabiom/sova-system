@@ -6,6 +6,7 @@ import ExhibitionMap from './ExhibitionMap.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { CITIES, EXHIBITION_STATUSES } from '../lib/constants.js'
 import { num } from '../lib/format.js'
+import { SECTORS } from '../lib/prospects.js'
 import { cleanExtras, cleanPackages, defaultExtras, defaultPackages, formExtras, formPackages } from '../lib/packages.js'
 import Button from './Button.jsx'
 import Field, { SelectOptions } from './Field.jsx'
@@ -23,6 +24,8 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
     extras: formExtras(initial),
     extrasSet: Array.isArray(initial.booth_extras),
     booth_note: initial.booth_note || '',
+    sectors: Array.isArray(initial.sectors) ? initial.sectors : [],
+    hadSectors: Boolean(initial.sectors?.length),
   }))
   const [saving, setSaving] = useState(false)
   // Map: a newly chosen file (uploaded on save), or the saved one being removed.
@@ -49,6 +52,7 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
     setRemoveMap(Boolean(savedMap))
   }
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  const toggleSector = (x) => setForm((f) => ({ ...f, sectors: f.sectors.includes(x) ? f.sectors.filter((y) => y !== x) : [...f.sectors, x] }))
   const tierBooths = form.tiers.reduce((t, x) => t + num(x.count), 0)
   const setTier = (index, key) => (e) =>
     setForm((f) => ({ ...f, tiers: f.tiers.map((t, i) => (i === index ? { ...t, [key]: e.target.value } : t)) }))
@@ -147,6 +151,18 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
           <input className="input" placeholder={tr('الشارع، المنطقة، الولاية')} value={form.address || ''} onChange={set('address')} />
         </Field>
       </div>
+      <Field
+        label={tr('القطاعات المستهدفة')}
+        hint={form.sectors.length ? tr('يُعرض المعرض على عملاء هذه القطاعات فقط') : tr('بدون اختيار = معرض لكل القطاعات. مثال: معرض المنتجات العمانية ← حرف يدوية، منتجات منزلية، عطور وبخور، حلويات وقهوة')}
+      >
+        <div className="chips-row">
+          {SECTORS.map((x) => (
+            <button key={x} type="button" className={`chip-btn ${form.sectors.includes(x) ? 'active' : ''}`} aria-pressed={form.sectors.includes(x)} onClick={() => toggleSector(x)}>
+              {tr(x)}
+            </button>
+          ))}
+        </div>
+      </Field>
 
       <div className="tier-box">
         <div className="tier-box-title">{tr('🏷️ فئات البوثات وأسعارها (اختياري — تقدير مبدئي)')}</div>

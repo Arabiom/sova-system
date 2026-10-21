@@ -220,6 +220,13 @@ h1 {
 .center {
   text-align: center;
 }
+/* one line of a longer note (products), cut with … */
+.clip-1 {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .flex-1 {
   flex: 1;
   min-width: 0;

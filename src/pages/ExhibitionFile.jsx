@@ -162,6 +162,7 @@ export default function ExhibitionFile() {
     ['📍 المول', ex.mall],
     ['🗺️ العنوان', ex.address],
     ['🎉 المناسبة', ex.occasion],
+    ['🎯 القطاعات', ex.sectors?.length ? ex.sectors.map((x) => tr(x)).join(tr('، ')) : ''],
   ].filter(([, v]) => v)
 
   return (

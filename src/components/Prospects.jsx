@@ -38,6 +38,7 @@ import {
   readProspectRows,
   researchHealth,
   researchSwitch,
+  SECTORS,
   sortProspects,
 } from '../lib/prospects.js'
 import { useData } from '../lib/useData.js'
@@ -52,7 +53,7 @@ const load = async () => {
   return { ...list, clients, exhibitions }
 }
 
-const EMPTY = { kind: PROSPECT_KINDS[0], name: '', category: '', city: '', instagram: '', website: '', phone: '', email: '', source_url: '', notes: '' }
+const EMPTY = { kind: PROSPECT_KINDS[0], name: '', category: '', products: '', city: '', instagram: '', website: '', phone: '', email: '', source_url: '', notes: '' }
 const STATE_LABEL = { new: 'جديد', duplicate: 'مكرر في الملف', exists: 'موجود مسبقاً', invalid: 'ناقص' }
 const STATE_BADGE = { new: 'badge-success', duplicate: 'badge-warning', exists: 'badge-neutral', invalid: 'badge-danger' }
 /** Days left before an unreviewed Google Maps find is removed (Google's 30-day rule), else null. */
@@ -81,7 +82,7 @@ function ProspectForm({ prospect, withFit, onClose, onSaved }) {
       setSaving(false)
     }
   }
-  const input = (k, props = {}) => <input id={`prospect-${k}`} className="input" value={form[k]} onChange={set(k)} {...props} />
+  const input = (k, props = {}) => <input id={`prospect-${k}`} className="input" value={form[k] ?? ''} onChange={set(k)} {...props} />
   return (
     <Modal
       title={prospect ? tr('تعديل فرصة') : tr('فرصة جديدة')}
@@ -111,8 +112,16 @@ function ProspectForm({ prospect, withFit, onClose, onSaved }) {
             ))}
           </select>
         </Field>
-        <Field label={tr('النشاط')}>{input('category')}</Field>
+        <Field label={tr('النشاط')}>{input('category', { list: 'prospect-sectors' })}</Field>
         <Field label={tr('المدينة')}>{input('city')}</Field>
+        <Field label={tr('نبذة عن المنتجات')} className="span-2">
+          {input('products', { placeholder: tr('مثال: عبايات وشيلات مطرزة يدوياً') })}
+        </Field>
+        <datalist id="prospect-sectors">
+          {SECTORS.map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
         <Field label={tr('إنستغرام')}>{input('instagram', { dir: 'ltr', placeholder: '@account' })}</Field>
         <Field label={tr('الموقع الإلكتروني')}>{input('website', { dir: 'ltr' })}</Field>
         <Field label={tr('الهاتف')}>{input('phone', { dir: 'ltr' })}</Field>
@@ -347,6 +356,7 @@ function ProspectImport({ prospects, clients, onClose, onDone }) {
                     <td className="small">
                       {r.category ? tr(r.category) : '—'}
                       {r.guessed.includes('category') && ' ✨'}
+                      {r.products && <div className="tiny muted clip-1">{r.products}</div>}
                     </td>
                     <td className="small">
                       {r.city ? tr(r.city) : '—'}
@@ -664,7 +674,7 @@ export default function Prospects({ view = 'list' }) {
       (!kind || p.kind === kind) &&
       (status === 'all' || (status ? p.status === status : p.status !== 'غير مناسب')) &&
       (!needle ||
-        [p.name, p.category, p.city, p.instagram, p.phone, p.notes].some((v) =>
+        [p.name, p.category, p.products, p.city, p.instagram, p.phone, p.notes].some((v) =>
           String(v || '')
             .toLowerCase()
             .includes(needle),
@@ -747,6 +757,7 @@ export default function Prospects({ view = 'list' }) {
                           </>
                         )}
                       </div>
+                      {p.products && <div className="tiny muted clip-1">{p.products}</div>}
                     </td>
                     {withFit && (
                       <td className="nowrap" title={p.fit_reason || ''}>

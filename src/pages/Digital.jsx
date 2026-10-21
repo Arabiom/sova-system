@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { listClients } from '../api/clients.js'
+import { listExhibitions } from '../api/exhibitions.js'
 import { addOptOut, createCampaign, deleteCampaign, deleteFollowup, loadDigital, optOutKeys, removeOptOut, saveFollowup, setCampaignStatus, setFollowupDone } from '../api/digital.js'
 import { loadProspects } from '../api/prospects.js'
 import { listStaff } from '../api/staff.js'
@@ -19,7 +20,8 @@ import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { CLIENT_STATUSES, CONTACT_SOURCES } from '../lib/constants.js'
 import { CAMPAIGN_BADGE, campaignActions, digitalEmployees, segmentClients } from '../lib/digital.js'
-import { formatDate, phoneKey, todayISO } from '../lib/format.js'
+import { exhibitionLabel, formatDate, phoneKey, todayISO } from '../lib/format.js'
+import { upcomingExhibitions } from '../lib/matching.js'
 import { tr } from '../lib/i18n.js'
 import { omanDay } from '../lib/team.js'
 import { useData } from '../lib/useData.js'
@@ -27,7 +29,7 @@ import { BUILTIN_TEMPLATES } from '../lib/whatsapp.js'
 
 const load = async () => {
   // the staff list is readable by the admin, finance and viewers; others see their own name only
-  const [digital, clients, saved, staff, research] = await Promise.all([
+  const [digital, clients, saved, staff, research, exhibitions] = await Promise.all([
     loadDigital(),
     listClients(),
     listTemplates().catch(() => null),
@@ -39,9 +41,10 @@ const load = async () => {
       plan: null,
       runs: [],
     })),
+    listExhibitions().catch(() => []),
   ])
   const templates = [...(saved || []).map((t) => ({ name: t.name, body: t.body })), ...BUILTIN_TEMPLATES.map((t) => ({ name: t.label, body: t.body }))]
-  return { ...digital, clients, templates, staff, research }
+  return { ...digital, clients, templates, staff, research, exhibitions }
 }
 
 const TABS = {
@@ -123,12 +126,19 @@ function CampaignForm({ data, onClose, onSaved }) {
     cities: [],
     statuses: ['نشط', 'محتمل'],
     notContactedDays: '',
+    exhibition: '',
+    forSectors: [],
   })
   const [saving, setSaving] = useState(false)
   const keys = useMemo(() => optOutKeys(data.optOuts), [data.optOuts])
   const seg = segmentClients(data.clients, filter, keys, omanDay())
   const values = (k) => [...new Set(data.clients.map((c) => c[k]).filter(Boolean))].sort()
   const unsure = !filter.sources.length || filter.sources.includes('قائمة مستوردة')
+  const upcoming = useMemo(() => upcomingExhibitions(data.exhibitions || [], omanDay()), [data.exhibitions])
+  const pickExhibition = (e) => {
+    const ex = upcoming.find((x) => x.id === e.target.value)
+    setFilter((f) => ({ ...f, exhibition: ex?.id || '', forSectors: ex?.sectors || [] }))
+  }
 
   const pickTemplate = (e) => {
     const t = data.templates.find((x) => x.name === e.target.value)
@@ -207,6 +217,27 @@ function CampaignForm({ data, onClose, onSaved }) {
       </Field>
 
       <div className="section-label">{tr('الشريحة')}</div>
+      {upcoming.length > 0 && (
+        <Field
+          label={tr('لمعرض')}
+          hint={
+            filter.exhibition
+              ? filter.forSectors.length
+                ? tr('تصل فقط لعملاء قطاعاته: {0} — ومن عُلّم «غير مناسب» مستبعد', [filter.forSectors.map((x) => tr(x)).join(tr('، '))])
+                : tr('لم تُحدَّد قطاعات هذا المعرض — حدّدها من «تعديل المعرض» لتصل الحملة لمن يناسبه فقط')
+              : tr('اختر المعرض لتصل الحملة لعملاء قطاعاته فقط')
+          }
+        >
+          <select id="campaign-exhibition" className="input" value={filter.exhibition} onChange={pickExhibition}>
+            <option value="">{tr('بدون — كل القطاعات')}</option>
+            {upcoming.map((x) => (
+              <option key={x.id} value={x.id}>
+                {exhibitionLabel(x)}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label={tr('مصدر الرقم')} hint={tr('بدون اختيار = كل المصادر')}>
         {chips('sources', [...CONTACT_SOURCES, ''])}
       </Field>

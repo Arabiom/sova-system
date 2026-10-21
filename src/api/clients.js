@@ -14,6 +14,8 @@ export function toClientRow(form) {
     email: (form.email || '').trim().toLowerCase(),
     instagram: form.instagram || '',
     sector: form.sector || '',
+    // a note on its products (migration 040): sent only when set or cleared, like the number's source
+    ...(form.products || form.hadProducts ? { products: (form.products || '').trim().slice(0, 1000) } : {}),
     city: form.city || '',
     source: form.source || '',
     status: form.status || 'نشط',
@@ -93,13 +95,20 @@ export async function findOrCreateClient({ brand, manager, phone, email, categor
 export async function importClients(rows, onProgress = () => {}) {
   let added = 0
   const failed = []
+  // before migration 040 the products note has no column: it then goes into the notes
+  let noProducts = false
+  const toRow = (r) => toClientRow(noProducts && r.products ? { ...r, notes: [r.notes, `المنتجات: ${r.products}`].filter(Boolean).join(' — '), products: '' } : r)
   for (let i = 0; i < rows.length; i += 50) {
     const batch = rows.slice(i, i + 50)
-    const { error } = await table().insert(batch.map((r) => toClientRow(r)))
+    let { error } = await table().insert(batch.map(toRow))
+    if (error && !noProducts && /products/.test(error.message || '')) {
+      noProducts = true
+      ;({ error } = await table().insert(batch.map(toRow)))
+    }
     if (!error) added += batch.length
     else {
       for (const row of batch) {
-        const { error: rowError } = await table().insert(toClientRow(row))
+        const { error: rowError } = await table().insert(toRow(row))
         if (rowError) failed.push({ row, message: friendlyError(rowError) })
         else added++
       }

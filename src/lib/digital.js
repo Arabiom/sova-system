@@ -1,6 +1,7 @@
 // «الموظفون الرقميون» — the parts that need no database: choosing a campaign's recipients from
 // the client base, and the campaign statuses (the database enforces the same rules, migration 034).
 import { phoneKey } from './format.js'
+import { clientSectors } from './matching.js'
 import { researchHealth, researchSwitch } from './prospects.js'
 
 export const CAMPAIGN_STATUSES = ['مسودة', 'بانتظار الاعتماد', 'معتمدة', 'أُرسلت', 'ملغاة']
@@ -22,7 +23,8 @@ const daysSince = (iso, today) => (iso ? Math.floor((Date.parse(today) - Date.pa
 /**
  * The clients a campaign goes to: those matching the filter, each number once, never one on the
  * stop list. Returns the recipients and how many were left out and why.
- * filter: { sources: [], sectors: [], cities: [], statuses: [], notContactedDays }
+ * filter: { sources: [], sectors: [], cities: [], statuses: [], notContactedDays, exhibition, forSectors }
+ * — with an exhibition chosen, only clients of its target sectors (forSectors) not marked «غير مناسب».
  */
 export function segmentClients(clients, filter = {}, optOutKeys = new Set(), today = new Date().toISOString().slice(0, 10)) {
   const has = (list, v) => !list?.length || list.includes(v || '')
@@ -32,6 +34,8 @@ export function segmentClients(clients, filter = {}, optOutKeys = new Set(), tod
       has(filter.sectors, c.sector) &&
       has(filter.cities, c.city) &&
       has(filter.statuses, c.status) &&
+      (!filter.exhibition || c.outreach !== 'غير مناسب') &&
+      (!filter.forSectors?.length || clientSectors(c).some((x) => filter.forSectors.includes(x))) &&
       (!filter.notContactedDays || (daysSince(c.last_contact_at, today) ?? Infinity) >= Number(filter.notContactedDays)),
   )
   const seen = new Set()
