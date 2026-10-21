@@ -2409,4 +2409,5 @@ export default {
   "شهادة الحساب البنكي (IBAN)": "Bank account certificate (IBAN)",
   "شهادة تسجيل العلامة التجارية": "Trademark registration certificate",
   "لم يُحفظ — هذا العميل أدخله موظف آخر": "Not saved — another employee entered this client",
+  "ترخيص السجل التجاري": "Commercial register licence",
 }
