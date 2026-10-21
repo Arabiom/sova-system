@@ -5294,3 +5294,22 @@ body {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* clients: the database the team built vs what the research found */
+.db-split {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
+/* outreach marks: received a message · suits us · does not */
+.outreach-1 {
+  color: var(--info);
+}
+.outreach-2 {
+  color: var(--suc);
+  font-weight: 600;
+}
+.outreach-3 {
+  color: var(--dng);
+}

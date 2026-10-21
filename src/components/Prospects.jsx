@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { listClients } from '../api/clients.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import {
@@ -681,6 +682,10 @@ export default function Prospects({ view = 'list' }) {
   return (
     <>
       <ResearchSwitch data={data} admin={role === 'admin'} onChanged={reload} />
+      <div className="alert alert-info mb-16 db-split">
+        <span>{tr('🔎 هنا ما استخرجه موظف البحث — منفصل عن قاعدة عملائك حتى تراجعه. «← عميل» ينقل المناسب منها إلى العملاء.')}</span>
+        <Link to="/clients">{tr('📒 قاعدة بياناتك (العملاء) ←')}</Link>
+      </div>
       <Panel icon="🔎" title={tr('البحث والفرص')} subtitle={[...PROSPECT_KINDS.map((k) => `${tr(k)} ${byKind(k)}`), tr('{0} بانتظار المراجعة', [fresh])].join(' • ')}>
         <div className="toolbar panel-pad">
           <input id="prospect-search" className="input toolbar-search" placeholder={tr('بحث بالاسم أو النشاط أو المدينة...')} value={q} onChange={(e) => setQ(e.target.value)} />

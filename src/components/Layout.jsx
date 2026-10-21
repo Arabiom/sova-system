@@ -27,6 +27,7 @@ const NAV_ICONS = {
   '/expenses': 'receipt',
   '/whatsapp': 'message',
   '/digital': 'megaphone',
+  '/documents': 'folder',
   '/staff': 'shield',
 }
 
@@ -43,6 +44,7 @@ const NAV = [
   { path: '/exhibitors', icon: '◉', label: tr('العارضون والعقود'), desc: tr('إدارة العارضين'), sub: tr('قاعدة بيانات العارضين والعقود') },
   { section: tr('المالية') },
   { path: '/finance', icon: '💼', label: tr('المالية'), desc: tr('الإيرادات والمصروفات والفواتير'), sub: tr('كل أموال الشركة في مكان واحد: الدفعات، المتبقي، المصروفات، مطالبات الموظفين، والتقارير'), perm: 'money.view' },
+  { path: '/documents', icon: '📁', label: tr('وثائق الشركة'), desc: tr('السجل التجاري والشهادات'), sub: tr('السجل التجاري، شهادة الانتساب، الشهادة الضريبية… في مكان واحد، مع تنبيه قبل انتهائها'), perm: 'documents.view' },
   { path: '/expenses', icon: '🧾', label: tr('مصروفاتي'), desc: tr('فواتير ما تصرفه للشركة'), sub: tr('سجّل كل مبلغ تصرفه من أجل الشركة وأرفق فاتورته'), hideFor: 'money.view' },
   { section: tr('التواصل') },
   { path: '/whatsapp', icon: '◎', label: tr('واتساب'), desc: tr('إرسال الإشعارات'), sub: tr('إرسال الإشعارات للعارضين'), perm: 'data.write' },

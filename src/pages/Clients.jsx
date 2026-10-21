@@ -1,6 +1,6 @@
 import { useDeferredValue, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { clientWithPhone, deleteClient, findClient, listClients, saveClient } from '../api/clients.js'
+import { clientWithPhone, deleteClient, findClient, listClients, saveClient, setClientOutreach } from '../api/clients.js'
 import { listStaff } from '../api/staff.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
@@ -302,6 +302,8 @@ function ClientDetails({ client, onClose, onEdit }) {
 
 /** Rows drawn at a time — the rest come with «عرض المزيد». */
 const PAGE = 200
+/** Outreach marks (migration 039); «وصلته رسالة» is also set when the system logs a WhatsApp message. */
+const OUTREACH = ['وصلته رسالة', 'مناسب', 'غير مناسب']
 
 export default function Clients() {
   const toast = useToast()
@@ -313,7 +315,7 @@ export default function Clients() {
   const { session } = useAuth()
   const { data, loading, reload } = useData(load, null)
   const [search, setSearch] = useState('')
-  const [filters, setFilters] = useState({ sector: '', city: '', status: '', source: '', participation: '' })
+  const [filters, setFilters] = useState({ sector: '', city: '', status: '', source: '', participation: '', outreach: '' })
   const [sort, setSort] = useState('name')
   const [editing, setEditing] = useState(null)
   const [viewing, setViewing] = useState(null)
@@ -322,6 +324,7 @@ export default function Clients() {
   const navigate = useNavigate()
   // a long database: the table grows by PAGE rows; typing in the search never waits for it
   const [limit, setLimit] = useState({ key: '', n: PAGE })
+  const [outreachSet, setOutreachSet] = useState({}) // id → mark set on this page (no reload of thousands of rows)
   const deferredSearch = useDeferredValue(search)
 
   // Worked out once per load, not on every keypress (thousands of clients).
@@ -366,11 +369,23 @@ export default function Clients() {
   const clearAll = () => {
     setSearch('')
     setShows([])
-    setFilters({ sector: '', city: '', status: '', source: '', participation: '' })
+    setFilters({ sector: '', city: '', status: '', source: '', participation: '', outreach: '' })
   }
-  const only = (patch) => setFilters({ sector: '', city: '', status: '', source: '', participation: '', ...patch })
+  const only = (patch) => setFilters({ sector: '', city: '', status: '', source: '', participation: '', outreach: '', ...patch })
 
   const q = deferredSearch.trim().toLowerCase()
+  const outreachOf = (c) => (c.id in outreachSet ? outreachSet[c.id] : c.outreach || '')
+  const markOutreach = async (c, value) => {
+    const before = outreachOf(c)
+    setOutreachSet((m) => ({ ...m, [c.id]: value }))
+    try {
+      await setClientOutreach(c.id, value)
+    } catch (err) {
+      setOutreachSet((m) => ({ ...m, [c.id]: before }))
+      toast(tr(err.message), 'error')
+    }
+  }
+  const hasOutreach = clients.some((c) => 'outreach' in c)
   const visible = base
     .filter(
       (c) =>
@@ -378,6 +393,7 @@ export default function Clients() {
         (!filters.sector || c.sector === filters.sector) &&
         (!filters.city || c.city === filters.city) &&
         (!filters.status || c.status === filters.status) &&
+        (!filters.outreach || (filters.outreach === 'none' ? !outreachOf(c) : outreachOf(c) === filters.outreach)) &&
         (!filters.source || c.source === filters.source) &&
         (!filters.participation ||
           (filters.participation === 'none' && c.h.count === 0) ||
@@ -469,6 +485,10 @@ export default function Clients() {
         )}
         {canWrite && <Button onClick={() => setEditing({ form: { status: 'نشط' }, id: null })}>{tr('+ إضافة عميل')}</Button>}
       </PageHeader>
+      <div className="alert alert-info mb-16 db-split">
+        <span>{tr('📒 هذه قاعدة بياناتك: العملاء الذين أضفتموهم أو استوردتموهم.')}</span>
+        <Link to="/digital/research">{tr('🔎 ما استخرجه موظف البحث منفصل في «الفرص» — يصل هنا فقط بعد مراجعته ←')}</Link>
+      </div>
 
       <LookupBox />
 
@@ -511,6 +531,17 @@ export default function Clients() {
         <SelectOptions className="input toolbar-select" options={sectors} placeholder={tr('كل القطاعات')} value={filters.sector} onChange={setFilter('sector')} />
         <SelectOptions className="input toolbar-select" options={cities} placeholder={tr('كل المدن')} value={filters.city} onChange={setFilter('city')} />
         <SelectOptions className="input toolbar-select" options={CLIENT_STATUSES} placeholder={tr('كل الحالات')} value={filters.status} onChange={setFilter('status')} />
+        {hasOutreach && (
+          <select className="input toolbar-select" aria-label={tr('التواصل')} value={filters.outreach} onChange={setFilter('outreach')}>
+            <option value="">{tr('كل حالات التواصل')}</option>
+            <option value="none">{tr('لم يُراسل بعد')}</option>
+            {OUTREACH.map((o) => (
+              <option key={o} value={o}>
+                {tr(o)}
+              </option>
+            ))}
+          </select>
+        )}
         <SelectOptions className="input toolbar-select" options={CLIENT_SOURCES} placeholder={tr('كل المصادر')} value={filters.source} onChange={setFilter('source')} />
         <select className="input toolbar-select" value={filters.participation} onChange={setFilter('participation')}>
           <option value="">{tr('كل المشاركات')}</option>
@@ -543,7 +574,7 @@ export default function Clients() {
           <table className="table table-numbered" style={{ minWidth: 1000 }}>
             <thead>
               <tr>
-                {[tr('العميل'), tr('الهاتف'), tr('القطاع'), tr('المدينة'), tr('المشاركات'), tr('آخر معرض'), ...(money ? [tr('المدفوع'), tr('المتبقي')] : []), ...(everyone ? [tr('أضافه')] : []), tr('الحالة'), ''].map((h) => (
+                {[tr('العميل'), tr('الهاتف'), ...(hasOutreach ? [tr('التواصل')] : []), tr('القطاع'), tr('المدينة'), tr('المشاركات'), tr('آخر معرض'), ...(money ? [tr('المدفوع'), tr('المتبقي')] : []), ...(everyone ? [tr('أضافه')] : []), tr('الحالة'), ''].map((h) => (
                   <th key={h}>{tr(h)}</th>
                 ))}
               </tr>
@@ -556,6 +587,27 @@ export default function Clients() {
                     {c.contact_name && <div className="muted tiny">{tr(c.contact_name)}</div>}
                   </td>
                   <td className="ltr">{tr(c.phone)}</td>
+                  {hasOutreach && (
+                    <td onClick={(e) => e.stopPropagation()}>
+                      {canEdit(c) ? (
+                        <select
+                          className={`input input-compact outreach-${OUTREACH.indexOf(outreachOf(c)) + 1}`}
+                          aria-label={tr('التواصل')}
+                          value={outreachOf(c)}
+                          onChange={(e) => markOutreach(c, e.target.value)}
+                        >
+                          <option value="">{tr('لم يُراسل')}</option>
+                          {OUTREACH.map((o) => (
+                            <option key={o} value={o}>
+                              {tr(o)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="small">{outreachOf(c) ? tr(outreachOf(c)) : '—'}</span>
+                      )}
+                    </td>
+                  )}
                   <td>{tr(c.sector) && <Chip>{tr(c.sector)}</Chip>}</td>
                   <td className="small">{tr(c.city) || '—'}</td>
                   <td className="center strong">{c.h.count}</td>
