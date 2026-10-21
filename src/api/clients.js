@@ -29,6 +29,12 @@ export const saveClient = (form, id) =>
 
 export const deleteClient = (id) => unwrap(table().delete().eq('id', id))
 
+/** Outreach mark (migration 039): '' · «وصلته رسالة» · «مناسب» · «غير مناسب». Refused when it changed nothing (not yours to edit). */
+export async function setClientOutreach(id, outreach) {
+  const rows = await unwrap(table().update({ outreach }).eq('id', id).select('id'))
+  if (!rows?.length) throw new Error('لم يُحفظ — هذا العميل أدخله موظف آخر')
+}
+
 /**
  * Check a number or name against the WHOLE client database (migration 010): who added it and
  * when. Returns [] when the check is not available yet (010 not run).

@@ -24,6 +24,8 @@ const MATRIX = {
   'team.view': ['admin', 'finance', 'viewer'], // everyone's working time and effectiveness
   'finance.internal': ['admin', 'finance', 'viewer'], // see expenses, sponsors, net results, backup
   'records.delete': ['admin', 'finance'], // delete clients, exhibitors, bookings
+  'documents.view': ['admin', 'finance'], // the company's official papers (register, tax certificate…)
+  'documents.manage': ['admin'], // add, replace and remove them
 }
 
 export const can = (role, permission) => Boolean(role && MATRIX[permission]?.includes(role))

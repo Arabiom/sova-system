@@ -21,6 +21,7 @@ const Staff = lazy(() => import('./pages/Staff.jsx'))
 const PublicBooking = lazy(() => import('./pages/PublicBooking.jsx'))
 const Home = lazy(() => import('./pages/Home.jsx'))
 const Digital = lazy(() => import('./pages/Digital.jsx'))
+const Documents = lazy(() => import('./pages/Documents.jsx'))
 // The internal frame (menu, alerts) and everything behind it load only once someone signs in.
 const Layout = lazy(() => import('./components/Layout.jsx'))
 
@@ -133,6 +134,14 @@ export default function App() {
         />
         <Route path="/digital" element={<Digital />} />
         <Route path="/digital/:employee" element={<Digital />} />
+        <Route
+          path="/documents"
+          element={
+            <Allow permission="documents.view">
+              <Documents />
+            </Allow>
+          }
+        />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
