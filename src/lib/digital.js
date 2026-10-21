@@ -1,7 +1,7 @@
 // «الموظفون الرقميون» — the parts that need no database: choosing a campaign's recipients from
 // the client base, and the campaign statuses (the database enforces the same rules, migration 034).
 import { phoneKey } from './format.js'
-import { researchHealth } from './prospects.js'
+import { researchHealth, researchSwitch } from './prospects.js'
 
 export const CAMPAIGN_STATUSES = ['مسودة', 'بانتظار الاعتماد', 'معتمدة', 'أُرسلت', 'ملغاة']
 export const CAMPAIGN_BADGE = {
@@ -71,7 +71,7 @@ const daysBetween = (a, b) => Math.floor((Date.parse(String(b).slice(0, 10)) - D
  * Every number is counted from the records themselves; nothing is estimated.
  * needs: [{ text, args, tab, tone }] — tone 'action' (someone must act) or 'setup' (not set up yet).
  */
-export function digitalEmployees({ campaigns = [], recipients = [], followups = [], optOuts = [], prospects = [], prospectsReady = true, feedSince = null, runs = [], role, today, now = new Date() }) {
+export function digitalEmployees({ campaigns = [], recipients = [], followups = [], optOuts = [], prospects = [], prospectsReady = true, feedSince = null, runs = [], plan = null, role, today, now = new Date() }) {
   const admin = role === 'admin'
   const pending = campaigns.filter((c) => c.status === 'بانتظار الاعتماد').length
   const approved = campaigns.filter((c) => c.status === 'معتمدة').length
@@ -84,6 +84,7 @@ export function digitalEmployees({ campaigns = [], recipients = [], followups = 
   const converted = prospects.filter((p) => p.status === 'أصبح عميلاً').length
   const daily = prospects.filter((p) => p.origin === 'البحث اليومي').length
   const health = researchHealth(runs, feedSince, now)
+  const sw = researchSwitch(plan, runs)
 
   const need = (cond, text, args, tab, tone = 'action') => (cond ? [{ text, args, tab, tone }] : [])
   return [
@@ -133,8 +134,18 @@ export function digitalEmployees({ campaigns = [], recipients = [], followups = 
       icon: '🔎',
       name: 'موظف البحث',
       role: 'يبحث في المصادر العامة عن عارضين ورعاة ومواقع جديدة، ويضيفها لتراجعها',
-      state: !prospectsReady ? 'يحتاج تحديث قاعدة البيانات' : health.state === 'late' ? 'متوقف — لم يصل تقريره' : feedSince ? 'يعمل يومياً' : 'يدوي — البحث اليومي غير مفعّل',
-      tone: !prospectsReady || health.state === 'late' ? 'danger' : feedSince ? 'success' : 'warning',
+      state: !prospectsReady
+        ? 'يحتاج تحديث قاعدة البيانات'
+        : !sw.on
+          ? 'متوقف — أوقفه المدير'
+          : sw.requested
+            ? 'طُلب بحث — يبدأ خلال ساعة'
+            : health.state === 'late'
+              ? 'متوقف — لم يصل تقريره'
+              : feedSince
+                ? 'يعمل يومياً'
+                : 'يدوي — البحث اليومي غير مفعّل',
+      tone: !prospectsReady || (sw.on && health.state === 'late') ? 'danger' : !sw.on ? 'neutral' : sw.requested ? 'info' : feedSince ? 'success' : 'warning',
       tabs: ['research', 'plan'],
       kpis: [
         { label: 'كل الفرص', value: prospects.length },
@@ -145,7 +156,8 @@ export function digitalEmployees({ campaigns = [], recipients = [], followups = 
         ...need(!prospectsReady, 'تشغيل تحديث قاعدة البيانات 035', [], 'research', 'setup'),
         ...need(toReview > 0, 'مراجعة {0} فرصة جديدة', [toReview], 'research'),
         ...need(prospectsReady && !feedSince && admin, 'تفعيل البحث اليومي', [], 'plan', 'setup'),
-        ...need(health.state === 'late', 'البحث اليومي لم يرسل تقريراً منذ {0} يوم', [Math.max(health.days || 0, 1)], 'plan'),
+        ...need(sw.on && health.state === 'late', 'البحث اليومي لم يرسل تقريراً منذ {0} يوم', [Math.max(health.days || 0, 1)], 'plan'),
+        ...need(!sw.on && admin, 'تشغيل موظف البحث', [], 'research', 'setup'),
       ],
       extra: [
         { label: 'أُضيفت هذا الأسبوع', value: addedWeek },

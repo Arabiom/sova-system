@@ -232,3 +232,14 @@ export function researchHealth(runs = [], feedSince = null, now = new Date()) {
   const hours = (now - new Date(since)) / 36e5
   return { state: hours > 36 ? 'late' : 'ok', last, days: Math.floor(hours / 24) }
 }
+
+/**
+ * The research switch (migration 038): on/off, and whether a «ابحث الآن» request is waiting
+ * for the next hourly check (asked after the last run). Without 038, the research is on.
+ */
+export function researchSwitch(plan, runs = []) {
+  const on = plan?.enabled !== false
+  const last = runs.reduce((m, r) => (!m || r.run_at > m ? r.run_at : m), null)
+  const requested = Boolean(on && plan?.run_requested_at && (!last || plan.run_requested_at > last))
+  return { on, requested, supported: plan ? 'enabled' in plan : false }
+}

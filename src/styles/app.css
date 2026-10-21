@@ -5245,3 +5245,52 @@ body {
   max-width: 220px;
   white-space: normal;
 }
+
+/* the research employee's on/off switch */
+.research-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-inline-start-width: 4px;
+  border-radius: 14px;
+  background: var(--card);
+}
+.research-switch-on {
+  border-inline-start-color: var(--suc);
+}
+.research-switch-off {
+  border-inline-start-color: var(--muted);
+  background: var(--surf);
+}
+.research-switch-wait {
+  border-inline-start-color: var(--info);
+}
+.research-switch-warn {
+  border-inline-start-color: var(--wrn);
+}
+.research-switch-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.research-switch-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surf);
+  font-size: 18px;
+}
+.research-switch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
