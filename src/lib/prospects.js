@@ -27,7 +27,8 @@ export const PROSPECT_FIELDS = [
     headers: ['الاسم', 'اسم المشروع', 'المشروع', 'اسم الجهة', 'الجهة', 'اسم المحل', 'المحل', 'اسم المتجر', 'المتجر', 'العلامة التجارية', 'البراند', 'اسم الشركة', 'الشركة', 'اسم المصنع', 'المصنع', 'name', 'business', 'company', 'company name', 'store', 'brand'],
   },
   { key: 'kind', label: 'النوع', headers: ['النوع', 'نوع الفرصة', 'kind', 'type'] },
-  { key: 'category', label: 'النشاط', headers: ['النشاط', 'القطاع', 'التصنيف', 'المجال', 'نوع النشاط', 'المنتجات', 'category', 'sector', 'activity', 'products'] },
+  { key: 'category', label: 'النشاط', headers: ['النشاط', 'القطاع', 'التصنيف', 'المجال', 'نوع النشاط', 'category', 'sector', 'activity'] },
+  { key: 'products', label: 'المنتجات', headers: ['المنتجات', 'نبذة', 'نبذة عن المنتجات', 'نبذة عن المشروع', 'الوصف', 'وصف المنتجات', 'products', 'description', 'about'] },
   { key: 'city', label: 'المدينة', headers: ['المدينة', 'الولاية', 'المحافظة', 'المنطقة', 'العنوان', 'city', 'area', 'address', 'location'] },
   { key: 'instagram', label: 'إنستغرام', headers: ['إنستغرام', 'انستغرام', 'إنستقرام', 'انستقرام', 'الحساب', 'instagram', 'insta'] },
   { key: 'website', label: 'الموقع الإلكتروني', headers: ['الموقع', 'الموقع الإلكتروني', 'website', 'site', 'web'] },
@@ -87,6 +88,8 @@ const SECTOR_WORDS = [
   ['حرف يدوية', ['يدوي', 'حرف', 'فخار', 'سعف', 'تطريز', 'handmade', 'craft', 'pottery']],
   ['منتجات منزلية', ['منزلي', 'منزلية', 'أسر منتجة', 'الأسر المنتجة', 'home made', 'homemade']],
   ['تصوير وطباعة', ['تصوير', 'طباعة', 'print', 'photo']],
+  ['قاعات وضيافة', ['قاعات أفراح', 'قاعة أفراح', 'ضيافة', 'كوش', 'تنسيق حفلات', 'wedding', 'catering']],
+  ['سياحة وسفر', ['سياحة', 'سفر', 'رحلات', 'travel', 'tour']],
 ]
 const PLACES = ['مسقط', 'مطرح', 'السيب', 'بوشر', 'العامرات', 'قريات', 'نزوى', 'بهلاء', 'إزكي', 'سمائل', 'صحار', 'صلالة', 'البريمي', 'عبري', 'إبراء', 'صور', 'الرستاق', 'بركاء', 'المصنعة', 'السويق', 'خصب']
 const PLACES_EN = { muscat: 'مسقط', muttrah: 'مطرح', seeb: 'السيب', bawshar: 'بوشر', nizwa: 'نزوى', bahla: 'بهلاء', sohar: 'صحار', salalah: 'صلالة', buraimi: 'البريمي', ibri: 'عبري', ibra: 'إبراء', sur: 'صور', rustaq: 'الرستاق', barka: 'بركاء' }
@@ -107,6 +110,16 @@ const firstMatch = (text, table) => {
 export const guessKind = (text) => firstMatch(String(text).toLowerCase(), KIND_WORDS) || 'عارض محتمل'
 /** The sector a row looks like from its words, or ''. */
 export const guessSector = (text) => firstMatch(String(text).toLowerCase(), SECTOR_WORDS)
+/** The standard sectors the sorting uses, and an exhibition can be made for. */
+export const SECTORS = SECTOR_WORDS.map(([s]) => s)
+/** Every standard sector the text speaks of (a shop selling abayas and perfume has two). */
+let looseSectorWords // normalised once: the sorting runs over thousands of clients
+export function sectorsIn(text) {
+  const t = loose(text)
+  if (!t.trim()) return []
+  looseSectorWords ||= SECTOR_WORDS.map(([s, words]) => [s, words.map(loose)])
+  return looseSectorWords.filter(([, words]) => words.some((w) => t.includes(w))).map(([s]) => s)
+}
 /** The Omani town named anywhere in the text, or ''. */
 export function guessCity(text) {
   const t = String(text)
@@ -136,8 +149,15 @@ export function readProspectRows(rows, found = detectProspectColumns(rows)) {
       p.kind = guessKind(`${p.name} ${p.category} ${p.notes}`)
       if (p.kind !== PROSPECT_KINDS[0]) guessed.push('kind')
     }
+    // a free-written activity («عبايات وشيلات») becomes a standard sector; its words stay as the products note
+    const sorted = p.category && !SECTORS.includes(p.category) ? guessSector(p.category) : ''
+    if (sorted) {
+      if (!p.products) p.products = p.category
+      p.category = sorted
+      guessed.push('category')
+    }
     if (!p.category) {
-      p.category = guessSector(`${p.name} ${p.notes} ${all}`)
+      p.category = guessSector(`${p.products} ${p.name} ${p.notes} ${all}`)
       if (p.category) guessed.push('category')
     }
     const city = guessCity(p.city || all)
@@ -204,6 +224,7 @@ export const prospectToClient = (p) => ({
   email: p.email,
   instagram: p.instagram ? `@${p.instagram}` : '',
   sector: p.category,
+  ...(p.products ? { products: p.products } : {}),
   city: p.city,
   source: tr('البحث والفرص'),
   status: 'محتمل',

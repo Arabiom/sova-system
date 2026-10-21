@@ -83,4 +83,30 @@ describe('digitalEmployees', () => {
     expect(research.tone).toBe('danger')
     expect(research.needs[0].text).toBe('تشغيل تحديث قاعدة البيانات 035')
   })
+
+  it('shows the follow-up employee to the admin only, with its open, urgent and late tasks', () => {
+    const items = [
+      { status: 'مفتوحة', priority: 'عاجلة', due_date: '2026-10-10' },
+      { status: 'قيد التنفيذ', priority: 'عادية' },
+      { status: 'تمت', priority: 'عاجلة' },
+    ]
+    const review = [{ tone: 'danger' }, { tone: 'warning' }, { tone: 'info' }]
+    const admin = digitalEmployees({ advisorItems: items, review, role: 'admin', today })
+    const advisor = admin.find((e) => e.id === 'advisor')
+    expect(advisor.kpis.map((k) => k.value)).toEqual([2, 1, 3])
+    expect(advisor.needs.map((n) => n.args[0])).toEqual([1, 1, 1, 1])
+    expect(advisor.tone).toBe('danger')
+    expect(digitalEmployees({ advisorItems: items, role: 'marketing', today }).some((e) => e.id === 'advisor')).toBe(false)
+    expect(digitalEmployees({ advisorReady: false, role: 'admin', today }).find((e) => e.id === 'advisor').needs[0].text).toBe('تشغيل تحديث قاعدة البيانات 040')
+  })
+
+  it('sends an exhibition campaign only to the clients of its sectors', () => {
+    const clients = [
+      { id: 1, name: 'أ', phone: '91111111', sector: 'أزياء', status: 'نشط' },
+      { id: 2, name: 'ب', phone: '92222222', sector: '', products: 'لبان وبخور', status: 'نشط' },
+      { id: 3, name: 'ج', phone: '93333333', sector: 'عطور وبخور', status: 'نشط', outreach: 'غير مناسب' },
+    ]
+    const seg = segmentClients(clients, { exhibition: 'x', forSectors: ['عطور وبخور', 'حرف يدوية'] })
+    expect(seg.recipients.map((r) => r.client_id)).toEqual([2])
+  })
 })

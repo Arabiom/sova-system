@@ -16,6 +16,9 @@ import { useToast } from '../context/ToastContext.jsx'
 import { CITIES, CLIENT_SOURCES, CLIENT_STATUSES, CONTACT_SOURCES, SECTOR_SUGGESTIONS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
 import { clientHistories } from '../lib/finance.js'
+import { CONTACT_LEAD_DAYS, clientSectors, contactPlan, suits, upcomingExhibitions } from '../lib/matching.js'
+import { SECTORS } from '../lib/prospects.js'
+import { omanDay } from '../lib/team.js'
 import { exhibitionLabel, exhibitionTitle, formatDate, formatOMR, phoneKey, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { openWhatsApp } from '../lib/whatsapp.js'
@@ -94,9 +97,9 @@ function LookupBox() {
   )
 }
 
-function ClientForm({ initial, id, onClose, onSaved, sectors }) {
+function ClientForm({ initial, id, onClose, onSaved, sectors, withProducts }) {
   const toast = useToast()
-  const [form, setForm] = useState(() => ({ ...initial, hadContactSource: Boolean(initial?.contact_source) }))
+  const [form, setForm] = useState(() => ({ ...initial, hadContactSource: Boolean(initial?.contact_source), hadProducts: Boolean(initial?.products) }))
   const [saving, setSaving] = useState(false)
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const [duplicate, setDuplicate] = useState(null) // the client already registered with this number
@@ -202,6 +205,18 @@ function ClientForm({ initial, id, onClose, onSaved, sectors }) {
         </Field>
       </div>
       {duplicate && <div className="alert alert-danger">⚠️ {duplicateText(duplicate)}</div>}
+      {withProducts && (
+        <Field
+          label={tr('نبذة عن المنتجات')}
+          hint={
+            clientSectors(form).length
+              ? tr('يُفرز ضمن: {0}', [clientSectors(form).map((x) => tr(x)).join(tr('، '))])
+              : tr('اكتب ما يبيعه — منها يُعرف القطاع والمعرض الذي يناسبه')
+          }
+        >
+          <textarea id="client-products" className="input" rows={2} maxLength={1000} placeholder={tr('مثال: عبايات وشيلات مطرزة يدوياً')} value={form.products || ''} onChange={set('products')} />
+        </Field>
+      )}
       <Field label={tr('ملاحظات')}>
         <textarea className="input" rows={3} value={form.notes || ''} onChange={set('notes')} />
       </Field>
@@ -219,6 +234,12 @@ function ClientDetails({ client, onClose, onEdit }) {
     ['📧 البريد', client.email],
     ['📸 إنستقرام', client.instagram],
     ['🏷️ القطاع', client.sector],
+    ['🛍️ المنتجات', client.products],
+    [
+      '🎯 المعرض المناسب',
+      client.plan &&
+        `${exhibitionLabel(client.plan.exhibition)} — ${client.plan.now ? tr('تواصل الآن') : tr('تواصل من {0}', [formatDate(client.plan.from)])}`,
+    ],
     ['📍 المدينة', client.city],
     ['🔎 المصدر', client.source],
     ['📥 مصدر الرقم', client.contact_source],
@@ -315,7 +336,7 @@ export default function Clients() {
   const { session } = useAuth()
   const { data, loading, reload } = useData(load, null)
   const [search, setSearch] = useState('')
-  const [filters, setFilters] = useState({ sector: '', city: '', status: '', source: '', participation: '', outreach: '' })
+  const [filters, setFilters] = useState({ sector: '', city: '', status: '', source: '', participation: '', outreach: '', fit: '' })
   const [sort, setSort] = useState('name')
   const [editing, setEditing] = useState(null)
   const [viewing, setViewing] = useState(null)
@@ -332,9 +353,17 @@ export default function Clients() {
     if (!data) return null
     const { clients, exhibitors, exhibitions } = data
     const histories = clientHistories(clients, exhibitors, exhibitions)
+    const today = omanDay()
+    const upcoming = upcomingExhibitions(exhibitions, today)
     return {
-      enriched: clients.map((c) => ({ ...c, h: histories.get(c.id) })),
-      sectors: distinct([...SECTOR_SUGGESTIONS, ...clients.map((c) => c.sector)]),
+      enriched: clients.map((c) => {
+        const h = histories.get(c.id)
+        const sectorsList = clientSectors(c)
+        const plan = contactPlan(c, upcoming, today, new Set(h.participations.map((p) => p.exhibition_id)), sectorsList)
+        return { ...c, h, sectorsList, plan }
+      }),
+      upcoming,
+      sectors: distinct([...SECTORS, ...SECTOR_SUGGESTIONS, ...clients.map((c) => c.sector)]),
       cities: distinct(clients.map((c) => c.city)),
       duplicateGroups: Object.values(
         clients.reduce((groups, c) => {
@@ -356,7 +385,8 @@ export default function Clients() {
   }
   // Numbers registered more than once before duplicates were blocked (manager's clean-up list).
   const duplicateGroups = everyone ? prepared.duplicateGroups : []
-  const { enriched, sectors, cities } = prepared
+  const { enriched, sectors, cities, upcoming } = prepared
+  const hasProducts = !clients.length || clients.some((c) => 'products' in c)
   const setFilter = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target.value }))
 
   // Clients of the chosen exhibitions (any of them); everyone when none is chosen.
@@ -369,9 +399,9 @@ export default function Clients() {
   const clearAll = () => {
     setSearch('')
     setShows([])
-    setFilters({ sector: '', city: '', status: '', source: '', participation: '', outreach: '' })
+    setFilters({ sector: '', city: '', status: '', source: '', participation: '', outreach: '', fit: '' })
   }
-  const only = (patch) => setFilters({ sector: '', city: '', status: '', source: '', participation: '', outreach: '', ...patch })
+  const only = (patch) => setFilters({ sector: '', city: '', status: '', source: '', participation: '', outreach: '', fit: '', ...patch })
 
   const q = deferredSearch.trim().toLowerCase()
   const outreachOf = (c) => (c.id in outreachSet ? outreachSet[c.id] : c.outreach || '')
@@ -386,11 +416,13 @@ export default function Clients() {
     }
   }
   const hasOutreach = clients.some((c) => 'outreach' in c)
+  const fitFor = upcoming.find((e) => e.id === filters.fit) // «من يناسبه هذا المعرض»
   const visible = base
     .filter(
       (c) =>
-        (!q || [c.name, c.contact_name, c.phone, c.whatsapp, c.email, c.instagram].some((v) => v?.toLowerCase().includes(q))) &&
-        (!filters.sector || c.sector === filters.sector) &&
+        (!q || [c.name, c.contact_name, c.phone, c.whatsapp, c.email, c.instagram, c.products].some((v) => v?.toLowerCase().includes(q))) &&
+        (!filters.sector || (filters.sector === 'none' ? !c.sectorsList.length && !c.sector?.trim() : c.sector === filters.sector || c.sectorsList.includes(filters.sector))) &&
+        (!fitFor || (suits(fitFor, c.sectorsList) && outreachOf(c) !== 'غير مناسب' && !c.h.participations.some((p) => p.exhibition_id === fitFor.id))) &&
         (!filters.city || c.city === filters.city) &&
         (!filters.status || c.status === filters.status) &&
         (!filters.outreach || (filters.outreach === 'none' ? !outreachOf(c) : outreachOf(c) === filters.outreach)) &&
@@ -429,6 +461,9 @@ export default function Clients() {
       { label: tr('البريد'), value: (c) => c.email },
       { label: tr('إنستقرام'), value: (c) => c.instagram },
       { label: tr('القطاع'), value: (c) => c.sector },
+      { label: tr('المنتجات'), value: (c) => c.products || '' },
+      { label: tr('المعرض المناسب'), value: (c) => (c.plan ? exhibitionTitle(c.plan.exhibition) : '') },
+      { label: tr('نتواصل من'), value: (c) => (c.plan ? c.plan.from : '') },
       { label: tr('المدينة'), value: (c) => c.city },
       { label: tr('المصدر'), value: (c) => c.source },
       { label: tr('الحالة'), value: (c) => c.status },
@@ -469,7 +504,7 @@ export default function Clients() {
                   audience: 'client',
                   keys: visible.map((c) => `client:${c.id}`),
                   template: 'invitation',
-                  exhibitionId: exhibitions.find((e) => e.date_from >= todayISO())?.id || '',
+                  exhibitionId: filters.fit || exhibitions.find((e) => e.date_from >= todayISO())?.id || '',
                 },
               })
             }
@@ -528,7 +563,15 @@ export default function Clients() {
 
       <div className="toolbar">
         <input className="input toolbar-search" placeholder={tr('🔍  ابحث بالاسم أو الهاتف أو البريد...')} value={search} onChange={(e) => setSearch(e.target.value)} />
-        <SelectOptions className="input toolbar-select" options={sectors} placeholder={tr('كل القطاعات')} value={filters.sector} onChange={setFilter('sector')} />
+        <select className="input toolbar-select" aria-label={tr('القطاع')} value={filters.sector} onChange={setFilter('sector')}>
+          <option value="">{tr('كل القطاعات')}</option>
+          <option value="none">{tr('بلا قطاع')}</option>
+          {sectors.map((x) => (
+            <option key={x} value={x}>
+              {tr(x)}
+            </option>
+          ))}
+        </select>
         <SelectOptions className="input toolbar-select" options={cities} placeholder={tr('كل المدن')} value={filters.city} onChange={setFilter('city')} />
         <SelectOptions className="input toolbar-select" options={CLIENT_STATUSES} placeholder={tr('كل الحالات')} value={filters.status} onChange={setFilter('status')} />
         {hasOutreach && (
@@ -538,6 +581,16 @@ export default function Clients() {
             {OUTREACH.map((o) => (
               <option key={o} value={o}>
                 {tr(o)}
+              </option>
+            ))}
+          </select>
+        )}
+        {upcoming.length > 0 && (
+          <select className="input toolbar-select" aria-label={tr('يناسبه معرض')} value={filters.fit} onChange={setFilter('fit')}>
+            <option value="">{tr('🎯 يناسبه معرض…')}</option>
+            {upcoming.map((e) => (
+              <option key={e.id} value={e.id}>
+                {exhibitionLabel(e)}
               </option>
             ))}
           </select>
@@ -569,12 +622,21 @@ export default function Clients() {
         <div className="toolbar-count">{visible.length}{' '}{tr('نتيجة')}</div>
       </div>
 
+      {fitFor && (
+        <div className="alert alert-info mb-16">
+          {fitFor.sectors?.length
+            ? tr('🎯 {0} لقطاعات: {1} — يظهر هنا من يناسبه فقط، دون المشاركين فيه ومن عُلّم «غير مناسب».', [exhibitionLabel(fitFor), fitFor.sectors.map((x) => tr(x)).join(tr('، '))])
+            : tr('🎯 {0} لم تُحدَّد قطاعاته بعد، فيظهر كل العملاء — حدّدها من «تعديل المعرض» ليصبح الفرز دقيقاً.', [exhibitionLabel(fitFor)])}{' '}
+          {tr('نبدأ التواصل قبل المعرض بـ {0} يوماً.', [CONTACT_LEAD_DAYS])}
+        </div>
+      )}
+
       <div className="panel">
         <div className="table-wrap">
-          <table className="table table-numbered" style={{ minWidth: 1000 }}>
+          <table className="table table-numbered" style={{ minWidth: 1150 }}>
             <thead>
               <tr>
-                {[tr('العميل'), tr('الهاتف'), ...(hasOutreach ? [tr('التواصل')] : []), tr('القطاع'), tr('المدينة'), tr('المشاركات'), tr('آخر معرض'), ...(money ? [tr('المدفوع'), tr('المتبقي')] : []), ...(everyone ? [tr('أضافه')] : []), tr('الحالة'), ''].map((h) => (
+                {[tr('العميل'), tr('الهاتف'), ...(hasOutreach ? [tr('التواصل')] : []), tr('القطاع'), tr('المعرض المناسب'), tr('المدينة'), tr('المشاركات'), tr('آخر معرض'), ...(money ? [tr('المدفوع'), tr('المتبقي')] : []), ...(everyone ? [tr('أضافه')] : []), tr('الحالة'), ''].map((h) => (
                   <th key={h}>{tr(h)}</th>
                 ))}
               </tr>
@@ -608,7 +670,28 @@ export default function Clients() {
                       )}
                     </td>
                   )}
-                  <td>{tr(c.sector) && <Chip>{tr(c.sector)}</Chip>}</td>
+                  <td>
+                    {tr(c.sector) && <Chip>{tr(c.sector)}</Chip>}
+                    {c.products && (
+                      <div className="tiny muted clip-1" title={c.products}>
+                        {c.products}
+                      </div>
+                    )}
+                  </td>
+                  <td className="small">
+                    {c.plan ? (
+                      <>
+                        <div className="nowrap">{exhibitionLabel(c.plan.exhibition)}</div>
+                        <div className={`tiny ${c.plan.now ? 'text-suc strong' : 'muted'}`}>
+                          {c.plan.now ? tr('تواصل الآن') : tr('تواصل من {0}', [formatDate(c.plan.from)])}
+                          {' · '}
+                          {c.plan.open ? tr('معرض لكل القطاعات') : c.plan.matched.map((x) => tr(x)).join(tr('، '))}
+                        </div>
+                      </>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td className="small">{tr(c.city) || '—'}</td>
                   <td className="center strong">{c.h.count}</td>
                   <td className="small">{c.h.lastExhibition ? exhibitionLabel(c.h.lastExhibition) : '—'}</td>
@@ -657,6 +740,7 @@ export default function Clients() {
           initial={editing.form}
           id={editing.id}
           sectors={sectors}
+          withProducts={hasProducts}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null)

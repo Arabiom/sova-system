@@ -16,7 +16,8 @@ export const CLIENT_FIELDS = [
   { key: 'whatsapp', label: 'واتساب', headers: ['واتساب', 'رقم الواتساب', 'الواتساب', 'whatsapp'] },
   { key: 'email', label: 'البريد', headers: ['البريد', 'البريد الإلكتروني', 'الإيميل', 'الايميل', 'email', 'e-mail'] },
   { key: 'instagram', label: 'إنستقرام', headers: ['إنستقرام', 'انستقرام', 'انستغرام', 'إنستغرام', 'الحساب', 'instagram', 'insta'] },
-  { key: 'sector', label: 'القطاع', headers: ['القطاع', 'النشاط', 'نوع النشاط', 'التصنيف', 'المجال', 'نوع المنتجات', 'المنتجات', 'sector', 'category', 'activity', 'products'] },
+  { key: 'sector', label: 'القطاع', headers: ['القطاع', 'النشاط', 'نوع النشاط', 'التصنيف', 'المجال', 'نوع المنتجات', 'sector', 'category', 'activity'] },
+  { key: 'products', label: 'المنتجات', headers: ['المنتجات', 'نبذة', 'نبذة عن المنتجات', 'نبذة عن المشروع', 'الوصف', 'وصف المنتجات', 'products', 'description', 'about'] },
   { key: 'city', label: 'المدينة', headers: ['المدينة', 'الولاية', 'المنطقة', 'city'] },
   { key: 'source', label: 'المصدر', headers: ['المصدر', 'مصدر العميل', 'المصادر', 'المعارض', 'source'] },
   { key: 'status', label: 'الحالة', headers: ['الحالة', 'status'] },
@@ -114,10 +115,13 @@ export function readClientRows(rows, headerRow, cols) {
     // sorting: the activity written freely («ازياْء», «عبايات - مشروبات») becomes one of the
     // standard sectors; what the file said is kept in the notes when it says more
     const raw = /^[\d\s.,-]+$/.test(client.sector) ? '' : client.sector // a number in the activity column says nothing
-    const sorted = guessSector(raw || client.name)
+    const sorted = guessSector(raw || client.products || client.name)
     client.sectorGuessed = Boolean(sorted && sorted !== raw)
     client.sector = sorted || raw
-    const extra = [raw && raw !== sorted && client.sectorGuessed && `${tr('المنتجات')}: ${raw}`, client.phone2 && `${tr('رقم إضافي')}: ${client.phone2}`].filter(Boolean)
+    // what the file said about the activity, when it says more than the sector, is the products note
+    if (raw && raw !== sorted && client.sectorGuessed) client.products = client.products ? `${raw} — ${client.products}` : raw
+    client.products = client.products.slice(0, 1000)
+    const extra = [client.phone2 && `${tr('رقم إضافي')}: ${client.phone2}`].filter(Boolean)
     if (extra.length) client.notes = [client.notes, ...extra].filter(Boolean).join(' — ')
     delete client.phone2
     out.push(client)

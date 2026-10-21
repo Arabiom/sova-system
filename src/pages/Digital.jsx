@@ -1,10 +1,16 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { listAdvisorItems } from '../api/advisor.js'
+import { countPendingBookings } from '../api/bookings.js'
 import { listClients } from '../api/clients.js'
+import { listDocuments } from '../api/documents.js'
+import { listExhibitions } from '../api/exhibitions.js'
+import { listExhibitors } from '../api/exhibitors.js'
 import { addOptOut, createCampaign, deleteCampaign, deleteFollowup, loadDigital, optOutKeys, removeOptOut, saveFollowup, setCampaignStatus, setFollowupDone } from '../api/digital.js'
 import { loadProspects } from '../api/prospects.js'
 import { listStaff } from '../api/staff.js'
 import { listTemplates } from '../api/whatsapp.js'
+import { AdvisorForm, AdvisorReview, AdvisorTasks } from '../components/Advisor.jsx'
 import Button from '../components/Button.jsx'
 import DateInput from '../components/DateInput.jsx'
 import { EmptyState, Loading } from '../components/Feedback.jsx'
@@ -18,16 +24,18 @@ import { WhatsAppText } from '../components/WhatsAppText.jsx'
 import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { CLIENT_STATUSES, CONTACT_SOURCES } from '../lib/constants.js'
+import { siteReview } from '../lib/advisor.js'
 import { CAMPAIGN_BADGE, campaignActions, digitalEmployees, segmentClients } from '../lib/digital.js'
-import { formatDate, phoneKey, todayISO } from '../lib/format.js'
+import { exhibitionLabel, formatDate, phoneKey, todayISO } from '../lib/format.js'
+import { upcomingExhibitions } from '../lib/matching.js'
 import { tr } from '../lib/i18n.js'
-import { omanDay } from '../lib/team.js'
+import { addDays, omanDay } from '../lib/team.js'
 import { useData } from '../lib/useData.js'
 import { BUILTIN_TEMPLATES } from '../lib/whatsapp.js'
 
 const load = async () => {
   // the staff list is readable by the admin, finance and viewers; others see their own name only
-  const [digital, clients, saved, staff, research] = await Promise.all([
+  const [digital, clients, saved, staff, research, exhibitions, advisorItems, bookingsPending, exhibitors, documents] = await Promise.all([
     loadDigital(),
     listClients(),
     listTemplates().catch(() => null),
@@ -39,9 +47,15 @@ const load = async () => {
       plan: null,
       runs: [],
     })),
+    listExhibitions().catch(() => []),
+    // for the follow-up employee (the admin's): its list and what the live review looks at
+    listAdvisorItems().catch(() => []),
+    countPendingBookings().catch(() => 0),
+    listExhibitors({ columns: 'id,exhibition_id,contract,paid,status' }).catch(() => []),
+    listDocuments().catch(() => undefined),
   ])
   const templates = [...(saved || []).map((t) => ({ name: t.name, body: t.body })), ...BUILTIN_TEMPLATES.map((t) => ({ name: t.label, body: t.body }))]
-  return { ...digital, clients, templates, staff, research }
+  return { ...digital, clients, templates, staff, research, exhibitions, advisorItems, bookingsPending, exhibitors, documents }
 }
 
 const TABS = {
@@ -49,6 +63,8 @@ const TABS = {
   optouts: '⛔ قائمة الإيقاف',
   followups: '📞 المتابعات',
   research: '🔎 الفرص',
+  tasks: '📋 المهام والاقتراحات',
+  review: '🔍 مراجعة الموقع الآن',
   plan: '🧭 خطة البحث والسجل',
 }
 
@@ -123,12 +139,19 @@ function CampaignForm({ data, onClose, onSaved }) {
     cities: [],
     statuses: ['نشط', 'محتمل'],
     notContactedDays: '',
+    exhibition: '',
+    forSectors: [],
   })
   const [saving, setSaving] = useState(false)
   const keys = useMemo(() => optOutKeys(data.optOuts), [data.optOuts])
   const seg = segmentClients(data.clients, filter, keys, omanDay())
   const values = (k) => [...new Set(data.clients.map((c) => c[k]).filter(Boolean))].sort()
   const unsure = !filter.sources.length || filter.sources.includes('قائمة مستوردة')
+  const upcoming = useMemo(() => upcomingExhibitions(data.exhibitions || [], omanDay()), [data.exhibitions])
+  const pickExhibition = (e) => {
+    const ex = upcoming.find((x) => x.id === e.target.value)
+    setFilter((f) => ({ ...f, exhibition: ex?.id || '', forSectors: ex?.sectors || [] }))
+  }
 
   const pickTemplate = (e) => {
     const t = data.templates.find((x) => x.name === e.target.value)
@@ -207,6 +230,27 @@ function CampaignForm({ data, onClose, onSaved }) {
       </Field>
 
       <div className="section-label">{tr('الشريحة')}</div>
+      {upcoming.length > 0 && (
+        <Field
+          label={tr('لمعرض')}
+          hint={
+            filter.exhibition
+              ? filter.forSectors.length
+                ? tr('تصل فقط لعملاء قطاعاته: {0} — ومن عُلّم «غير مناسب» مستبعد', [filter.forSectors.map((x) => tr(x)).join(tr('، '))])
+                : tr('لم تُحدَّد قطاعات هذا المعرض — حدّدها من «تعديل المعرض» لتصل الحملة لمن يناسبه فقط')
+              : tr('اختر المعرض لتصل الحملة لعملاء قطاعاته فقط')
+          }
+        >
+          <select id="campaign-exhibition" className="input" value={filter.exhibition} onChange={pickExhibition}>
+            <option value="">{tr('بدون — كل القطاعات')}</option>
+            {upcoming.map((x) => (
+              <option key={x.id} value={x.id}>
+                {exhibitionLabel(x)}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label={tr('مصدر الرقم')} hint={tr('بدون اختيار = كل المصادر')}>
         {chips('sources', [...CONTACT_SOURCES, ''])}
       </Field>
@@ -429,9 +473,31 @@ export default function Digital() {
   const [open, setOpen] = useState(null)
   const [addingFollowup, setAddingFollowup] = useState(false)
   const [stop, setStop] = useState({ phone: '', reason: '' })
+  const [advisorEdit, setAdvisorEdit] = useState(null) // null | {} new | item
   if (loading || !data) return <Loading />
 
   const today = omanDay()
+  const advisorReady = data.advisorItems !== null
+  const review =
+    role === 'admin'
+      ? siteReview({
+          role,
+          today,
+          advisorReady,
+          exhibitions: data.exhibitions,
+          exhibitors: data.exhibitors,
+          clients: data.clients,
+          bookingsPending: data.bookingsPending,
+          documents: data.documents,
+          followups: data.followups,
+          campaigns: data.campaigns,
+          prospects: data.research.prospects,
+          prospectsReady: data.research.ready,
+          plan: data.research.plan,
+          runs: data.research.runs,
+          feedSince: data.research.feedSince,
+        })
+      : []
   const employees = digitalEmployees({
     campaigns: data.campaigns,
     recipients: data.recipients,
@@ -442,6 +508,9 @@ export default function Digital() {
     feedSince: data.research.feedSince,
     runs: data.research.runs,
     plan: data.research.plan,
+    advisorItems: data.advisorItems || [],
+    advisorReady,
+    review,
     role,
     today,
   })
@@ -497,6 +566,7 @@ export default function Digital() {
       <PageHeader title={`${employee.icon} ${tr(employee.name)}`} subtitle={tr(employee.role)}>
         {canWrite && tab === 'campaigns' && <Button onClick={() => setCreating(true)}>{tr('+ حملة جديدة')}</Button>}
         {canWrite && tab === 'followups' && <Button onClick={() => setAddingFollowup(true)}>{tr('+ متابعة')}</Button>}
+        {tab === 'tasks' && advisorReady && <Button onClick={() => setAdvisorEdit({})}>{tr('+ مهمة أو اقتراح')}</Button>}
       </PageHeader>
 
       {employee.id === 'marketing' && (
@@ -524,6 +594,18 @@ export default function Digital() {
             <StatCard key={k.label} flat label={tr(k.label)} value={k.value} icon={['🔎', '🆕', '🤝', '📅'][i]} accent={['var(--ink)', 'var(--info)', 'var(--suc)', 'var(--wrn)'][i]} />
           ))}
         </div>
+      )}
+
+      {employee.id === 'advisor' && (
+        <>
+          {!advisorReady && <div className="alert alert-warning mb-16">{tr('قائمة المهام تحتاج تحديث قاعدة البيانات 040. شغّل ملف التحديث في Supabase ثم حدّث الصفحة.')}</div>}
+          <div className="grid-4 mb-16">
+            {employee.kpis.map((k, i) => (
+              <StatCard key={k.label} flat label={tr(k.label)} value={k.value} icon={['📋', '🔥', '🔍'][i]} accent={['var(--ink)', 'var(--dng)', 'var(--info)'][i]} onClick={() => setTab(i === 2 ? 'review' : 'tasks')} />
+            ))}
+            <StatCard flat label={tr('أُنجزت هذا الأسبوع')} value={(data.advisorItems || []).filter((i) => i.status === 'تمت' && i.done_at && i.done_at.slice(0, 10) >= addDays(today, -6)).length} icon="✅" accent="var(--suc)" />
+          </div>
+        </>
       )}
 
       {employee.tabs.length > 1 && (
@@ -627,6 +709,13 @@ export default function Digital() {
         </Panel>
       )}
 
+      {tab === 'tasks' &&
+        (advisorReady ? (
+          <AdvisorTasks items={data.advisorItems} today={today} onEdit={setAdvisorEdit} onChanged={reload} />
+        ) : (
+          <EmptyState icon="🧠" text={tr('شغّل تحديث قاعدة البيانات 040 لتظهر قائمة مهامك')} />
+        ))}
+      {tab === 'review' && <AdvisorReview review={review} items={data.advisorItems || []} ready={advisorReady} onChanged={reload} />}
       {tab === 'research' && <Prospects />}
       {tab === 'plan' && <Prospects view="plan" />}
 
@@ -713,6 +802,16 @@ export default function Digital() {
           onClose={() => setOpen(null)}
           onChanged={() => {
             setOpen(null)
+            reload()
+          }}
+        />
+      )}
+      {advisorEdit && (
+        <AdvisorForm
+          item={advisorEdit.id ? advisorEdit : null}
+          onClose={() => setAdvisorEdit(null)}
+          onSaved={() => {
+            setAdvisorEdit(null)
             reload()
           }}
         />

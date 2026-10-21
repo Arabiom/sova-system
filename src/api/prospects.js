@@ -18,8 +18,9 @@ const run = async (query) => {
   return data
 }
 
-const FIELDS = ['kind', 'name', 'category', 'city', 'instagram', 'website', 'phone', 'email', 'source_url', 'notes', 'status', 'fit', 'fit_reason']
-const toRow = (p) => Object.fromEntries(FIELDS.filter((k) => p[k] !== undefined).map((k) => [k, typeof p[k] === 'string' ? p[k].trim() : p[k]]))
+const FIELDS = ['kind', 'name', 'category', 'products', 'city', 'instagram', 'website', 'phone', 'email', 'source_url', 'notes', 'status', 'fit', 'fit_reason']
+// an empty products note is left out, so a database without migration 040 still saves
+const toRow = (p) => Object.fromEntries(FIELDS.filter((k) => p[k] !== undefined && (k !== 'products' || p[k])).map((k) => [k, typeof p[k] === 'string' ? p[k].trim() : p[k]]))
 
 /** The list; `ready: false` before migration 035. */
 export async function loadProspects() {
