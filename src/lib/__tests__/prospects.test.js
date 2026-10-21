@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyProspects, detectProspectColumns, guessCity, guessKind, guessSector, instagramHandle, prospectToClient, readProspectRows, researchHealth, sortProspects } from '../prospects.js'
+import { classifyProspects, detectProspectColumns, guessCity, guessKind, guessSector, instagramHandle, prospectToClient, readProspectRows, researchHealth, researchSwitch, sortProspects } from '../prospects.js'
 
 describe('instagramHandle', () => {
   it('keeps the handle only, in lower case, whatever was written', () => {
@@ -118,5 +118,16 @@ describe('sorting an imported sheet', () => {
     expect(detectProspectColumns(sheet).headerRow).toBe(-1)
     const rows = readProspectRows(sheet, { headerRow: -1, cols: { name: 0, phone: 1 } })
     expect(rows[0]).toMatchObject({ line: 1, name: 'متجر ورد', phone: '93333333', category: 'زهور وهدايا' })
+  })
+})
+
+describe('researchSwitch', () => {
+  const runs = [{ run_at: '2026-10-21T03:00:00Z' }]
+  it('is on unless switched off, and a request waits only until the next run', () => {
+    expect(researchSwitch({ enabled: true }, runs)).toMatchObject({ on: true, requested: false, supported: true })
+    expect(researchSwitch({ enabled: false, run_requested_at: '2026-10-21T09:00:00Z' }, runs)).toMatchObject({ on: false, requested: false })
+    expect(researchSwitch({ enabled: true, run_requested_at: '2026-10-21T09:00:00Z' }, runs).requested).toBe(true)
+    expect(researchSwitch({ enabled: true, run_requested_at: '2026-10-21T02:00:00Z' }, runs).requested).toBe(false)
+    expect(researchSwitch(null, runs)).toMatchObject({ on: true, supported: false })
   })
 })

@@ -8,6 +8,15 @@
 // in the repository. The Supabase address and public key come from .env (public by design).
 import { readFileSync } from 'node:fs'
 
+// Inside a proxied environment (Claude's cloud sessions) Node's fetch must be told to use the
+// proxy; without it every request fails with «fetch failed». Re-run once with that switch on.
+if (process.env.HTTPS_PROXY && !process.env.NODE_USE_ENV_PROXY) {
+  const { spawnSync } = await import('node:child_process')
+  const r = spawnSync(process.execPath, ['--no-warnings', ...process.argv.slice(1)], { stdio: 'inherit', env: { ...process.env, NODE_USE_ENV_PROXY: '1' } })
+  process.exit(r.status ?? 1)
+}
+
+
 const env = Object.fromEntries(
   readFileSync(new URL('../.env', import.meta.url), 'utf8')
     .split('\n')
@@ -22,8 +31,8 @@ if (!token) {
   process.exit(2)
 }
 
-async function rpc(name, body) {
-  const res = await fetch(`${url}/rest/v1/rpc/${name}`, {
+async function rpc(name, body, query = '') {
+  const res = await fetch(`${url}/rest/v1/rpc/${name}${query}`, {
     method: 'POST',
     headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ p_token: token, ...body }),
@@ -43,7 +52,14 @@ if (cmd === 'brief') {
   await rpc('log_research_run', { p_run: JSON.parse(readFileSync(file, 'utf8')) })
   console.log('logged')
 } else if (cmd === 'known') {
-  console.log(JSON.stringify(await rpc('known_prospects', {})))
+  // the server returns at most 1000 rows per request: read the whole list page by page
+  const all = []
+  for (let offset = 0; ; offset += 1000) {
+    const page = await rpc('known_prospects', {}, `?limit=1000&offset=${offset}`)
+    all.push(...page)
+    if (page.length < 1000) break
+  }
+  console.log(JSON.stringify(all))
 } else if (cmd === 'add' && file) {
   const rows = JSON.parse(readFileSync(file, 'utf8'))
   if (!Array.isArray(rows) || rows.length > 50) {

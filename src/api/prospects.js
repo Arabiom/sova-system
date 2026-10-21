@@ -80,3 +80,8 @@ export const revokeFeedToken = () => run(supabase.rpc('revoke_prospect_feed_toke
 /** The research plan (the admin only, migration 036). */
 export const saveResearchPlan = ({ focus, cities, kinds, sectors, daily_limit }) =>
   run(supabase.from('research_settings').update({ focus: focus.trim(), cities, kinds, sectors, daily_limit: Number(daily_limit) || 20 }).eq('id', 1))
+
+/** Switch the research employee on or off (the admin only, migration 038). */
+export const setResearchEnabled = (enabled) => run(supabase.from('research_settings').update({ enabled }).eq('id', 1))
+/** «ابحث الآن»: the next hourly check starts a search. */
+export const requestResearchNow = () => run(supabase.from('research_settings').update({ run_requested_at: new Date().toISOString(), enabled: true }).eq('id', 1))

@@ -1,7 +1,19 @@
 import { useState } from 'react'
 import { listClients } from '../api/clients.js'
 import { listExhibitions } from '../api/exhibitions.js'
-import { deleteProspect, importProspects, loadProspects, makeClient, revokeFeedToken, rotateFeedToken, saveProspect, saveResearchPlan, setProspectStatus } from '../api/prospects.js'
+import {
+  deleteProspect,
+  importProspects,
+  loadProspects,
+  makeClient,
+  requestResearchNow,
+  revokeFeedToken,
+  rotateFeedToken,
+  saveProspect,
+  saveResearchPlan,
+  setProspectStatus,
+  setResearchEnabled,
+} from '../api/prospects.js'
 import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { columnOptions, parseCsv } from '../lib/clientImport.js'
@@ -24,6 +36,7 @@ import {
   PROSPECT_STATUSES,
   readProspectRows,
   researchHealth,
+  researchSwitch,
   sortProspects,
 } from '../lib/prospects.js'
 import { useData } from '../lib/useData.js'
@@ -535,6 +548,72 @@ function RunsLog({ runs }) {
 }
 
 /**
+ * The research employee's switch, at the top of its page: on or off, «ابحث الآن», and what it is
+ * doing now. The admin works the buttons; everyone sees the state.
+ */
+function ResearchSwitch({ data, admin, onChanged }) {
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const sw = researchSwitch(data.plan, data.runs)
+  const health = researchHealth(data.runs, data.feedSince)
+  if (!sw.supported) return null
+  const act = async (fn, done) => {
+    setBusy(true)
+    try {
+      await fn()
+      toast(done)
+      onChanged()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+  const state = !sw.on
+    ? { tone: 'off', icon: '⏸', text: tr('متوقف — لن يبحث حتى تشغّله') }
+    : !data.feedSince
+      ? { tone: 'warn', icon: '⚠️', text: tr('مفعّل، لكن رمز البحث اليومي غير موجود — أنشئه من «خطة البحث والسجل»') }
+      : sw.requested
+        ? { tone: 'wait', icon: '⏳', text: tr('طُلب بحث — يبدأ خلال ساعة على الأكثر (يفحص كل ساعة من 7 صباحاً إلى 9 مساءً)') }
+        : health.state === 'late'
+          ? { tone: 'warn', icon: '⚠️', text: tr('مفعّل، لكن لم يصل تقريره منذ {0} يوم', [Math.max(health.days || 1, 1)]) }
+          : { tone: 'on', icon: '▶', text: health.last ? tr('يعمل — آخر بحث {0}، والتالي صباح الغد', [formatDate(health.last)]) : tr('يعمل — أول بحث خلال ساعة') }
+  return (
+    <div className={`research-switch research-switch-${state.tone}`}>
+      <div className="research-switch-state">
+        <span className="research-switch-icon" aria-hidden="true">
+          {state.icon}
+        </span>
+        <div>
+          <div className="strong">{sw.on ? tr('موظف البحث: يعمل') : tr('موظف البحث: متوقف')}</div>
+          <div className="small">{state.text}</div>
+        </div>
+      </div>
+      {admin && (
+        <div className="research-switch-actions">
+          {sw.on && (
+            <Button disabled={busy || sw.requested || !data.feedSince} onClick={() => act(requestResearchNow, tr('⏳ طُلب البحث — يبدأ خلال ساعة'))}>
+              {tr('🔎 ابحث الآن')}
+            </Button>
+          )}
+          <Button
+            variant={sw.on ? 'outline' : 'primary'}
+            disabled={busy}
+            onClick={() =>
+              sw.on
+                ? confirm(tr('إيقاف موظف البحث؟ لن يبحث ولن يضيف شيئاً حتى تشغّله.')) && act(() => setResearchEnabled(false), tr('⏸ أُوقف موظف البحث'))
+                : act(() => setResearchEnabled(true), tr('▶ شُغّل موظف البحث'))
+            }
+          >
+            {sw.on ? tr('⏸ إيقاف') : tr('▶ تشغيل')}
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
  * «البحث والفرص»: possible exhibitors, sponsors and partners, venues and events — each with the
  * link it was found at — checked by the team and turned into clients when they fit.
  */
@@ -566,6 +645,7 @@ export default function Prospects({ view = 'list' }) {
   if (view === 'plan')
     return (
       <>
+        <ResearchSwitch data={data} admin={role === 'admin'} onChanged={reload} />
         {role === 'admin' && <FeedPanel since={data.feedSince} runs={data.runs} onChanged={reload} />}
         {data.plan ? (
           <>
@@ -600,6 +680,7 @@ export default function Prospects({ view = 'list' }) {
 
   return (
     <>
+      <ResearchSwitch data={data} admin={role === 'admin'} onChanged={reload} />
       <Panel icon="🔎" title={tr('البحث والفرص')} subtitle={[...PROSPECT_KINDS.map((k) => `${tr(k)} ${byKind(k)}`), tr('{0} بانتظار المراجعة', [fresh])].join(' • ')}>
         <div className="toolbar panel-pad">
           <input id="prospect-search" className="input toolbar-search" placeholder={tr('بحث بالاسم أو النشاط أو المدينة...')} value={q} onChange={(e) => setQ(e.target.value)} />

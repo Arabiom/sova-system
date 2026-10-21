@@ -441,6 +441,7 @@ export default function Digital() {
     prospectsReady: data.research.ready,
     feedSince: data.research.feedSince,
     runs: data.research.runs,
+    plan: data.research.plan,
     role,
     today,
   })

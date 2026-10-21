@@ -7,6 +7,14 @@
 // for these fields at the time of writing). Google's terms keep a place's details for 30 days at
 // most unless the team reviews them; the system removes unreviewed Maps finds after 30 days.
 
+// Inside a proxied environment (Claude's cloud sessions) Node's fetch must be told to use the
+// proxy; without it every request fails with «fetch failed». Re-run once with that switch on.
+if (process.env.HTTPS_PROXY && !process.env.NODE_USE_ENV_PROXY) {
+  const { spawnSync } = await import('node:child_process')
+  const r = spawnSync(process.execPath, ['--no-warnings', ...process.argv.slice(1)], { stdio: 'inherit', env: { ...process.env, NODE_USE_ENV_PROXY: '1' } })
+  process.exit(r.status ?? 1)
+}
+
 const MAX_QUERIES = 15
 const FIELDS = [
   'places.id',
