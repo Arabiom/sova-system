@@ -1,6 +1,7 @@
 import { fetchAll, supabase, unwrap } from './client.js'
 import { findOrCreateClient } from './clients.js'
 import { createExhibitor } from './exhibitors.js'
+import { tr } from '../lib/i18n.js'
 
 const table = () => supabase.from('bookings')
 
@@ -15,25 +16,35 @@ export async function countPendingBookings() {
   return count || 0
 }
 
-/** Accept a booking: create a provisional exhibitor from it, then mark the booking accepted. */
+/**
+ * Accept a booking: take it first (only while still pending — a second click or a colleague
+ * accepting at the same moment adds nothing), then create a provisional exhibitor from it.
+ * If that fails the booking is pending again.
+ */
 export async function acceptBooking(booking) {
-  const client_id = await findOrCreateClient(booking)
-  await createExhibitor({
-    client_id,
-    brand: booking.brand,
-    manager: booking.manager,
-    phone: booking.phone,
-    email: (booking.email || '').trim().toLowerCase(),
-    category: booking.category || '',
-    exhibition_id: booking.exhibition_id,
-    booth: '—',
-    booth_size: booking.booth_size || '',
-    contract: 0,
-    paid: 0,
-    status: 'مبدئي',
-    notes: booking.message || '',
-  })
-  await unwrap(table().update({ status: 'مقبول' }).eq('id', booking.id))
+  const taken = await unwrap(table().update({ status: 'مقبول' }).eq('id', booking.id).eq('status', PENDING).select('id'))
+  if (!taken?.length) throw new Error(tr('هذا الطلب قُبل أو رُفض للتو من زميل — حدّث الصفحة'))
+  try {
+    const client_id = await findOrCreateClient(booking)
+    await createExhibitor({
+      client_id,
+      brand: booking.brand,
+      manager: booking.manager,
+      phone: booking.phone,
+      email: (booking.email || '').trim().toLowerCase(),
+      category: booking.category || '',
+      exhibition_id: booking.exhibition_id,
+      booth: '—',
+      booth_size: booking.booth_size || '',
+      contract: 0,
+      paid: 0,
+      status: 'مبدئي',
+      notes: booking.message || '',
+    })
+  } catch (err) {
+    await table().update({ status: PENDING }).eq('id', booking.id)
+    throw err
+  }
 }
 
 /** An inquiry from the public link: answered, nothing to add as an exhibitor. */

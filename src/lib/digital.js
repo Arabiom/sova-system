@@ -1,6 +1,6 @@
 // «الموظفون الرقميون» — the parts that need no database: choosing a campaign's recipients from
 // the client base, and the campaign statuses (the database enforces the same rules, migration 034).
-import { phoneKey } from './format.js'
+import { phoneKey, todayISO } from './format.js'
 import { isOpen } from './advisor.js'
 import { clientSectors } from './matching.js'
 import { researchHealth, researchSwitch } from './prospects.js'
@@ -27,7 +27,7 @@ const daysSince = (iso, today) => (iso ? Math.floor((Date.parse(today) - Date.pa
  * filter: { sources: [], sectors: [], cities: [], statuses: [], notContactedDays, exhibition, forSectors }
  * — with an exhibition chosen, only clients of its target sectors (forSectors) not marked «غير مناسب».
  */
-export function segmentClients(clients, filter = {}, optOutKeys = new Set(), today = new Date().toISOString().slice(0, 10)) {
+export function segmentClients(clients, filter = {}, optOutKeys = new Set(), today = todayISO()) {
   const has = (list, v) => !list?.length || list.includes(v || '')
   const matching = clients.filter(
     (c) =>

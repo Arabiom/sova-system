@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { listAdvisorItems } from '../api/advisor.js'
 import { countPendingBookings } from '../api/bookings.js'
+import { listCompanyExpenses } from '../api/companyExpenses.js'
 import { listClients } from '../api/clients.js'
 import { listDocuments } from '../api/documents.js'
 import { listExhibitions } from '../api/exhibitions.js'
@@ -35,7 +36,7 @@ import { BUILTIN_TEMPLATES } from '../lib/whatsapp.js'
 
 const load = async () => {
   // the staff list is readable by the admin, finance and viewers; others see their own name only
-  const [digital, clients, saved, staff, research, exhibitions, advisorItems, bookingsPending, exhibitors, documents] = await Promise.all([
+  const [digital, clients, saved, staff, research, exhibitions, advisorItems, bookingsPending, exhibitors, documents, companyExpenses] = await Promise.all([
     loadDigital(),
     listClients(),
     listTemplates().catch(() => null),
@@ -53,9 +54,10 @@ const load = async () => {
     countPendingBookings().catch(() => 0),
     listExhibitors({ columns: 'id,exhibition_id,contract,paid,status' }).catch(() => []),
     listDocuments().catch(() => undefined),
+    listCompanyExpenses().catch(() => []),
   ])
   const templates = [...(saved || []).map((t) => ({ name: t.name, body: t.body })), ...BUILTIN_TEMPLATES.map((t) => ({ name: t.label, body: t.body }))]
-  return { ...digital, clients, templates, staff, research, exhibitions, advisorItems, bookingsPending, exhibitors, documents }
+  return { ...digital, clients, templates, staff, research, exhibitions, advisorItems, bookingsPending, exhibitors, documents, companyExpenses }
 }
 
 const TABS = {
@@ -489,6 +491,7 @@ export default function Digital() {
           clients: data.clients,
           bookingsPending: data.bookingsPending,
           documents: data.documents,
+          companyExpenses: data.companyExpenses,
           followups: data.followups,
           campaigns: data.campaigns,
           prospects: data.research.prospects,

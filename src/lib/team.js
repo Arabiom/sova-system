@@ -1,16 +1,13 @@
 // Working time and effectiveness of each employee, from staff_activity, staff_tasks and the
 // records each person created. Days are Oman days (Asia/Muscat), like the database.
 
+import { todayISO } from './format.js'
 import { tr } from './i18n.js'
 
 export const TZ = 'Asia/Muscat'
 
 /** yyyy-mm-dd of a moment in Oman. */
-export function omanDay(date = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(date))
-  const get = (t) => parts.find((p) => p.type === t).value
-  return `${get('year')}-${get('month')}-${get('day')}`
-}
+export const omanDay = (date = new Date()) => todayISO(date)
 
 /** Add days to a yyyy-mm-dd day. */
 export function addDays(day, n) {

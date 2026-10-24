@@ -5,6 +5,7 @@ import { downloadCsv } from '../lib/csv.js'
 import { IconText } from '../components/Glyph.jsx'
 import { useLocation } from 'react-router-dom'
 import { listClients } from '../api/clients.js'
+import { listOptOutPhones, optOutKeys } from '../api/digital.js'
 import { listExhibitions } from '../api/exhibitions.js'
 import { listExhibitors } from '../api/exhibitors.js'
 import { listStaff } from '../api/staff.js'
@@ -42,7 +43,7 @@ import {
 import { tr, uiLocale } from '../lib/i18n.js'
 
 const load = async () => {
-  const [exhibitors, exhibitions, clients, templates, contacts, staff, bookings, log] = await Promise.all([
+  const [exhibitors, exhibitions, clients, templates, contacts, staff, bookings, log, optOuts] = await Promise.all([
     listExhibitors({ orderBy: 'brand', ascending: true }),
     listExhibitions(),
     listClients().catch(() => []),
@@ -51,8 +52,9 @@ const load = async () => {
     listStaff().catch(() => []),
     listBookings().catch(() => []),
     listLog().catch(() => null),
+    listOptOutPhones().catch(() => []),
   ])
-  return { exhibitors, exhibitions, clients, templates, contacts, staff, bookings, log }
+  return { exhibitors, exhibitions, clients, templates, contacts, staff, bookings, log, optOuts }
 }
 
 const AUDIENCES = [
@@ -195,6 +197,9 @@ function Composer({ data, reload, seed }) {
   const exhibitionOf = (id) => exhibitions.find((e) => e.id === id) || null
   const nextExhibition = [...exhibitions].filter((e) => isOpenExhibition(e) && e.date_to >= todayISO()).sort((a, b) => (a.date_from < b.date_from ? -1 : 1))[0] || null
   const ctx = { exhibitors, clients, bookings, contacts, money, exhibitionOf, nextExhibition }
+  // numbers that asked us to stop are never messaged, whatever list they come from
+  const stopped = useMemo(() => optOutKeys(data.optOuts || []), [data.optOuts])
+  const problemOf = (r) => phoneProblem(r.phone) || (stopped.has(phoneKey(r.phone)) ? tr('طلب إيقاف الرسائل') : '')
   const smartLists = SMART_LISTS.filter((l) => money || !l.money)
   const presetList = smartLists.find((l) => l.id === preset.smart)
 
@@ -208,7 +213,7 @@ function Composer({ data, reload, seed }) {
   const [selected, setSelected] = useState(() => {
     if (!presetList) return new Set(preset.keys || [])
     const start = { audience: presetList.audience, exhibitionId: presetList.exhibition ? presetList.exhibition(ctx) : '', filters: NO_FILTERS, smart: presetList.id, manualText: '' }
-    return new Set(buildPool(start, ctx).filter((r) => !phoneProblem(r.phone)).map((r) => r.key))
+    return new Set(buildPool(start, ctx).filter((r) => !problemOf(r)).map((r) => r.key))
   })
   const [manualText, setManualText] = useState(preset.manualText || '')
 
@@ -237,14 +242,14 @@ function Composer({ data, reload, seed }) {
   const poolKey = JSON.stringify([audience, exhibitionId, filters, smart])
   const shownCount = shown.key === poolKey ? shown.n : 300
   const smartCount = (l) =>
-    buildPool({ audience: l.audience, exhibitionId: l.exhibition ? l.exhibition(ctx) : '', filters: NO_FILTERS, smart: l.id, manualText: '' }, ctx).filter((r) => !phoneProblem(r.phone)).length
+    buildPool({ audience: l.audience, exhibitionId: l.exhibition ? l.exhibition(ctx) : '', filters: NO_FILTERS, smart: l.id, manualText: '' }, ctx).filter((r) => !problemOf(r)).length
   const pickSmart = (l) => {
     const ex = l.exhibition ? l.exhibition(ctx) : ''
     setAudience(l.audience)
     setExhibitionId(ex)
     setFilters(NO_FILTERS)
     setSmart(l.id)
-    setSelected(new Set(buildPool({ audience: l.audience, exhibitionId: ex, filters: NO_FILTERS, smart: l.id, manualText: '' }, ctx).filter((r) => !phoneProblem(r.phone)).map((r) => r.key)))
+    setSelected(new Set(buildPool({ audience: l.audience, exhibitionId: ex, filters: NO_FILTERS, smart: l.id, manualText: '' }, ctx).filter((r) => !problemOf(r)).map((r) => r.key)))
   }
 
   const sectors = useMemo(() => {
@@ -252,7 +257,7 @@ function Composer({ data, reload, seed }) {
     return [...new Set(rows.flatMap((s) => String(s || '').split(/[،,]/).map((x) => x.trim())).filter(Boolean))].sort()
   }, [audience, clients, exhibitors, bookings])
 
-  const sendable = (r) => !phoneProblem(r.phone)
+  const sendable = (r) => !problemOf(r)
   const chosen = audience === 'manual' ? pool : pool.filter((r) => selected.has(r.key))
   const [unique, duplicates] = uniqueByPhone(chosen.filter(sendable))
   const invalid = chosen.filter((r) => !sendable(r))
@@ -507,7 +512,7 @@ function Composer({ data, reload, seed }) {
               </div>
               <div className="pick-list pick-list-tall">
                 {pool.slice(0, shownCount).map((r) => {
-                  const problem = phoneProblem(r.phone)
+                  const problem = problemOf(r)
                   const last = contacts[phoneKey(r.phone)]
                   const ex = r.exhibition_id && exhibitionOf(r.exhibition_id)
                   return (

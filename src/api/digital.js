@@ -47,6 +47,12 @@ export async function loadDigital() {
 
 export const optOutKeys = (optOuts) => new Set(optOuts.map((o) => phoneKey(o.phone)))
 
+/** The stop list's numbers only ([] before migration 034) — for any page that sends messages. */
+export async function listOptOutPhones() {
+  const res = await fetchAll(() => supabase.from('opt_outs').select('id, phone'))
+  return res.error ? [] : res.data
+}
+
 /** A new campaign (a draft) with its recipients. If the recipients fail, the draft is removed. */
 export async function createCampaign({ name, body, template_name, segment, exhibition_id }, recipients) {
   const [campaign] = await run(
