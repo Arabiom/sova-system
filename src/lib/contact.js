@@ -15,6 +15,7 @@ export const SERVICES = [
     title: 'تنظيم المعارض',
     en: 'Exhibition organising',
     text: 'نتولّى تنظيم معرض جهتك من التخطيط وتوزيع المواقع إلى أيام الافتتاح.',
+    enText: 'We organise your exhibition — from planning and the floor plan to the opening days.',
     topic: 'تنظيم معرض لجهتنا',
   },
   {
@@ -22,6 +23,7 @@ export const SERVICES = [
     title: 'تصميم الأجنحة وتنفيذها',
     en: 'Booth design & build',
     text: 'تصميم ثلاثي الأبعاد تراه قبل التنفيذ، ثم ننفّذ جناحك ونركّبه في موقعه.',
+    enText: 'A 3D design you see and approve first, then we build your booth and install it on site.',
     topic: 'تصميم جناح وتنفيذه',
   },
   {
@@ -29,6 +31,7 @@ export const SERVICES = [
     title: 'تأجير الخيام والتجهيزات',
     en: 'Tents & equipment rental',
     text: 'خيام وطاولات ومفارش وكراسي وأرفف للمعارض والفعاليات.',
+    enText: 'Tents, tables, table covers, chairs and shelving for exhibitions and events.',
     topic: 'تأجير الخيام والتجهيزات',
   },
   {
@@ -36,6 +39,7 @@ export const SERVICES = [
     title: 'رحلات الأعمال',
     en: 'Business trips',
     text: 'رحلات تجارية إلى تركيا ومصر والهند، من ١٣ إلى ١٨ تاجراً في كل رحلة.',
+    enText: 'Trade trips to Turkey, Egypt and India, with 13 to 18 merchants on each trip.',
     topic: 'رحلات الأعمال',
   },
 ]
