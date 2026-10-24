@@ -467,6 +467,189 @@
   color: var(--iv);
 }
 
+/* language button, mobile menu */
+.h-lang,
+.h-foot-lang {
+  border: 1px solid rgba(244, 238, 228, 0.25);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--mist);
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.h-lang:hover,
+.h-foot-lang:hover {
+  color: var(--iv);
+  border-color: var(--o2);
+}
+.h-foot-lang {
+  padding: 2px 10px;
+}
+.h-menu {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 40px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid rgba(244, 238, 228, 0.25);
+  border-radius: 11px;
+  background: transparent;
+  cursor: pointer;
+}
+.h-menu span {
+  display: block;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--iv);
+}
+.h-nav-staff {
+  display: none;
+}
+
+/* the facts under the hero */
+.h-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin-top: 34px !important;
+  padding: 0;
+  list-style: none;
+  color: var(--mist);
+  font-size: 14px;
+}
+.h-facts li::before {
+  content: '◆';
+  margin-inline-end: 8px;
+  color: var(--o);
+  font-size: 9px;
+  vertical-align: 2px;
+}
+
+/* why us */
+.h-why-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.h-why-item {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 22px;
+  border-radius: 18px;
+  background: var(--n);
+  color: var(--iv);
+}
+.h-why-item .h-service-icon {
+  flex: none;
+  margin: 0;
+  background: rgba(233, 92, 26, 0.16);
+  color: var(--o2);
+}
+.h-why-item h3 {
+  font-family: var(--head);
+  font-weight: 600;
+  font-size: 18px;
+  margin-bottom: 4px !important;
+}
+.h-why-item p {
+  color: #c9cfdf;
+  font-size: 15px;
+}
+
+/* common questions */
+.h-faq-in {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 40px;
+  align-items: start;
+}
+.h-faq-list {
+  display: grid;
+  gap: 10px;
+}
+.h-faq-item {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 0 20px;
+}
+.h-faq-item[open] {
+  border-color: rgba(233, 92, 26, 0.45);
+}
+.h-faq-item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.h-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+.h-faq-item summary::after {
+  content: '+';
+  flex: none;
+  color: #b8460f;
+  font-size: 22px;
+  line-height: 1;
+}
+.h-faq-item[open] summary::after {
+  content: '−';
+}
+.h-faq-item p {
+  padding-bottom: 18px;
+  color: var(--ink2);
+  font-size: 15px;
+}
+
+/* floating WhatsApp button */
+.h-float {
+  position: fixed;
+  inset-inline-end: 18px;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #25d366;
+  color: #fff !important;
+  box-shadow: 0 12px 28px -10px rgba(0, 0, 0, 0.45);
+  transition: transform 0.2s ease;
+}
+.h-float:hover {
+  transform: scale(1.06);
+}
+.h-float svg {
+  width: 30px;
+  height: 30px;
+}
+
+/* English: left-to-right, Latin numbers in the steps */
+.home-en {
+  --head: 'IBM Plex Sans Arabic', system-ui, sans-serif;
+}
+.home-en .h-kicker,
+.home-en .h-en {
+  text-align: left;
+}
+.home-en .h-steps li::before {
+  content: counter(step);
+}
+.h-card-email {
+  font-size: 14px !important;
+}
+
 /* gentle entrance */
 @keyframes hRise {
   from {
@@ -508,6 +691,13 @@
   .h-steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .h-why-list,
+  .h-faq-in {
+    grid-template-columns: 1fr;
+  }
+  .h-faq-in {
+    gap: 0;
+  }
   .h-steps li::after {
     display: none;
   }
@@ -515,12 +705,57 @@
     grid-template-columns: 1fr;
   }
 }
-@media (max-width: 720px) {
+@media (max-width: 1080px) {
+  .h-nav {
+    gap: 18px;
+  }
+}
+@media (max-width: 900px) {
   .h-nav {
     display: none;
   }
+  .h-nav.open {
+    position: absolute;
+    top: 100%;
+    inset-inline: 0;
+    display: grid;
+    gap: 0;
+    padding: 8px 20px 16px;
+    background: var(--n);
+    border-bottom: 1px solid rgba(244, 238, 228, 0.1);
+    box-shadow: 0 18px 30px -18px rgba(0, 0, 0, 0.6);
+  }
+  .h-nav.open a {
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(244, 238, 228, 0.06);
+    font-size: 16px;
+  }
+  .h-nav.open .h-nav-staff {
+    display: block;
+    border-bottom: 0;
+  }
+  .h-menu {
+    display: flex;
+  }
   .h-bar-actions {
     margin-inline-start: auto;
+  }
+}
+@media (max-width: 560px) {
+  .h-bar-actions .h-staff,
+  .h-bar-actions .h-btn-sm {
+    display: none; /* the round WhatsApp button stays at hand on phones */
+  }
+  .h-bar-actions {
+    gap: 8px;
+  }
+  .h-bar-in {
+    gap: 10px;
+  }
+  .h-cards li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
   }
 }
 @media (max-width: 560px) {
