@@ -4,6 +4,7 @@
 
 import { num } from '../lib/format.js'
 import { fetchAll, supabase, unwrap } from './client.js'
+import { tr } from '../lib/i18n.js'
 
 export const PAY_MONTHLY = 'شهري'
 export const PAY_LUMP = 'مبلغ مقطوع'
@@ -87,22 +88,34 @@ export function commissionOf(c, exhibitors = [], payments = []) {
   return { participants, base: baisa(base), earned, recorded, due: baisa(Math.max(0, earned - recorded)) }
 }
 
-/** Enter the commission not yet recorded as a company expense (due now), once. */
+/**
+ * Enter the commission not yet recorded as a company expense (due now), once: the recorded total
+ * moves first, only from the value on screen — a second click or a colleague adds nothing.
+ */
 export async function recordCommission(c, amount, today) {
   const value = baisa(amount)
   if (!(value > 0)) return
-  await unwrap(
-    expenses().insert({
-      date: today,
-      category: SALARY_CATEGORY,
-      description: `عمولة ${[c.name, c.title].filter(Boolean).join(' — ')} (عقد)`,
-      amount: value,
-      paid: false,
-      due_date: today,
-      notes: 'عمولة من عقود الفريق',
-    }),
+  const before = num(c.commission_recorded)
+  const moved = await unwrap(
+    table().update({ commission_recorded: baisa(before + value) }).eq('id', c.id).eq('commission_recorded', before).select('id'),
   )
-  await unwrap(table().update({ commission_recorded: baisa(num(c.commission_recorded) + value) }).eq('id', c.id))
+  if (!moved?.length) throw new Error(tr('سُجّلت هذه العمولة للتو — حدّث الصفحة'))
+  try {
+    await unwrap(
+      expenses().insert({
+        date: today,
+        category: SALARY_CATEGORY,
+        description: `عمولة ${[c.name, c.title].filter(Boolean).join(' — ')} (عقد)`,
+        amount: value,
+        paid: false,
+        due_date: today,
+        notes: 'عمولة من عقود الفريق',
+      }),
+    )
+  } catch (err) {
+    await table().update({ commission_recorded: before }).eq('id', c.id)
+    throw err
+  }
 }
 
 /** Where a contract stands today. */

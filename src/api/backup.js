@@ -27,6 +27,15 @@ const LATER_TABLES = [
   'bank_balances',
   'referrers',
   'company_expense_payments',
+  'campaigns',
+  'campaign_recipients',
+  'followups',
+  'opt_outs',
+  'prospects',
+  'research_settings',
+  'research_runs',
+  'company_documents',
+  'advisor_items',
 ]
 
 // Tables keyed by something other than `id` (used to page through them in a stable order).

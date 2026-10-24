@@ -1,5 +1,5 @@
 import { num } from '../lib/format.js'
-import { fetchAll, supabase, unwrap } from './client.js'
+import { fetchAll, friendlyError, supabase, unwrap } from './client.js'
 import { findOrCreateClient } from './clients.js'
 import { tr } from '../lib/i18n.js'
 
@@ -79,11 +79,13 @@ export async function deleteExhibitor(id) {
 }
 
 /**
- * Add `delta` to an exhibitor's running `paid` total.
- * Reads the current value from the database first (not from possibly stale screen state)
- * and never lets the total drop below zero.
+ * Add `delta` to an exhibitor's running `paid` total, never below zero. On the server in one step
+ * (migration 041), so two payments recorded at once both count; before 041, read then written.
  */
 export async function adjustPaid(exhibitorId, delta) {
+  const { error } = await supabase.rpc('adjust_exhibitor_paid', { p_id: exhibitorId, p_delta: num(delta) })
+  if (!error) return
+  if (!['PGRST202', '42883'].includes(error.code)) throw new Error(friendlyError(error), { cause: error })
   const current = await unwrap(table().select('paid').eq('id', exhibitorId).maybeSingle())
   if (!current) return
   const paid = Math.max(0, num(current.paid) + num(delta))

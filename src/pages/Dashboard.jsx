@@ -20,7 +20,7 @@ import StatCard from '../components/StatCard.jsx'
 import StatusBadge, { Chip } from '../components/StatusBadge.jsx'
 import { COMPANY, DEFAULT_TIERS } from '../lib/constants.js'
 import { balanceOf, collectionAlerts, commitments, companyOverview, exhibitionFinancials, isConfirmed, isPlanning, occupancyOf, summarize, sumBy, vatEnabled, withVat, withoutPlanning } from '../lib/finance.js'
-import { exhibitionTitle, formatDate, formatOMR, isolateLtr, monthOf } from '../lib/format.js'
+import { exhibitionTitle, formatDate, formatOMR, isolateLtr, monthOf, todayISO } from '../lib/format.js'
 import { useData } from '../lib/useData.js'
 import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { tr } from '../lib/i18n.js'
@@ -320,7 +320,7 @@ export default function Dashboard() {
         const unpaid = expenses.filter((x) => !x.paid)
         if (!money || !unpaid.length) return null
         const exhibitionOf = (id) => exhibitions.find((e) => e.id === id)
-        const today = new Date(new Date().toISOString().slice(0, 10))
+        const today = new Date(todayISO())
         const daysTo = (d) => Math.round((new Date(d) - today) / 86_400_000)
         return (
           <Panel

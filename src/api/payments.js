@@ -3,6 +3,7 @@ import { num, todayISO } from '../lib/format.js'
 import { fetchAll, supabase, unwrap } from './client.js'
 import { adjustPaid } from './exhibitors.js'
 import { RECEIPT_BUCKET } from './staffExpenses.js'
+import { tr } from '../lib/i18n.js'
 import { openFile, uploadFile } from './storage.js'
 import { PAYMENT_CONFIRMED, PAYMENT_PENDING, REFUND_TYPE } from '../lib/constants.js'
 
@@ -78,7 +79,8 @@ export async function attachPaymentReceipt(payment, file, userId) {
 
 /** Finance confirms the money arrived: the payment now counts and joins the paid total. */
 export async function confirmPayment(payment, userId) {
-  await unwrap(
+  // only a payment still waiting moves the total — a second click (or a colleague) changes nothing
+  const rows = await unwrap(
     table()
       .update({
         status: PAYMENT_CONFIRMED,
@@ -87,26 +89,32 @@ export async function confirmPayment(payment, userId) {
         // the money arrived: a transfer marked «not yet» is now done
         ...(payment.transfer_status === TRANSFER_NOT_YET ? { transfer_status: TRANSFER_DONE } : {}),
       })
-      .eq('id', payment.id),
+      .eq('id', payment.id)
+      .eq('status', PAYMENT_PENDING)
+      .select('id'),
   )
-  await adjustPaid(payment.exhibitor_id, num(payment.amount))
+  if (rows?.length) await adjustPaid(payment.exhibitor_id, num(payment.amount))
 }
 
 /** Edit a recorded payment (same exhibitor); a confirmed one moves the paid total by the difference. */
 export async function updatePayment(payment, form) {
   const type = form.type || payment.type || 'كامل'
   const amount = signedAmount(type, form.amount)
-  await unwrap(
+  // changed only if nobody changed its amount meanwhile, so the total moves by the right difference
+  const rows = await unwrap(
     table()
       .update({ amount, method: form.method || payment.method, type, date: form.date || payment.date, note: form.note || '' })
-      .eq('id', payment.id),
+      .eq('id', payment.id)
+      .eq('amount', num(payment.amount))
+      .select('id'),
   )
+  if (!rows?.length) throw new Error(tr('تغيّرت هذه الدفعة من مستخدم آخر — حدّث الصفحة ثم أعد التعديل'))
   const delta = amount - num(payment.amount)
   if (delta && isConfirmed(payment)) await adjustPaid(payment.exhibitor_id, delta)
 }
 
 /** Delete a payment; a confirmed one is taken back off the exhibitor's paid total. */
 export async function deletePayment(payment) {
-  await unwrap(table().delete().eq('id', payment.id))
-  if (isConfirmed(payment)) await adjustPaid(payment.exhibitor_id, -num(payment.amount))
+  const rows = await unwrap(table().delete().eq('id', payment.id).select('id'))
+  if (rows?.length && isConfirmed(payment)) await adjustPaid(payment.exhibitor_id, -num(payment.amount))
 }

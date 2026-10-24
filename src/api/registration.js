@@ -115,6 +115,7 @@ export async function registerParticipant(form, { pending: marketing, boothPrice
 
   let payment = null
   if (amount > 0) {
+    // the participant is already saved: if the payment fails, say so plainly so it is not registered twice
     payment = await recordPayment(
       {
         exhibitor_id: exhibitor.id,
@@ -128,7 +129,9 @@ export async function registerParticipant(form, { pending: marketing, boothPrice
         receipt_path: form.receipt_path || '',
       },
       { pending },
-    )
+    ).catch((err) => {
+      throw new Error(tr('حُفظ المشارك «{0}» لكن تعثّر تسجيل دفعته: {1} — لا تُعِد التسجيل؛ راجع دفعاته في ملف المعرض وأكملها من هناك.', [exhibitor.brand, err.message]), { cause: err })
+    })
     if (!pending) exhibitor.paid = amount
   }
   return { exhibitor, payment, totals, siteLost }

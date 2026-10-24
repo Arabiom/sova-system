@@ -45,6 +45,7 @@ export function siteReview({
   clients = [],
   bookingsPending = 0,
   documents,
+  companyExpenses = [],
   followups = [],
   campaigns = [],
   prospects = [],
@@ -72,6 +73,12 @@ export function siteReview({
     if (expired) add('docs-expired', 'danger', '{0} وثيقة منتهية', [expired], 'جدّدها وارفع الملف الجديد من «تعديل»', '/documents')
     if (soon) add('docs-soon', 'warning', '{0} وثيقة تنتهي خلال 30 يوماً', [soon], 'ابدأ التجديد الآن حتى لا تتوقف معاملة', '/documents')
     if (admin && !documents.length) add('docs-none', 'info', 'لم تُرفع وثائق الشركة بعد', [], 'ارفع السجل التجاري والشهادة الضريبية وشهادة الانتساب مع تواريخ انتهائها', '/documents')
+  }
+
+  // company expenses past their due date and not paid
+  if (money) {
+    const late = companyExpenses.filter((x) => !x.paid && x.due_date && x.due_date < today)
+    if (late.length) add('expenses-late', 'danger', '{0} مصروف تجاوز موعد سداده', [late.length], 'ادفعه أو سجّل الجزء المدفوع، أو غيّر موعده إن اتُّفق على تأجيله', '/finance?tab=commitments')
   }
 
   // bookings waiting for an answer

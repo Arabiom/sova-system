@@ -63,9 +63,11 @@ describe('the follow-up employee', () => {
       followups: [{ status: 'مفتوحة', due_date: '2026-10-01' }],
       campaigns: [{ status: 'بانتظار الاعتماد' }],
       prospects: [{ status: 'جديد' }],
+      companyExpenses: [{ paid: false, due_date: '2026-10-01' }, { paid: true, due_date: '2026-10-01' }, { paid: false, due_date: '2026-11-01' }],
     })
     const refs = review.map((r) => r.ref)
-    expect(refs.slice(0, 2)).toEqual(['db-040', 'docs-expired'])
+    expect(refs.slice(0, 3)).toEqual(['db-040', 'docs-expired', 'expenses-late'])
+    expect(review.find((r) => r.ref === 'expenses-late').args).toEqual([1])
     expect(refs).toEqual(expect.arrayContaining(['docs-soon', 'bookings', 'owing-om', 'free-om', 'sectors-op', 'clients-sector', 'followups', 'campaigns', 'prospects']))
     expect(review.find((r) => r.ref === 'owing-om').args.slice(1)).toEqual([11, 1])
     expect(review.find((r) => r.ref === 'free-om').args[0]).toBe(8)

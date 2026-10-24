@@ -24,7 +24,12 @@ export const isolateLtr = (text) => (text ? `\u2066${text}\u2069` : '')
 
 export const formatDate = (date) => (date ? new Date(date).toLocaleDateString(uiLocale()) : '—')
 
-export const todayISO = () => new Date().toISOString().slice(0, 10)
+/** Today (yyyy-mm-dd) in Oman — not UTC, which is still yesterday until 4 am in Muscat. */
+export const todayISO = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(date))
+  const get = (t) => parts.find((p) => p.type === t).value
+  return `${get('year')}-${get('month')}-${get('day')}`
+}
 
 export const percent = (part, whole) => (whole ? Math.round((part / whole) * 100) : 0)
 

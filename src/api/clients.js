@@ -63,9 +63,16 @@ export async function clientWithPhone(phone) {
  * it when there is none. `known` (optional) is an already-loaded client list to search first.
  */
 export async function findOrCreateClient({ brand, manager, phone, email, category }, known) {
-  const clients = known || (await unwrap(fetchAll(() => table().select('id,name,phone'))))
   const key = phoneKey(phone)
   const name = (brand || manager || '').trim()
+  // Without a list at hand, ask the database for this one number or name — not all the clients.
+  const clients =
+    known ||
+    (key
+      ? []
+      : name
+        ? await unwrap(table().select('id,name,phone').ilike('name', name.replace(/[\\%_]/g, (c) => `\\${c}`)).limit(1))
+        : [])
   const match =
     (key && clients.find((c) => phoneKey(c.phone) === key)) ||
     (!key && name && clients.find((c) => c.name?.trim().toLowerCase() === name.toLowerCase()))

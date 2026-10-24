@@ -13,6 +13,13 @@ import Field, { SelectOptions } from './Field.jsx'
 import Modal from './Modal.jsx'
 import { tr } from '../lib/i18n.js'
 
+/** Ready sets of target sectors for the usual kinds of exhibition (a click fills the chips). */
+const SECTOR_PRESETS = [
+  { label: 'منتجات عمانية', sectors: ['حرف يدوية', 'منتجات منزلية', 'عطور وبخور', 'حلويات وقهوة'] },
+  { label: 'أزياء وجمال', sectors: ['أزياء', 'أقمشة', 'تجميل', 'إكسسوار', 'عطور وبخور'] },
+  { label: 'أطفال وعائلة', sectors: ['منتجات أطفال', 'حلويات وقهوة', 'مطاعم وأغذية', 'زهور وهدايا'] },
+]
+
 const TIER_PLACEHOLDERS = ['مثال: ركن مدخل', 'مثال: كورنر هاير', 'مثال: وسط المعرض', 'مثال: صف داخلي']
 
 export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
@@ -155,6 +162,18 @@ export default function ExhibitionForm({ initial, id, onClose, onSaved }) {
         label={tr('القطاعات المستهدفة')}
         hint={form.sectors.length ? tr('يُعرض المعرض على عملاء هذه القطاعات فقط') : tr('بدون اختيار = معرض لكل القطاعات. مثال: معرض المنتجات العمانية ← حرف يدوية، منتجات منزلية، عطور وبخور، حلويات وقهوة')}
       >
+        <div className="chips-row mb-8">
+          {SECTOR_PRESETS.map((p) => (
+            <button key={p.label} type="button" className="chip-btn" onClick={() => setForm((f) => ({ ...f, sectors: p.sectors }))}>
+              ⚡ {tr(p.label)}
+            </button>
+          ))}
+          {form.sectors.length > 0 && (
+            <button type="button" className="chip-btn" onClick={() => setForm((f) => ({ ...f, sectors: [] }))}>
+              ✕ {tr('مسح')}
+            </button>
+          )}
+        </div>
         <div className="chips-row">
           {SECTORS.map((x) => (
             <button key={x} type="button" className={`chip-btn ${form.sectors.includes(x) ? 'active' : ''}`} aria-pressed={form.sectors.includes(x)} onClick={() => toggleSector(x)}>

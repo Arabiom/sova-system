@@ -20,7 +20,7 @@ import { useToast } from '../context/ToastContext.jsx'
 import { columnOptions, parseCsv } from '../lib/clientImport.js'
 import { CATEGORIES, CITIES, FORM_SECTORS } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
-import { exhibitionTitle, formatDate } from '../lib/format.js'
+import { exhibitionTitle, formatDate, todayISO } from '../lib/format.js'
 import { tr } from '../lib/i18n.js'
 import { pickSheet, readSheets } from '../lib/importSheet.js'
 import {
@@ -454,7 +454,7 @@ function ResearchPlan({ plan, exhibitions, editable, onSaved }) {
   const [form, setForm] = useState(() => ({ focus: plan.focus || '', cities: plan.cities || [], kinds: plan.kinds || [], sectors: plan.sectors || [], daily_limit: plan.daily_limit || 20 }))
   const [saving, setSaving] = useState(false)
   const toggle = (k, v) => setForm((f) => ({ ...f, [k]: f[k].includes(v) ? f[k].filter((x) => x !== v) : [...f[k], v] }))
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayISO()
   const upcoming = exhibitions.filter((e) => e.date_to >= today && !['منتهي', 'ملغى'].includes(e.status))
   const chips = (k, options) => (
     <div className="chips-row">
