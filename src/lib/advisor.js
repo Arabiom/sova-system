@@ -108,7 +108,10 @@ export function siteReview({
   if (overdue) add('followups', 'warning', '{0} متابعة متأخرة', [overdue], 'اتصل بهم اليوم، أو غيّر الموعد إن تأجل', '/digital/sales')
   const pending = campaigns.filter((c) => c.status === 'بانتظار الاعتماد').length
   if (admin && pending) add('campaigns', 'warning', '{0} حملة بانتظار اعتمادك', [pending], 'راجع النص والمستلمين ثم اعتمدها أو أعدها مسودة', '/digital/marketing')
-  const toReview = prospects.filter((p) => p.status === 'جديد').length
+  // an Excel customer list sitting in «الفرص» belongs with the clients
+  const imported = prospects.filter((p) => p.origin === 'استيراد' && ['جديد', 'تم التحقق'].includes(p.status) && !p.client_id).length
+  if (admin && imported) add('imported-prospects', 'warning', '{0} سجلاً من ملف Excel ما زالت في «الفرص» لا في «العملاء»', [imported], 'افتح «الفرص» واضغط «نقلها كلها إلى العملاء» — فتدخل فرز المعارض والحملات', '/digital/research')
+  const toReview = prospects.filter((p) => p.status === 'جديد' && p.origin !== 'استيراد').length
   if (toReview) add('prospects', 'info', '{0} فرصة جديدة من البحث لم تُراجع', [toReview], 'راجعها: المناسب يتحول عميلاً بزر واحد، وغير المناسب يُعلَّم', '/digital/research')
   if (prospectsReady && plan) {
     const sw = researchSwitch(plan, runs)

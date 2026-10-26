@@ -2534,4 +2534,12 @@ export default {
   "التحميل يتأخر — تحقق من الإنترنت": "Loading is taking long — check the internet connection",
   "🔄 إعادة المحاولة": "🔄 Try again",
   "طلب إيقاف الرسائل": "Asked to stop messages",
+  "نقل {0} سجلاً مستورداً إلى «العملاء»؟ من رقمه مسجل مسبقاً يُربط بعميله دون تكرار.": "Move {0} imported records to “Clients”? A number already registered is linked to its client, not duplicated.",
+  "✅ نُقل {0} إلى العملاء، ورُبط {1} بعملاء موجودين": "✅ {0} moved to clients, {1} linked to existing clients",
+  "📒 {0} سجلاً هنا جاءت من ملف Excel استوردته — هذه قاعدة بياناتك، ومكانها «العملاء» لا «الفرص». بعد النقل تظهر في فرز المعارض والحملات.": "📒 {0} records here came from an Excel file you imported — this is your own database, and it belongs in “Clients”, not “Opportunities”. Once moved, they appear in exhibition sorting and campaigns.",
+  "جاري النقل… {0} تم، {1} متبقٍ": "Moving… {0} done, {1} left",
+  "📒 نقلها كلها إلى العملاء": "📒 Move them all to Clients",
+  "هذه الخطوة تحتاج تحديث قاعدة البيانات 042. شغّل ملف التحديث في Supabase ثم أعد المحاولة.": "This step needs database update 042. Run the update file in Supabase, then try again.",
+  "{0} سجلاً من ملف Excel ما زالت في «الفرص» لا في «العملاء»": "{0} records from an Excel file are still in “Opportunities”, not in “Clients”",
+  "افتح «الفرص» واضغط «نقلها كلها إلى العملاء» — فتدخل فرز المعارض والحملات": "Open “Opportunities” and press “Move them all to Clients” — they then join exhibition sorting and campaigns",
 }

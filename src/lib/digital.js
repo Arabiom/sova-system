@@ -84,7 +84,7 @@ export function digitalEmployees({ campaigns = [], recipients = [], followups = 
   const overdue = open.filter((f) => f.due_date && f.due_date < today).length
   const doneWeek = followups.filter((f) => f.status === 'تمت' && f.done_at && daysBetween(f.done_at, today) <= 6).length
   const unassigned = open.filter((f) => !f.assigned_to).length
-  const toReview = prospects.filter((p) => p.status === 'جديد').length
+  const toReview = prospects.filter((p) => p.status === 'جديد' && p.origin !== 'استيراد').length // an imported customer list is moved, not reviewed
   const addedWeek = prospects.filter((p) => p.created_at && daysBetween(p.created_at, today) <= 6).length
   const converted = prospects.filter((p) => p.status === 'أصبح عميلاً').length
   const daily = prospects.filter((p) => p.origin === 'البحث اليومي').length

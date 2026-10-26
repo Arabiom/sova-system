@@ -7,6 +7,7 @@ import {
   importProspects,
   loadProspects,
   makeClient,
+  moveImportedToClients,
   requestResearchNow,
   revokeFeedToken,
   rotateFeedToken,
@@ -18,7 +19,7 @@ import {
 import { useAuth, useCan } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { columnOptions, parseCsv } from '../lib/clientImport.js'
-import { CATEGORIES, CITIES, FORM_SECTORS } from '../lib/constants.js'
+import { CITIES } from '../lib/constants.js'
 import { downloadCsv } from '../lib/csv.js'
 import { exhibitionTitle, formatDate, todayISO } from '../lib/format.js'
 import { tr } from '../lib/i18n.js'
@@ -446,7 +447,8 @@ function HealthLine({ since, runs }) {
   )
 }
 
-const SECTOR_OPTIONS = [...new Set([...FORM_SECTORS, ...CATEGORIES.filter((c) => c !== 'أخرى'), 'حلويات وقهوة', 'منتجات منزلية', 'حرف يدوية', 'منتجات أطفال'])]
+// the same standard sectors as the sorting and the exhibitions' target sectors
+const SECTOR_OPTIONS = SECTORS
 
 /** What the daily research looks for. The admin edits it; everyone sees it. */
 function ResearchPlan({ plan, exhibitions, editable, onSaved }) {
@@ -485,7 +487,7 @@ function ResearchPlan({ plan, exhibitions, editable, onSaved }) {
         </Field>
         <Field label={tr('المدن')}>{chips('cities', CITIES)}</Field>
         <Field label={tr('الأنواع')}>{chips('kinds', PROSPECT_KINDS)}</Field>
-        <Field label={tr('القطاعات')}>{chips('sectors', SECTOR_OPTIONS)}</Field>
+        <Field label={tr('القطاعات')}>{chips('sectors', [...new Set([...SECTOR_OPTIONS, ...form.sectors])])}</Field>
         <Field label={tr('الحد اليومي')} hint={tr('من 1 إلى 30 — النظام يرفض ما يزيد عنه')}>
           <input
             id="research-limit"
@@ -562,6 +564,45 @@ function RunsLog({ runs }) {
  * The research employee's switch, at the top of its page: on or off, «ابحث الآن», and what it is
  * doing now. The admin works the buttons; everyone sees the state.
  */
+/** Still waiting in «الفرص» after an Excel import — the company's own list, not research finds. */
+const isImportedWaiting = (p) => p.origin === 'استيراد' && ['جديد', 'تم التحقق'].includes(p.status) && !p.client_id && CLIENT_KINDS.includes(p.kind)
+
+/**
+ * A customer list imported here from Excel is the company's own database: one click moves it all
+ * to «العملاء» (a number already there is only linked), in batches with progress.
+ */
+function MoveImported({ count, onDone }) {
+  const toast = useToast()
+  const [progress, setProgress] = useState(null) // null | { done, left }
+  const move = async () => {
+    if (!confirm(tr('نقل {0} سجلاً مستورداً إلى «العملاء»؟ من رقمه مسجل مسبقاً يُربط بعميله دون تكرار.', [count]))) return
+    setProgress({ done: 0, left: count })
+    try {
+      const r = await moveImportedToClients((done, left) => setProgress({ done, left }))
+      toast(tr('✅ نُقل {0} إلى العملاء، ورُبط {1} بعملاء موجودين', [r.moved, r.linked]))
+      onDone()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setProgress(null)
+    }
+  }
+  return (
+    <div className="alert alert-warning mb-16 db-split">
+      <span>
+        {tr('📒 {0} سجلاً هنا جاءت من ملف Excel استوردته — هذه قاعدة بياناتك، ومكانها «العملاء» لا «الفرص». بعد النقل تظهر في فرز المعارض والحملات.', [count])}
+        {progress && <strong> {tr('جاري النقل… {0} تم، {1} متبقٍ', [progress.done, progress.left])}</strong>}
+      </span>
+      <Button size="sm" onClick={move} disabled={Boolean(progress)}>
+        {tr('📒 نقلها كلها إلى العملاء')}
+      </Button>
+    </div>
+  )
+}
+
+/** Rows drawn at a time — a long list grows with «عرض المزيد». */
+const PAGE = 200
+
 function ResearchSwitch({ data, admin, onChanged }) {
   const toast = useToast()
   const [busy, setBusy] = useState(false)
@@ -639,6 +680,8 @@ export default function Prospects({ view = 'list' }) {
   const [status, setStatus] = useState('') // '' = everything but «غير مناسب»
   const [editing, setEditing] = useState(null) // null | {} (new) | prospect
   const [importing, setImporting] = useState(false)
+  const [origin, setOrigin] = useState('')
+  const [limit, setLimit] = useState({ key: '', n: PAGE })
   if (loading || !data) return <Loading />
   if (!data.ready) return <div className="alert alert-warning">{tr('هذا القسم يحتاج تحديث قاعدة البيانات 035. شغّل ملف التحديث في Supabase ثم حدّث الصفحة.')}</div>
 
@@ -672,6 +715,7 @@ export default function Prospects({ view = 'list' }) {
   const shown = sortProspects(data.prospects).filter(
     (p) =>
       (!kind || p.kind === kind) &&
+      (!origin || p.origin === origin) &&
       (status === 'all' || (status ? p.status === status : p.status !== 'غير مناسب')) &&
       (!needle ||
         [p.name, p.category, p.products, p.city, p.instagram, p.phone, p.notes].some((v) =>
@@ -680,6 +724,10 @@ export default function Prospects({ view = 'list' }) {
             .includes(needle),
         )),
   )
+  const viewKey = JSON.stringify([kind, origin, status, needle])
+  const shownCount = limit.key === viewKey ? limit.n : PAGE
+  const origins = [...new Set(data.prospects.map((p) => p.origin))]
+  const imported = data.prospects.filter(isImportedWaiting).length
   const byKind = (k) => data.prospects.filter((p) => p.kind === k).length
   const fresh = data.prospects.filter((p) => p.status === 'جديد').length
   const exportCsv = () =>
@@ -696,6 +744,7 @@ export default function Prospects({ view = 'list' }) {
         <span>{tr('🔎 هنا ما استخرجه موظف البحث — منفصل عن قاعدة عملائك حتى تراجعه. «← عميل» ينقل المناسب منها إلى العملاء.')}</span>
         <Link to="/clients">{tr('📒 قاعدة بياناتك (العملاء) ←')}</Link>
       </div>
+      {role === 'admin' && imported > 0 && <MoveImported count={imported} onDone={reload} />}
       <Panel icon="🔎" title={tr('البحث والفرص')} subtitle={[...PROSPECT_KINDS.map((k) => `${tr(k)} ${byKind(k)}`), tr('{0} بانتظار المراجعة', [fresh])].join(' • ')}>
         <div className="toolbar panel-pad">
           <input id="prospect-search" className="input toolbar-search" placeholder={tr('بحث بالاسم أو النشاط أو المدينة...')} value={q} onChange={(e) => setQ(e.target.value)} />
@@ -707,6 +756,16 @@ export default function Prospects({ view = 'list' }) {
               </option>
             ))}
           </select>
+          {origins.length > 1 && (
+            <select id="prospect-origin-filter" className="input toolbar-select" aria-label={tr('المصدر')} value={origin} onChange={(e) => setOrigin(e.target.value)}>
+              <option value="">{tr('كل المصادر')}</option>
+              {origins.map((o) => (
+                <option key={o} value={o}>
+                  {tr(o)}
+                </option>
+              ))}
+            </select>
+          )}
           <select id="prospect-status-filter" className="input toolbar-select" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">{tr('كل الحالات (بدون غير المناسب)')}</option>
             <option value="all">{tr('الكل')}</option>
@@ -742,7 +801,7 @@ export default function Prospects({ view = 'list' }) {
                 </tr>
               </thead>
               <tbody>
-                {shown.map((p) => (
+                {shown.slice(0, shownCount).map((p) => (
                   <tr key={p.id}>
                     <td>
                       <div className="strong">{p.name}</div>
@@ -843,6 +902,13 @@ export default function Prospects({ view = 'list' }) {
                 ))}
               </tbody>
             </table>
+            {shown.length > shownCount && (
+              <div className="panel-pad center">
+                <Button variant="outline" onClick={() => setLimit({ key: viewKey, n: shownCount + PAGE })}>
+                  {tr('عرض المزيد ({0} من {1})', [shownCount, shown.length])}
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <EmptyState icon="🔎" text={data.prospects.length ? tr('لا توجد نتائج لهذا البحث') : tr('لا توجد فرص بعد — أضف فرصة أو استورد ملفاً')} />
