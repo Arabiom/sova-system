@@ -62,7 +62,7 @@ describe('the follow-up employee', () => {
       documents: [{ expiry_date: '2026-10-01' }, { expiry_date: '2026-11-01' }],
       followups: [{ status: 'مفتوحة', due_date: '2026-10-01' }],
       campaigns: [{ status: 'بانتظار الاعتماد' }],
-      prospects: [{ status: 'جديد' }],
+      prospects: [{ status: 'جديد' }, { status: 'جديد', origin: 'استيراد' }, { status: 'جديد', origin: 'استيراد' }],
       companyExpenses: [{ paid: false, due_date: '2026-10-01' }, { paid: true, due_date: '2026-10-01' }, { paid: false, due_date: '2026-11-01' }],
     })
     const refs = review.map((r) => r.ref)
@@ -71,6 +71,8 @@ describe('the follow-up employee', () => {
     expect(refs).toEqual(expect.arrayContaining(['docs-soon', 'bookings', 'owing-om', 'free-om', 'sectors-op', 'clients-sector', 'followups', 'campaigns', 'prospects']))
     expect(review.find((r) => r.ref === 'owing-om').args.slice(1)).toEqual([11, 1])
     expect(review.find((r) => r.ref === 'free-om').args[0]).toBe(8)
+    expect(review.find((r) => r.ref === 'imported-prospects').args).toEqual([2])
+    expect(review.find((r) => r.ref === 'prospects').args).toEqual([1])
     expect(review.every((r) => r.fix)).toBe(true)
   })
   it('shows no amounts or papers to marketing', () => {
