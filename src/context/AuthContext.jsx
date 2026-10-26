@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { tr } from '../lib/i18n.js'
 import { can, canEditRecord } from '../lib/permissions.js'
 
 // The database library is large. Public pages (the official site, the booking form) do not wait
 // for it: it is loaded the first time someone opens the internal system.
 const loadSupabase = () => import('../lib/supabase.js').then((m) => m.supabase)
-const PUBLIC_PATHS = ['/', '/book']
+const PUBLIC_PATHS = ['/', '/book', '/book/'] // «/book/» is the booking page's own file (scripts/public-pages.mjs)
 
 /** A saved sign-in on this device (enough for the site to say «لوحة التحكم» instead of «دخول»). */
 function hasSavedSession() {
@@ -66,8 +67,9 @@ export function AuthProvider({ children }) {
     session: started ? session.value : hasSavedSession() ? { saved: true } : null,
     loading: session.loading || !staffReady,
     staff: staffReady ? staff.value : null,
-    staffError: staffReady ? staff.error : '',
-    role: staffReady ? staff.value?.role || null : null,
+    // an account waiting for the admin (migration 043) has no role yet
+    staffError: staffReady ? (staff.value?.role === 'pending' ? tr('حسابك بانتظار تفعيل المدير — سيصلك الدخول بعد أن يمنحك صلاحية.') : staff.error) : '',
+    role: staffReady && staff.value?.role !== 'pending' ? staff.value?.role || null : null,
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

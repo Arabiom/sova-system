@@ -12,6 +12,9 @@ import Field, { SelectOptions } from './Field.jsx'
 import Modal from './Modal.jsx'
 import Panel from './Panel.jsx'
 
+/** A page of the system («/clients»), never another site («//…»). */
+const internal = (link) => /^\/(?![/\\])/.test(link || '')
+
 const TONE = {
   danger: { badge: 'badge-danger', label: 'مشكلة' },
   warning: { badge: 'badge-warning', label: 'ينتظر متابعة' },
@@ -146,7 +149,7 @@ export function AdvisorTasks({ items, today, onEdit, onChanged }) {
                     </select>
                   </td>
                   <td className="nowrap">
-                    {i.link && (
+                    {internal(i.link) && (
                       <Link className="btn btn-sm btn-outline" to={i.link}>
                         {tr('افتح ←')}
                       </Link>
@@ -202,7 +205,7 @@ export function AdvisorReview({ review, items, ready, onChanged }) {
               </div>
               <div className="small muted">💡 {tr(r.fix)}</div>
               <div className="advisor-finding-actions">
-                {r.link && (
+                {internal(r.link) && (
                   <Link className="btn btn-sm btn-outline" to={r.link}>
                     {tr('افتح ←')}
                   </Link>

@@ -33,8 +33,8 @@ jobs:
         env:
           BASE_PATH: /sova-system/
           COMMIT_REF: ${{ github.sha }}
-      # Opening any page directly (e.g. /sova-system/book) loads the app instead of a 404.
-      - run: cp dist/index.html dist/404.html
+      # The public pages get their own files (200 + their own preview); any other page loads the app (404.html).
+      - run: node scripts/public-pages.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

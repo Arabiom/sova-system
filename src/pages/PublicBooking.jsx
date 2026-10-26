@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { KIND_BOOKING, KIND_INQUIRY, listPublicExhibitions, submitPublicBooking } from '../api/publicBooking.js'
 import Icon from '../components/Icon.jsx'
 import LanguageSwitch from '../components/LanguageSwitch.jsx'
@@ -116,7 +117,9 @@ export default function PublicBooking() {
 
       <div className="pub-box slide-in">
         <div className="login-brand pub-brand">
-          <img className="login-logo" src={COMPANY.logoLight} alt={COMPANY.nameEn} />
+          <Link to="/" title={tr('موقع الشركة')}>
+            <img className="login-logo" src={COMPANY.logoLight} alt={COMPANY.nameEn} />
+          </Link>
           <div className="pub-headline">{tr('احجز مساحتك في معارض {0}', [COMPANY.brand])}</div>
           <div className="login-sub">{tr('أرسل طلب حجز أو استفسار، ويتواصل معك فريقنا في أقرب وقت')}</div>
         </div>

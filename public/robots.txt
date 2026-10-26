@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://arabiom.github.io/sova-system/sitemap.xml
