@@ -22,7 +22,9 @@ describe('role permissions', () => {
     expect(can('admin', 'staff.manage')).toBe(true)
     expect(can(null, 'reports.view')).toBe(false)
     expect(can('admin', 'unknown.permission')).toBe(false)
-    expect(Object.keys(ROLES)).toEqual(['admin', 'finance', 'viewer', 'marketing'])
+    expect(Object.keys(ROLES)).toEqual(['admin', 'finance', 'viewer', 'marketing', 'pending'])
+    // an account waiting for the admin may do nothing at all
+    expect(['data.write', 'records.viewAll', 'money.view', 'reports.view', 'documents.view'].some((p) => can('pending', p))).toBe(false)
   })
 })
 

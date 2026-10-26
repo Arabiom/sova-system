@@ -2542,4 +2542,8 @@ export default {
   "هذه الخطوة تحتاج تحديث قاعدة البيانات 042. شغّل ملف التحديث في Supabase ثم أعد المحاولة.": "This step needs database update 042. Run the update file in Supabase, then try again.",
   "{0} سجلاً من ملف Excel ما زالت في «الفرص» لا في «العملاء»": "{0} records from an Excel file are still in “Opportunities”, not in “Clients”",
   "افتح «الفرص» واضغط «نقلها كلها إلى العملاء» — فتدخل فرز المعارض والحملات": "Open “Opportunities” and press “Move them all to Clients” — they then join exhibition sorting and campaigns",
+  "حسابك بانتظار تفعيل المدير — سيصلك الدخول بعد أن يمنحك صلاحية.": "Your account is waiting for the admin — you will get access once they give you a role.",
+  "بانتظار التفعيل": "Waiting for activation",
+  "حساب جديد أو موقوف: لا يرى شيئاً حتى يمنحه المدير صلاحية": "A new or suspended account: sees nothing until the admin gives it a role",
+  "موقع الشركة": "Company website",
 }
