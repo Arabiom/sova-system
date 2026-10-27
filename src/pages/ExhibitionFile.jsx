@@ -28,11 +28,13 @@ import { useData } from '../lib/useData.js'
 import ExpensesTab from './exhibition/ExpensesTab.jsx'
 import ParticipantsTab from './exhibition/ParticipantsTab.jsx'
 import SitesTab from './exhibition/SitesTab.jsx'
+import SalesPlanTab from './exhibition/SalesPlanTab.jsx'
 import SponsorsTab from './exhibition/SponsorsTab.jsx'
 import { useCan } from '../context/AuthContext.jsx'
 import { tr } from '../lib/i18n.js'
 
 const TABS = [
+  { id: 'plan', label: tr('🎯 خطة البيع') },
   { id: 'sites', label: tr('🗺️ المواقع والأسعار') },
   { id: 'participants', label: tr('🤝 المشاركون') },
   { id: 'expenses', label: tr('🧾 المصروفات') },
@@ -106,7 +108,7 @@ export default function ExhibitionFile() {
   const { id } = useParams()
   const toast = useToast()
   const { data, loading, reload } = useData(() => loadFile(id), null)
-  const [tab, setTab] = useState('sites')
+  const [chosen, setTab] = useState(null) // none chosen: the sales plan before the exhibition, the sites after
   const [editing, setEditing] = useState(false)
   const [printing, setPrinting] = useState(false)
   const canManage = useCan('exhibitions.manage')
@@ -120,6 +122,7 @@ export default function ExhibitionFile() {
   const claims = claimsOf(staffExpenses, ex.id)
   const f = exhibitionFinancials({ exhibition: ex, sites, exhibitors, payments, expenses, sponsors, staffExpenses }, DEFAULT_TIERS)
   const title = exhibitionTitle(ex)
+  const tab = chosen || (ex.date_to >= todayISO() ? 'plan' : 'sites')
 
   const print = async () => {
     setPrinting(true)
@@ -223,6 +226,18 @@ export default function ExhibitionFile() {
         </Panel>
       )}
       {tab === 'sites' && <SitesTab exhibition={ex} sites={sites} exhibitors={own} canManage={canManage} onChanged={reload} />}
+      {tab === 'plan' && (
+        <SalesPlanTab
+          exhibition={ex}
+          exhibitors={own}
+          clients={clients}
+          capacity={f.capacity}
+          booked={f.booked}
+          today={todayISO()}
+          canManage={canManage}
+          onEditSectors={() => setEditing(true)}
+        />
+      )}
       {tab === 'participants' && <ParticipantsTab exhibition={ex} exhibitions={exhibitions} exhibitors={own} clients={clients} onChanged={reload} />}
       {internal && tab === 'expenses' && <ExpensesTab exhibitionId={ex.id} expenses={expenses} claims={claims} onChanged={reload} />}
       {internal && tab === 'sponsors' && <SponsorsTab exhibitionId={ex.id} sponsors={sponsors} onChanged={reload} />}
