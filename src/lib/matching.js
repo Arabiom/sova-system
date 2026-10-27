@@ -37,3 +37,23 @@ export function contactPlan(client, upcoming, today, takingPart = new Set(), sec
   const from = addDays(exhibition.date_from, -CONTACT_LEAD_DAYS)
   return { exhibition, matched: targeted ? exhibition.sectors.filter((s) => sectors.includes(s)) : [], open: !targeted, from, now: from <= today }
 }
+
+/**
+ * One exhibition's sales list: the clients it suits (not marked «غير مناسب», not already taking
+ * part), interested first, then those messaged, then those not yet contacted.
+ */
+export function salesPlan(exhibition, clients, exhibitors) {
+  const own = exhibitors.filter((e) => e.exhibition_id === exhibition.id)
+  const inIt = new Set(own.map((e) => e.client_id).filter(Boolean))
+  const rank = { مناسب: 0, 'وصلته رسالة': 1 }
+  const suitable = clients
+    .filter((c) => c.outreach !== 'غير مناسب' && !inIt.has(c.id) && suits(exhibition, clientSectors(c)))
+    .sort((a, b) => (rank[a.outreach] ?? 2) - (rank[b.outreach] ?? 2) || String(a.name).localeCompare(String(b.name), 'ar'))
+  return {
+    suitable,
+    interested: suitable.filter((c) => c.outreach === 'مناسب'),
+    messaged: suitable.filter((c) => c.outreach === 'وصلته رسالة'),
+    fresh: suitable.filter((c) => !c.outreach),
+    registered: own.length,
+  }
+}

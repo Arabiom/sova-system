@@ -1,12 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// The site's public address. Changing it (a domain of the company's own) is this one line in
+// the deploy workflow: the base path, link previews, search data, sitemap and CNAME follow it.
+const SITE_URL = process.env.SITE_URL || 'https://arabiom.github.io/sova-system/'
+process.env.VITE_SITE_URL = SITE_URL // %VITE_SITE_URL% in index.html and links/index.html
+
 // Which update the site is running: shown in the footer (Netlify passes the commit).
 const stamp = `${new Date().toISOString().slice(0, 10)} • ${(process.env.COMMIT_REF || 'local').slice(0, 7)}`
 
 export default defineConfig({
-  // GitHub Pages serves the site under /sova-system/ (BASE_PATH set by its workflow); Netlify at /.
-  base: process.env.BASE_PATH || '/',
+  // under the address's path (GitHub Pages: /sova-system/; a domain of its own: /); BASE_PATH wins if set
+  base: process.env.BASE_PATH || (process.env.SITE_URL ? new URL(SITE_URL).pathname : '/'),
   plugins: [
     react(),
     // version.json next to the site: open pages compare it with their own build and offer a reload.

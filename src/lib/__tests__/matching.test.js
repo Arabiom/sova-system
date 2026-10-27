@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clientSectors, contactPlan, suits, upcomingExhibitions } from '../matching.js'
+import { clientSectors, contactPlan, salesPlan, suits, upcomingExhibitions } from '../matching.js'
 import { sectorsIn } from '../prospects.js'
 import { siteReview, sortAdvisorItems } from '../advisor.js'
 
@@ -33,6 +33,23 @@ describe('sorting clients by sector', () => {
     expect(contactPlan({ sector: 'عطور وبخور' }, upcoming, today, new Set(['om'])).exhibition.id).toBe('op')
     expect(contactPlan({ sector: 'عطور وبخور', outreach: 'غير مناسب' }, upcoming, today)).toBeNull()
     expect(contactPlan({ sector: 'أزياء' }, [omani], today)).toBeNull()
+  })
+})
+
+describe('an exhibition sales plan', () => {
+  it('lists the clients it suits by stage, without its exhibitors or those marked unsuitable', () => {
+    const clients = [
+      { id: 'a', name: 'أ', sector: 'عطور وبخور', outreach: '' },
+      { id: 'b', name: 'ب', sector: 'حرف يدوية', outreach: 'مناسب' },
+      { id: 'c', name: 'ج', sector: 'عطور وبخور', outreach: 'وصلته رسالة' },
+      { id: 'd', name: 'د', sector: 'أزياء', outreach: '' },
+      { id: 'e', name: 'هـ', sector: 'عطور وبخور', outreach: 'غير مناسب' },
+      { id: 'f', name: 'و', sector: 'عطور وبخور', outreach: '' },
+    ]
+    const plan = salesPlan(omani, clients, [{ exhibition_id: 'om', client_id: 'f' }, { exhibition_id: 'op', client_id: 'a' }])
+    expect(plan.suitable.map((c) => c.id)).toEqual(['b', 'c', 'a'])
+    expect([plan.interested.length, plan.messaged.length, plan.fresh.length, plan.registered]).toEqual([1, 1, 1, 1])
+    expect(salesPlan(open, clients, []).suitable).toHaveLength(5)
   })
 })
 

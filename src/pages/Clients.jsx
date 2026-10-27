@@ -1,5 +1,5 @@
 import { useDeferredValue, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { clientWithPhone, deleteClient, findClient, listClients, saveClient, setClientOutreach } from '../api/clients.js'
 import { listStaff } from '../api/staff.js'
 import { listExhibitions } from '../api/exhibitions.js'
@@ -336,7 +336,9 @@ export default function Clients() {
   const { session } = useAuth()
   const { data, loading, reload } = useData(load, null)
   const [search, setSearch] = useState('')
-  const [filters, setFilters] = useState({ sector: '', city: '', status: '', source: '', participation: '', outreach: '', fit: '' })
+  const location = useLocation()
+  // opened from an exhibition's sales plan: its suitable clients
+  const [filters, setFilters] = useState(() => ({ sector: '', city: '', status: '', source: '', participation: '', outreach: '', fit: location.state?.fit || '' }))
   const [sort, setSort] = useState('name')
   const [editing, setEditing] = useState(null)
   const [viewing, setViewing] = useState(null)

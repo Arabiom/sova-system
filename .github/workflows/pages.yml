@@ -31,10 +31,14 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          BASE_PATH: /sova-system/
+          # The site's address. With a domain of the company's own, write it here (e.g.
+          # https://www.example.om/) — and add the same domain in Settings → Pages.
+          SITE_URL: https://arabiom.github.io/sova-system/
           COMMIT_REF: ${{ github.sha }}
       # The public pages get their own files (200 + their own preview); any other page loads the app (404.html).
       - run: node scripts/public-pages.mjs
+        env:
+          SITE_URL: https://arabiom.github.io/sova-system/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
