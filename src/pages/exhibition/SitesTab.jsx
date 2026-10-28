@@ -199,7 +199,7 @@ function AssignModal({ site, exhibitors, holder, tiers = [], onClose, onSaved })
     setSaving(true)
     try {
       if (newTier) await setSiteTier(site.id, newTier)
-      if (changed) await assignSite(newTier ? { ...site, tier: newTier.name, price: newTier.price } : site, chosen, { adjustContract: adjust, previous: holder })
+      if (changed) await assignSite(newTier ? { ...site, tier: newTier.name, price: newTier.price } : site, chosen, { adjustContract: adjust, previous: holder, previousPrice: site.price })
       toast(
         changed
           ? chosen

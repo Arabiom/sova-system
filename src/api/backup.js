@@ -39,7 +39,7 @@ const LATER_TABLES = [
 ]
 
 // Tables keyed by something other than `id` (used to page through them in a stable order).
-const TIE = { staff: 'user_id', staff_activity: 'user_id' }
+const TIE = { staff: 'user_id', staff_activity: ['user_id', 'day'] }
 
 /** Download every table as one JSON file (the free Supabase plan keeps no backups). */
 export async function downloadBackup() {

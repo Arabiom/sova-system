@@ -59,8 +59,10 @@ export function validateRegistration(form) {
  * booked by someone else in the same moment, so the participant was saved without a site.
  */
 export async function registerParticipant(form, { pending: marketing, boothPrice, boothArea }) {
-  // Not transferred yet → the payment waits for finance to confirm the money arrived.
-  const pending = marketing || form.transferred === 'no'
+  // Not transferred yet → the payment waits for finance to confirm the money arrived. Only for a
+  // transfer: an answer left from before the method was changed to cash does not count.
+  const notTransferred = isTransfer(form.method) && form.transferred === 'no'
+  const pending = marketing || notTransferred
   const extras = chosenExtras(form)
   const totals = registrationTotals({ boothPrice, extras })
   // The form takes what the participant actually paid, VAT included; payments are kept before VAT.
@@ -123,7 +125,7 @@ export async function registerParticipant(form, { pending: marketing, boothPrice
         method: form.method,
         type: fullyPaid ? 'كامل' : 'مقدمة',
         date: form.date || todayISO(),
-        note: form.transferred === 'no' ? 'استمارة تسجيل — لم يُحوَّل بعد' : 'استمارة تسجيل',
+        note: notTransferred ? 'استمارة تسجيل — لم يُحوَّل بعد' : 'استمارة تسجيل',
         transfer_ref: form.transfer_ref?.trim() || '',
         transfer_status: isTransfer(form.method) ? (form.transferred === 'no' ? 'لم يُحوَّل بعد' : form.transferred === 'yes' ? 'تم التحويل' : '') : '',
         receipt_path: form.receipt_path || '',

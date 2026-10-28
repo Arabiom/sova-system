@@ -237,6 +237,8 @@ describe('payments, references and errors', () => {
   it('makes dated, non-repeating references', () => {
     const now = new Date('2026-09-27T10:00:00Z')
     expect(newReference('INV', now)).toMatch(/^INV-260927-[0-9A-Z]{4}$/)
+    // dated by the Oman day: 22:30 UTC on the 27th is already the 28th in Muscat
+    expect(newReference('INV', new Date('2026-10-27T22:30:00Z'))).toMatch(/^INV-261028-/)
     const many = new Set(Array.from({ length: 200 }, () => newReference('INV', now)))
     expect(many.size).toBeGreaterThan(195)
   })

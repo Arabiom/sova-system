@@ -2,6 +2,7 @@
 // participants, postponed cheques, debts… Each keeps its original due date, the current one
 // and every postponement.
 
+import { tr } from '../lib/i18n.js'
 import { num, todayISO } from '../lib/format.js'
 import { fetchAll, supabase, unwrap } from './client.js'
 import { recordPayment } from './payments.js'
@@ -64,12 +65,20 @@ export async function postponeObligation(ob, to, reason) {
  * (it leaves the collected total and appears in the payment log with its own number).
  */
 export async function payObligation(ob, { method = 'تحويل بنكي', date = todayISO() } = {}) {
+  // marked paid first, only while still open: a second click or a retry records no second refund
+  const taken = await unwrap(table().update({ status: PAID, paid_at: date }).eq('id', ob.id).neq('status', PAID).select('id'))
+  if (!taken?.length) throw new Error(tr('هذا الالتزام سُدِّد للتو — حدّث الصفحة'))
   let refund_invoice = ''
   if (ob.kind === REFUND_KIND && ob.exhibitor_id) {
-    const row = await recordPayment({ exhibitor_id: ob.exhibitor_id, amount: ob.amount, type: REFUND_TYPE, method, date, note: `التزام: ${ob.description || ob.party || ''}`.trim() })
-    refund_invoice = row.invoice_no
+    try {
+      const row = await recordPayment({ exhibitor_id: ob.exhibitor_id, amount: ob.amount, type: REFUND_TYPE, method, date, note: `التزام: ${ob.description || ob.party || ''}`.trim() })
+      refund_invoice = row.invoice_no
+    } catch (err) {
+      await table().update({ status: OPEN, paid_at: null }).eq('id', ob.id)
+      throw err
+    }
+    await unwrap(table().update({ refund_invoice }).eq('id', ob.id))
   }
-  await unwrap(table().update({ status: PAID, paid_at: date, refund_invoice }).eq('id', ob.id))
   return refund_invoice
 }
 

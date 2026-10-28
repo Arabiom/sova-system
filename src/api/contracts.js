@@ -2,6 +2,7 @@
 // expense so it shows everywhere money is counted: a monthly salary is a fixed monthly expense
 // ending with the contract; a lump sum is one expense due by the contract's end.
 
+import { isConfirmed } from '../lib/finance.js'
 import { num } from '../lib/format.js'
 import { fetchAll, supabase, unwrap } from './client.js'
 import { tr } from '../lib/i18n.js'
@@ -82,7 +83,7 @@ export function commissionOf(c, exhibitors = [], payments = []) {
   const base =
     c.commission_base === 'قيمة العقود'
       ? participants.reduce((t, e) => t + num(e.contract), 0)
-      : payments.filter((p) => ids.has(p.exhibitor_id) && p.status !== 'بانتظار التأكيد').reduce((t, p) => t + num(p.amount), 0)
+      : payments.filter((p) => ids.has(p.exhibitor_id) && isConfirmed(p)).reduce((t, p) => t + num(p.amount), 0)
   const earned = baisa((Math.max(0, base) * pct) / 100)
   const recorded = num(c.commission_recorded)
   return { participants, base: baisa(base), earned, recorded, due: baisa(Math.max(0, earned - recorded)) }

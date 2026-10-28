@@ -40,10 +40,15 @@ export async function setTierNumbers(exhibitionId, tiers) {
 /** Move one site to another tier: it takes that tier's name and price. */
 export const setSiteTier = (siteId, { name, price }) => unwrap(sites().update({ tier: name, price: num(price) }).eq('id', siteId))
 
-export const deleteTier = (exhibitionId, tier, price) =>
-  unwrap(sites().delete().eq('exhibition_id', exhibitionId).eq('tier', tier).eq('price', price))
+/** Delete sites; their holders' booth labels follow (their contracts and payments are kept). */
+async function deleteSites(query) {
+  const gone = await unwrap(query.select('exhibitor_id'))
+  for (const id of new Set((gone || []).map((s) => s.exhibitor_id).filter(Boolean))) await syncBoothLabel(id)
+}
 
-export const deleteAllSites = (exhibitionId) => unwrap(sites().delete().eq('exhibition_id', exhibitionId))
+export const deleteTier = (exhibitionId, tier, price) => deleteSites(sites().delete().eq('exhibition_id', exhibitionId).eq('tier', tier).eq('price', price))
+
+export const deleteAllSites = (exhibitionId) => deleteSites(sites().delete().eq('exhibition_id', exhibitionId))
 
 /** Keep the exhibitor's booth label in step with the sites they hold ("16، 22"). */
 async function syncBoothLabel(exhibitorId) {
@@ -59,10 +64,14 @@ export const placeSite = (siteId, pos) =>
  * Give `site` to `exhibitor` (or free it when exhibitor is null).
  * With adjustContract, the site's price is added to / taken off the exhibitor's contract.
  */
-export async function assignSite(site, exhibitor, { adjustContract = true, previous } = {}) {
-  await unwrap(sites().update({ exhibitor_id: exhibitor?.id || null }).eq('id', site.id))
+export async function assignSite(site, exhibitor, { adjustContract = true, previous, previousPrice } = {}) {
+  // only from the holder seen on screen: a colleague who just took the site is not overwritten
+  const q = sites().update({ exhibitor_id: exhibitor?.id || null }).eq('id', site.id)
+  const moved = await unwrap((site.exhibitor_id ? q.eq('exhibitor_id', site.exhibitor_id) : q.is('exhibitor_id', null)).select('id'))
+  if (!moved?.length) throw new Error(tr('تغيّر هذا الموقع للتو من مستخدم آخر — حدّث الصفحة ثم أعد المحاولة'))
   if (previous) {
-    if (adjustContract) await updateExhibitor(previous.id, { contract: Math.max(0, num(previous.contract) - num(site.price)) })
+    // the previous holder was charged the price before any tier change in the same save
+    if (adjustContract) await updateExhibitor(previous.id, { contract: Math.max(0, num(previous.contract) - num(previousPrice ?? site.price)) })
     await syncBoothLabel(previous.id)
   }
   if (exhibitor) {

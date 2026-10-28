@@ -18,7 +18,8 @@ const query = (table) => {
           if (['insert', 'update', 'delete'].includes(key)) {
             q.op = key
             q.body = args[0]
-          } else if (key === 'eq' || key === 'is') q.filters.push([args[0], args[1]])
+          } else if (key === 'select') q.columns = args[0]
+          else if (['eq', 'is', 'neq'].includes(key)) q.filters.push([key, args[0], args[1]])
           return chain
         }
       },
@@ -32,6 +33,9 @@ vi.mock('../../lib/supabase.js', () => ({ supabase: { from: (t) => query(t), rpc
 const { confirmPayment, deletePayment } = await import('../payments.js')
 const { acceptBooking } = await import('../bookings.js')
 const { adjustPaid } = await import('../exhibitors.js')
+const { listPayments } = await import('../payments.js')
+const { assignSite } = await import('../exhibitionFile.js')
+const { payObligation } = await import('../obligations.js')
 
 beforeEach(() => {
   calls.length = 0
@@ -43,7 +47,7 @@ describe('money is counted once', () => {
   it('a payment already confirmed (second click, or a colleague) does not move the paid total again', async () => {
     reply = (q) => (q.table === 'payments' ? { data: [], error: null } : { data: [], error: null })
     await confirmPayment({ id: 'p1', exhibitor_id: 'e1', amount: 50, status: 'بانتظار التأكيد' }, 'u1')
-    expect(calls[0].filters).toContainEqual(['status', 'بانتظار التأكيد'])
+    expect(calls[0].filters).toContainEqual(['eq', 'status', 'بانتظار التأكيد'])
     expect(rpc).not.toHaveBeenCalled()
     reply = () => ({ data: [{ id: 'p1' }], error: null })
     await confirmPayment({ id: 'p1', exhibitor_id: 'e1', amount: 50, status: 'بانتظار التأكيد' }, 'u1')
@@ -81,5 +85,29 @@ describe('a booking is accepted once', () => {
     }
     await expect(acceptBooking({ id: 'b1', brand: 'محل', phone: '' })).rejects.toThrow()
     expect(calls.at(-1)).toMatchObject({ table: 'bookings', op: 'update', body: { status: 'معلق' } })
+  })
+})
+
+describe('collected money and sites', () => {
+  it('always reads a payment’s status, so one still waiting is never counted as collected', async () => {
+    reply = () => ({ data: [{ id: 'p1', amount: 50, status: 'بانتظار التأكيد' }, { id: 'p2', amount: 30, status: 'مؤكد' }], error: null })
+    const rows = await listPayments('id,exhibitor_id,amount')
+    expect(calls[0].columns).toBe('id,exhibitor_id,amount,status')
+    expect(rows.map((r) => r.id)).toEqual(['p2'])
+  })
+
+  it('moves a site only from the holder seen on screen, and takes the old price off the old holder', async () => {
+    await expect(assignSite({ id: 's1', price: 150, exhibitor_id: 'a' }, { id: 'b', contract: 0 }, { previous: { id: 'a', contract: 300 }, previousPrice: 100 })).rejects.toThrow()
+    expect(calls[0].filters).toContainEqual(['eq', 'exhibitor_id', 'a'])
+    calls.length = 0
+    reply = (q) => (q.table === 'exhibition_sites' && q.op === 'update' ? { data: [{ id: 's1' }], error: null } : { data: [], error: null })
+    await assignSite({ id: 's1', price: 150, exhibitor_id: 'a' }, { id: 'b', contract: 0 }, { previous: { id: 'a', contract: 300 }, previousPrice: 100 })
+    const contracts = calls.filter((q) => q.table === 'exhibitors' && q.op === 'update' && 'contract' in q.body).map((q) => q.body.contract)
+    expect(contracts).toEqual([200, 150])
+  })
+
+  it('pays an obligation once: a second click records no second refund', async () => {
+    await expect(payObligation({ id: 'o1', kind: 'استرداد لمشارك', exhibitor_id: 'e1', amount: 40 })).rejects.toThrow()
+    expect(calls.some((q) => q.table === 'payments')).toBe(false)
   })
 })
