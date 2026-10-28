@@ -1,5 +1,5 @@
 import { PAYMENT_PENDING, VAT_RATE } from './constants.js'
-import { num, percent } from './format.js'
+import { num, percent, todayISO } from './format.js'
 
 export const sumBy = (rows, key) => rows.reduce((total, row) => total + num(row[key]), 0)
 
@@ -146,7 +146,7 @@ export const tiersOf = (exhibition, defaults) => planningTiers(exhibition, defau
  * The old PREFIX-<last 6 digits of the clock> format repeated every ~17 minutes.
  */
 export function newReference(prefix, now = new Date()) {
-  const d = now.toISOString().slice(2, 10).replace(/-/g, '')
+  const d = todayISO(now).slice(2).replace(/-/g, '') // the Oman day, like the payment's own date
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, '0')
   return `${prefix}-${d}-${rand}`
 }
@@ -291,7 +291,7 @@ export function companyOverview({ exhibitors = [], payments = [], expenses = [],
   const companyPaid = companyExpenses.reduce((t, x) => t + companyPaidOf(x), 0)
   const claims = staffExpenses.filter((x) => APPROVED_CLAIMS.includes(x.status))
   const staffClaims = sumBy(claims, 'amount')
-  const staffReimbursed = sumBy(claims.filter((x) => x.status === 'تم التعويض'), 'amount')
+  const staffReimbursed = sumBy(claims.filter((x) => x.status === CLAIM_REIMBURSED), 'amount')
 
   const expensesAll = exhibitionExpenses + company + staffClaims
   const expensesPaidAll = exhibitionExpensesPaid + companyPaid + staffReimbursed
@@ -674,7 +674,8 @@ export function commitments({ expenses = [], companyExpenses = [], staffExpenses
   const months = {}
   for (const x of items) {
     if (x.state === 'late' || x.state === 'none') continue
-    const m = x.due.slice(0, 7) || thisMonth
+    // payable now counts in this month (as in «thisMonth»), even when its last day is next month
+    const m = x.state === 'now' ? thisMonth : x.due.slice(0, 7) || thisMonth
     ;(months[m] ||= { month: m, items: [], total: 0, projected: 0 }).items.push(x)
   }
   for (const m of Object.values(months)) {

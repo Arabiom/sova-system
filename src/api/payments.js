@@ -14,7 +14,9 @@ const table = () => supabase.from('payments')
  * (they are not money collected yet) unless `includePending` is set.
  */
 export async function listPayments(columns = '*', { includePending = false } = {}) {
-  const rows = await unwrap(fetchAll(() => table().select(columns).order('created_at', { ascending: false })))
+  // the status is always read: without it a payment still waiting would pass as confirmed
+  const cols = columns === '*' || /\bstatus\b/.test(columns) ? columns : `${columns},status`
+  const rows = await unwrap(fetchAll(() => table().select(cols).order('created_at', { ascending: false })))
   return includePending ? rows : rows.filter(isConfirmed)
 }
 

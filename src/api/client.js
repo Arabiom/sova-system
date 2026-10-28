@@ -47,7 +47,8 @@ export async function unwrap(query) {
  * Resolves to `{ data, error }` like a single query.
  */
 export async function fetchAll(build, { tie = 'id', pageSize = 1000, parallel = 4 } = {}) {
-  const page = (from) => build().order(tie, { ascending: true }).range(from, from + pageSize - 1)
+  // `tie`: the column(s) giving every row its own place, so pages never overlap or skip rows
+  const page = (from) => [].concat(tie).reduce((q, col) => q.order(col, { ascending: true }), build()).range(from, from + pageSize - 1)
   const rows = []
   // The first page answers most lists; a long one (thousands of clients) is then read a few
   // pages at a time, side by side, instead of one request after another.

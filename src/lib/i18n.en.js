@@ -2566,4 +2566,6 @@ export default {
   "لا يوجد عميل في قطاعات هذا المعرض بعد — أضف عملاء أو وسّع القطاعات": "No client in this exhibition’s sectors yet — add clients or widen the sectors",
   "لا يوجد عملاء بعد": "No clients yet",
   "من {0} موقعاً — بيع {1}": "of {0} sites — {1} sold",
+  "هذا الالتزام سُدِّد للتو — حدّث الصفحة": "This obligation was just paid — refresh the page",
+  "تغيّر هذا الموقع للتو من مستخدم آخر — حدّث الصفحة ثم أعد المحاولة": "Another user just changed this site — refresh the page and try again",
 }
