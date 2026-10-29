@@ -74,20 +74,32 @@ export async function makeClient(p) {
   return client.id
 }
 
+/** A request cut off by the database's time limit (each call may run a few seconds only). */
+const timedOut = (error) => error?.code === '57014' || /statement timeout/i.test(error?.message || '')
+
 /**
- * Move a customer list imported into «الفرص» to the clients (migration 042), 1000 rows a call so
- * no request runs too long. Returns { moved, linked }; onProgress(done) after each call.
+ * Move a customer list imported into «الفرص» to the clients (migration 042), a batch a call so
+ * no request runs too long: 200 rows to start, halved whenever the database is slow (a call cut
+ * off by the time limit changes nothing, so it is simply sent again smaller), and grown back
+ * when calls are quick. Returns { moved, linked }; onProgress(done, left) after each call.
  */
 export async function moveImportedToClients(onProgress = () => {}) {
   let moved = 0
   let linked = 0
+  let size = 200
   for (;;) {
-    const { data, error } = await supabase.rpc('move_imported_prospects', { p_limit: 1000 })
+    const started = Date.now()
+    const { data, error } = await supabase.rpc('move_imported_prospects', { p_limit: size })
+    if (error && timedOut(error) && size > 10) {
+      size = Math.max(10, Math.floor(size / 2))
+      continue
+    }
     if (error) throw missing(error) ? new Error(tr('هذه الخطوة تحتاج تحديث قاعدة البيانات 042. شغّل ملف التحديث في Supabase ثم أعد المحاولة.')) : explain(error)
     moved += data.moved
     linked += data.linked
     onProgress(moved + linked, data.remaining)
     if (!data.remaining || data.moved + data.linked === 0) return { moved, linked }
+    if (Date.now() - started < 2500 && size < 500) size = Math.min(500, size * 2)
   }
 }
 
