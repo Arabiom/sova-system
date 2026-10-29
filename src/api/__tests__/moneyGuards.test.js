@@ -36,6 +36,7 @@ const { adjustPaid } = await import('../exhibitors.js')
 const { listPayments } = await import('../payments.js')
 const { assignSite } = await import('../exhibitionFile.js')
 const { payObligation } = await import('../obligations.js')
+const { moveImportedToClients } = await import('../prospects.js')
 
 beforeEach(() => {
   calls.length = 0
@@ -109,5 +110,19 @@ describe('collected money and sites', () => {
   it('pays an obligation once: a second click records no second refund', async () => {
     await expect(payObligation({ id: 'o1', kind: 'استرداد لمشارك', exhibitor_id: 'e1', amount: 40 })).rejects.toThrow()
     expect(calls.some((q) => q.table === 'payments')).toBe(false)
+  })
+})
+
+describe('moving an imported list', () => {
+  it('sends a smaller batch again when the database cuts a call off, and goes on to the end', async () => {
+    rpc
+      .mockResolvedValueOnce({ data: null, error: { code: '57014', message: 'canceling statement due to statement timeout' } })
+      .mockResolvedValueOnce({ data: { moved: 100, linked: 2, remaining: 50 }, error: null })
+      .mockResolvedValueOnce({ data: { moved: 50, linked: 0, remaining: 0 }, error: null })
+    const progress = []
+    const r = await moveImportedToClients((done, left) => progress.push([done, left]))
+    expect(r).toEqual({ moved: 150, linked: 2 })
+    expect(rpc.mock.calls.map((c) => c[1].p_limit).slice(0, 2)).toEqual([200, 100])
+    expect(progress).toEqual([[102, 50], [152, 0]])
   })
 })
