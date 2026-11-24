@@ -45,7 +45,11 @@ export default function SalesPlanTab({ exhibition, exhibitors, clients, capacity
       <div className="grid-4 mb-16">
         <StatCard flat label={tr('مواقع متبقية للبيع')} value={left} sub={tr('من {0} موقعاً — بيع {1}', [capacity, booked])} icon="🗺️" accent={left ? 'var(--wrn)' : 'var(--suc)'} />
         <StatCard flat label={tr('أيام حتى الافتتاح')} value={days === null ? '—' : Math.max(0, days)} icon="📅" accent={days !== null && days <= 14 ? 'var(--dng)' : 'var(--ink)'} />
-        <StatCard flat label={tr('المطلوب بيعه أسبوعياً')} value={left ? perWeek : 0} icon="📈" accent="var(--info)" sub={left && weeks ? tr('لبيع كل المواقع قبل الافتتاح') : ''} />
+        {days !== null && days <= 0 ? (
+          <StatCard flat label={tr('المطلوب بيعه أسبوعياً')} value="—" icon="📈" accent="var(--dng)" sub={tr('بدأ المعرض — البيع الآن لمن يحجز في الأيام المتبقية')} />
+        ) : (
+          <StatCard flat label={tr('المطلوب بيعه أسبوعياً')} value={left ? perWeek : 0} icon="📈" accent="var(--info)" sub={left && weeks ? tr('لبيع كل المواقع قبل الافتتاح') : ''} />
+        )}
         <StatCard flat label={tr('عملاء يناسبهم المعرض')} value={plan.suitable.length} icon="🎯" accent="var(--gold)" />
       </div>
 

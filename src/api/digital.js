@@ -59,7 +59,10 @@ export async function createCampaign({ name, body, template_name, segment, exhib
     supabase.from('campaigns').insert({ name: name.trim(), body, template_name: template_name || '', segment: segment || {}, exhibition_id: exhibition_id || null }).select('id'),
   )
   try {
-    if (recipients.length) await run(supabase.from('campaign_recipients').insert(recipients.map((r) => ({ ...r, campaign_id: campaign.id }))))
+    // a few hundred rows a request: a whole client base in one request runs past the time limit
+    for (let i = 0; i < recipients.length; i += 500) {
+      await run(supabase.from('campaign_recipients').insert(recipients.slice(i, i + 500).map((r) => ({ ...r, campaign_id: campaign.id }))))
+    }
   } catch (err) {
     await supabase.from('campaigns').delete().eq('id', campaign.id)
     throw err

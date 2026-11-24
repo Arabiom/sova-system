@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { deleteAdvisorItem, saveAdvisorItem, setAdvisorStatus } from '../api/advisor.js'
+import { closeAdvisorItems, deleteAdvisorItem, saveAdvisorItem, setAdvisorStatus } from '../api/advisor.js'
 import { useToast } from '../context/ToastContext.jsx'
-import { ADVISOR_KINDS, ADVISOR_PRIORITIES, ADVISOR_STATUSES, isOpen, KIND_ICON, PRIORITY_BADGE, sortAdvisorItems } from '../lib/advisor.js'
+import { ADVISOR_KINDS, ADVISOR_PRIORITIES, ADVISOR_STATUSES, isOpen, KIND_ICON, PRIORITY_BADGE, sortAdvisorItems, staleReviewItems } from '../lib/advisor.js'
 import { formatDate } from '../lib/format.js'
 import { tr } from '../lib/i18n.js'
 import Button from './Button.jsx'
@@ -11,6 +11,9 @@ import { EmptyState } from './Feedback.jsx'
 import Field, { SelectOptions } from './Field.jsx'
 import Modal from './Modal.jsx'
 import Panel from './Panel.jsx'
+
+/** The Arabic text with its {0}, {1}… filled in — what is stored, whatever the screen's language. */
+const fillArabic = (text, args = []) => String(text).replace(/\{(\d+)\}/g, (_, i) => String(args[i] ?? ''))
 
 /** A page of the system («/clients»), never another site («//…»). */
 const internal = (link) => /^\/(?![/\\])/.test(link || '')
@@ -91,6 +94,7 @@ export function AdvisorTasks({ items, today, onEdit, onChanged }) {
     }
   }
   const doneCount = items.filter((i) => i.status === 'تمت').length
+  const stale = staleReviewItems(items)
   const list = sortAdvisorItems(items).filter((i) => (!kind || i.kind === kind) && (showDone || i.status !== 'تمت'))
   return (
     <Panel icon="📋" title={tr('المهام والاقتراحات')} subtitle={tr('كل ما عليك وما يقترحه الموظف — علّم ما أنجزته ليبقى أمامك ما تبقّى فقط')}>
@@ -108,6 +112,21 @@ export function AdvisorTasks({ items, today, onEdit, onChanged }) {
           </label>
         )}
       </div>
+      {stale.length > 0 && (
+        <div className="alert alert-info panel-pad db-split">
+          <span>{tr('{0} تذكيراً من المراجعة اليومية تكرّر كتابتها كل يوم — المراجعة صارت تكتب كل أمر مرة واحدة وتحدّثه.', [stale.length])}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              confirm(tr('إغلاق {0} تذكيراً قديماً؟ ما زال قائماً منها تكتبه المراجعة القادمة مرة واحدة.', [stale.length])) &&
+              run(() => closeAdvisorItems(stale.map((i) => i.id)), tr('✅ أُغلقت التذكيرات القديمة'))
+            }
+          >
+            {tr('🧹 إغلاق التذكيرات القديمة ({0})', [stale.length])}
+          </Button>
+        </div>
+      )}
       {list.length ? (
         <div className="table-wrap">
           <table className="table">
@@ -183,8 +202,9 @@ export function AdvisorReview({ review, items, ready, onChanged }) {
         ref: `live:${r.ref}`,
         kind: r.tone === 'info' ? 'اقتراح' : r.tone === 'danger' ? 'مشكلة' : 'مهمة',
         priority: r.tone === 'danger' ? 'عاجلة' : r.tone === 'warning' ? 'مهمة' : 'عادية',
-        title: tr(r.text, r.args),
-        details: tr(r.fix),
+        // kept in Arabic (the list is shared); shown in each reader's language
+        title: fillArabic(r.text, r.args),
+        details: r.fix,
         link: r.link,
       })
       toast(tr('✅ أُضيفت لمهامك'))

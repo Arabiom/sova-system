@@ -25,4 +25,9 @@ export const saveAdvisorItem = (form, id) => unwrap(id ? table().update(toRow(fo
 
 export const setAdvisorStatus = (id, status) => unwrap(table().update({ status }).eq('id', id))
 
+/** Marks several items done at once, a hundred at a time (the ids travel in the address). */
+export async function closeAdvisorItems(ids) {
+  for (let i = 0; i < ids.length; i += 100) await unwrap(table().update({ status: 'تمت' }).in('id', ids.slice(i, i + 100)))
+}
+
 export const deleteAdvisorItem = (id) => unwrap(table().delete().eq('id', id))

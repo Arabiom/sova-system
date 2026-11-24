@@ -95,7 +95,7 @@ begin
     jsonb_build_object('ref', 'review:x:link', 'title', 'رابط خارجي', 'link', 'https://evil.example'),
     jsonb_build_object('ref', 'review:x:kind', 'title', 'نوع غير معروف', 'kind', 'أمر')
   ));
-  if (res->>'added')::int <> 1 or (res->>'skipped')::int <> 2 or (res->>'rejected')::int <> 3 then
+  if (res->>'added')::int <> 1 or (res->>'updated')::int <> 1 or (res->>'skipped')::int <> 1 or (res->>'rejected')::int <> 3 then
     raise exception 'add_advisor_items gave %', res;
   end if;
   brief := public.advisor_brief(tok);

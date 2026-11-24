@@ -37,6 +37,7 @@ const { listPayments } = await import('../payments.js')
 const { assignSite } = await import('../exhibitionFile.js')
 const { payObligation } = await import('../obligations.js')
 const { moveImportedToClients } = await import('../prospects.js')
+const { createCampaign } = await import('../digital.js')
 
 beforeEach(() => {
   calls.length = 0
@@ -124,5 +125,15 @@ describe('moving an imported list', () => {
     expect(r).toEqual({ moved: 150, linked: 2 })
     expect(rpc.mock.calls.map((c) => c[1].p_limit).slice(0, 2)).toEqual([200, 100])
     expect(progress).toEqual([[102, 50], [152, 0]])
+  })
+})
+
+describe('a campaign for the whole client base', () => {
+  it('saves its recipients a few hundred at a time', async () => {
+    reply = (q) => (q.table === 'campaigns' ? { data: [{ id: 'k1' }], error: null } : { data: null, error: null })
+    const recipients = Array.from({ length: 1200 }, (_, i) => ({ name: `ع${i}`, phone: String(90000000 + i) }))
+    await createCampaign({ name: 'دعوة', body: 'نص' }, recipients)
+    const sizes = calls.filter((q) => q.table === 'campaign_recipients' && q.op === 'insert').map((q) => q.body.length)
+    expect(sizes).toEqual([500, 500, 200])
   })
 })

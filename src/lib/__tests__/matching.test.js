@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { clientSectors, contactPlan, salesPlan, suits, upcomingExhibitions } from '../matching.js'
 import { sectorsIn } from '../prospects.js'
-import { siteReview, sortAdvisorItems } from '../advisor.js'
+import { siteReview, sortAdvisorItems, staleReviewItems } from '../advisor.js'
 
 const today = '2026-10-21'
 const omani = { id: 'om', name: 'معرض المنتجات العمانية', city: 'مسقط', mall: 'م', date_from: '2026-12-10', date_to: '2026-12-14', status: 'قادم', sectors: ['حرف يدوية', 'عطور وبخور'] }
@@ -95,5 +95,19 @@ describe('the follow-up employee', () => {
   it('shows no amounts or papers to marketing', () => {
     const review = siteReview({ role: 'marketing', today, exhibitions: [{ ...omani, date_from: '2026-11-01' }], exhibitors: [{ exhibition_id: 'om', contract: 100, paid: 0 }], documents: [] })
     expect(review.some((r) => r.ref.startsWith('owing') || r.ref.startsWith('docs') || r.ref === 'db-039')).toBe(false)
+  })
+})
+
+describe('staleReviewItems', () => {
+  it('finds only the open daily-review reminders written with a dated ref', () => {
+    const items = [
+      { id: 1, ref: 'review:2026-11-20:expenses-late', status: 'مفتوحة' },
+      { id: 2, ref: 'review:2026-11-21:expenses-late', status: 'قيد التنفيذ' },
+      { id: 3, ref: 'review:2026-11-19:bookings', status: 'تمت' },
+      { id: 4, ref: 'review:expenses-late:2026-11', status: 'مفتوحة' },
+      { id: 5, ref: 'live:bookings', status: 'مفتوحة' },
+      { id: 6, ref: null, status: 'مفتوحة' },
+    ]
+    expect(staleReviewItems(items).map((i) => i.id)).toEqual([1, 2])
   })
 })

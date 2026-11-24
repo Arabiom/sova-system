@@ -146,8 +146,13 @@ function CampaignForm({ data, onClose, onSaved }) {
   })
   const [saving, setSaving] = useState(false)
   const keys = useMemo(() => optOutKeys(data.optOuts), [data.optOuts])
-  const seg = segmentClients(data.clients, filter, keys, omanDay())
-  const values = (k) => [...new Set(data.clients.map((c) => c[k]).filter(Boolean))].sort()
+  // worked out once per change of the filter, not on every keystroke (thousands of clients)
+  const seg = useMemo(() => segmentClients(data.clients, filter, keys, omanDay()), [data.clients, filter, keys])
+  const distinct = useMemo(() => {
+    const of = (k) => [...new Set(data.clients.map((c) => c[k]).filter(Boolean))].sort()
+    return { sector: of('sector'), city: of('city') }
+  }, [data.clients])
+  const values = (k) => distinct[k]
   const unsure = !filter.sources.length || filter.sources.includes('قائمة مستوردة')
   const upcoming = useMemo(() => upcomingExhibitions(data.exhibitions || [], omanDay()), [data.exhibitions])
   const pickExhibition = (e) => {
@@ -476,6 +481,19 @@ export default function Digital() {
   const [addingFollowup, setAddingFollowup] = useState(false)
   const [stop, setStop] = useState({ phone: '', reason: '' })
   const [advisorEdit, setAdvisorEdit] = useState(null) // null | {} new | item
+  // each client found by id or number at once, not by scanning thousands of clients per row
+  const lookup = useMemo(() => {
+    const byId = new Map()
+    const byPhone = new Map()
+    for (const c of data?.clients || []) {
+      byId.set(c.id, c)
+      for (const p of [c.whatsapp, c.phone]) {
+        const k = phoneKey(p)
+        if (k && !byPhone.has(k)) byPhone.set(k, c)
+      }
+    }
+    return { byId, byPhone }
+  }, [data?.clients])
   if (loading || !data) return <Loading />
 
   const today = omanDay()
@@ -521,9 +539,9 @@ export default function Digital() {
   const tab = employee?.tabs.includes(search.get('tab')) ? search.get('tab') : employee?.tabs[0]
   const setTab = (t) => setSearch(t === employee.tabs[0] ? {} : { tab: t }, { replace: true })
   const byCampaign = data.recipients.reduce((m, r) => ((m[r.campaign_id] ||= []).push(r), m), {})
-  const clientName = (id) => data.clients.find((c) => c.id === id)?.name || '—'
-  const clientPhone = (id) => data.clients.find((c) => c.id === id)?.phone || ''
-  const clientByPhone = (phone) => data.clients.find((c) => phoneKey(c.whatsapp || c.phone) === phoneKey(phone) || phoneKey(c.phone) === phoneKey(phone))
+  const clientName = (id) => lookup.byId.get(id)?.name || '—'
+  const clientPhone = (id) => lookup.byId.get(id)?.phone || ''
+  const clientByPhone = (phone) => lookup.byPhone.get(phoneKey(phone))
   const people = data.staff.length ? data.staff : uid ? [{ user_id: uid }] : []
   const count = (s) => data.campaigns.filter((c) => c.status === s).length
   const openFollowups = data.followups.filter((f) => f.status === 'مفتوحة')

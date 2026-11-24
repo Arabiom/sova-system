@@ -3,7 +3,7 @@ import { fetchAll, friendlyError, supabase, unwrap } from './client.js'
 
 const table = () => supabase.from('clients')
 
-export const listClients = () => unwrap(fetchAll(() => table().select('*').order('name')))
+export const listClients = (columns = '*') => unwrap(fetchAll(() => table().select(columns).order('name')))
 
 export function toClientRow(form) {
   return {
