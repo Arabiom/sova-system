@@ -2568,4 +2568,9 @@ export default {
   "من {0} موقعاً — بيع {1}": "of {0} sites — {1} sold",
   "هذا الالتزام سُدِّد للتو — حدّث الصفحة": "This obligation was just paid — refresh the page",
   "تغيّر هذا الموقع للتو من مستخدم آخر — حدّث الصفحة ثم أعد المحاولة": "Another user just changed this site — refresh the page and try again",
+  "بدأ المعرض — البيع الآن لمن يحجز في الأيام المتبقية": "The exhibition has started — selling now is for the days left",
+  "{0} تذكيراً من المراجعة اليومية تكرّر كتابتها كل يوم — المراجعة صارت تكتب كل أمر مرة واحدة وتحدّثه.": "{0} daily-review reminders were written again every day — the review now writes each matter once and keeps it up to date.",
+  "إغلاق {0} تذكيراً قديماً؟ ما زال قائماً منها تكتبه المراجعة القادمة مرة واحدة.": "Close {0} old reminders? Any still pending is written once by the next review.",
+  "✅ أُغلقت التذكيرات القديمة": "✅ Old reminders closed",
+  "🧹 إغلاق التذكيرات القديمة ({0})": "🧹 Close old reminders ({0})",
 }

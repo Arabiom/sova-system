@@ -50,7 +50,8 @@ async function loadFile(id) {
     listExhibitors(),
     listPayments('id,exhibitor_id,amount'),
     listExhibitions(),
-    listClients(),
+    // only what the sales plan and the participant form use: the base holds thousands of clients
+    listClients('id,name,contact_name,phone,email,sector,products,city,outreach'),
     // staff claims tied to this exhibition count in its costs (only readable by finance roles)
     listStaffExpenses().catch(() => []),
   ])

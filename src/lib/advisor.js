@@ -27,6 +27,12 @@ export function sortAdvisorItems(items) {
   )
 }
 
+/**
+ * Reminders the daily review wrote before it kept one ref per matter (a dated ref, «review:2026-11-20:…»)
+ * and are still open: the same matter written again each day. The review now writes each once.
+ */
+export const staleReviewItems = (items) => items.filter((i) => isOpen(i) && /^review:\d{4}-\d{2}-\d{2}:/.test(i.ref || ''))
+
 const MONEY_ROLES = ['admin', 'finance']
 const TONE_RANK = { danger: 0, warning: 1, info: 2 }
 
