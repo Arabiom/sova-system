@@ -10,7 +10,7 @@ export const COMPANY = {
   phone: '79450062',
   phone2: '77474767',
   whatsapp: '96879450062', // 79450062 with the Oman country code, for wa.me links
-  email: 'axis.integrated.business@gmail.com',
+  email: 'info@aiboman.net',
   instagram: '@AiB.oman',
   bank: 'بنك مسقط — INTEGRATED BUSINESS AXIS',
   signatory: 'عربي بن هلال',
