@@ -1,5 +1,5 @@
 # Publishes the site to GitHub Pages on every change to main (free, no build limit):
-# https://arabiom.github.io/sova-system/
+# https://aiboman.net/ (the company domain, bought 2026-11-26 on Namecheap)
 name: Deploy to GitHub Pages
 
 on:
@@ -33,12 +33,12 @@ jobs:
         env:
           # The site's address. With a domain of the company's own, write it here (e.g.
           # https://www.example.om/) — and add the same domain in Settings → Pages.
-          SITE_URL: https://arabiom.github.io/sova-system/
+          SITE_URL: https://aiboman.net/
           COMMIT_REF: ${{ github.sha }}
       # The public pages get their own files (200 + their own preview); any other page loads the app (404.html).
       - run: node scripts/public-pages.mjs
         env:
-          SITE_URL: https://arabiom.github.io/sova-system/
+          SITE_URL: https://aiboman.net/
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
