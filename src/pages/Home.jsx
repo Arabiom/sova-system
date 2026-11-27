@@ -152,7 +152,7 @@ const FAQ = [
   ],
   [
     ['إلى أين رحلات الأعمال، ومن يشارك فيها؟', 'Where do the business trips go, and who takes part?'],
-    ['إلى تركيا ومصر والهند، من 13 إلى 18 تاجراً في كل رحلة. تواصل معنا لمعرفة المواعيد القادمة.', 'To Turkey, Egypt and India, with 13 to 18 merchants on each trip. Contact us for the coming dates.'],
+    ['إلى تركيا ومصر والهند والإمارات، من 13 إلى 18 تاجراً في كل رحلة. تواصل معنا لمعرفة المواعيد القادمة.', 'To Turkey, Egypt, India and the UAE, with 13 to 18 merchants on each trip. Contact us for the coming dates.'],
   ],
 ]
 
@@ -428,8 +428,8 @@ export default function Home() {
               </h1>
               <p className="h-lead h-rise" style={{ '--d': '800ms' }}>
                 {t(
-                  `${COMPANY.name} شركة عُمانية مقرها مسقط، متخصصة في تنظيم المعارض التجارية، وتصميم الأجنحة وتنفيذها، وتأجير الخيام والتجهيزات، ورحلات الأعمال إلى تركيا ومصر والهند.`,
-                  `${COMPANY.nameEn} is an Omani company based in Muscat, specialised in organising trade exhibitions, designing and building booths, renting tents and equipment, and business trips to Turkey, Egypt and India.`,
+                  `${COMPANY.name} شركة عُمانية مقرها مسقط، متخصصة في تنظيم المعارض التجارية، وتصميم الأجنحة وتنفيذها، وتأجير الخيام والتجهيزات، ورحلات الأعمال إلى تركيا ومصر والهند والإمارات.`,
+                  `${COMPANY.nameEn} is an Omani company based in Muscat, specialised in organising trade exhibitions, designing and building booths, renting tents and equipment, and business trips to Turkey, Egypt, India and the UAE.`,
                 )}
               </p>
               <div className="h-hero-actions h-rise" style={{ '--d': '950ms' }}>
