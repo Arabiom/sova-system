@@ -38,8 +38,8 @@ export const SERVICES = [
     id: 'trips',
     title: 'رحلات الأعمال',
     en: 'Business trips',
-    text: 'رحلات تجارية إلى تركيا ومصر والهند، من ١٣ إلى ١٨ تاجراً في كل رحلة.',
-    enText: 'Trade trips to Turkey, Egypt and India, with 13 to 18 merchants on each trip.',
+    text: 'رحلات تجارية إلى تركيا ومصر والهند والإمارات، من ١٣ إلى ١٨ تاجراً في كل رحلة.',
+    enText: 'Trade trips to Turkey, Egypt, India and the UAE, with 13 to 18 merchants on each trip.',
     topic: 'رحلات الأعمال',
   },
 ]

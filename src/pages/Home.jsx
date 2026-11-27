@@ -152,7 +152,7 @@ const FAQ = [
   ],
   [
     ['إلى أين رحلات الأعمال، ومن يشارك فيها؟', 'Where do the business trips go, and who takes part?'],
-    ['إلى تركيا ومصر والهند، من 13 إلى 18 تاجراً في كل رحلة. تواصل معنا لمعرفة المواعيد القادمة.', 'To Turkey, Egypt and India, with 13 to 18 merchants on each trip. Contact us for the coming dates.'],
+    ['إلى تركيا ومصر والهند والإمارات، من 13 إلى 18 تاجراً في كل رحلة. تواصل معنا لمعرفة المواعيد القادمة.', 'To Turkey, Egypt, India and the UAE, with 13 to 18 merchants on each trip. Contact us for the coming dates.'],
   ],
 ]
 
@@ -221,6 +221,76 @@ function Words({ text, from = 0 }) {
   ))
 }
 
+/**
+ * The next SOVA exhibition, with a live countdown. It hides itself once the exhibition ends;
+ * for the next one, change NEXT_SHOW.
+ */
+const NEXT_SHOW = {
+  name: 'SOVA',
+  place: ['نزوى جراند مول', 'Nizwa Grand Mall'],
+  city: ['نزوى', 'Nizwa'],
+  from: '2026-12-27',
+  to: '2026-12-31',
+  days: ['٢٧ – ٣١ ديسمبر ٢٠٢٦', '27 – 31 December 2026'],
+  booths: 46,
+}
+
+function useCountdown(iso, endIso) {
+  const target = new Date(`${iso}T10:00:00+04:00`).getTime()
+  const end = new Date(`${endIso}T23:59:59+04:00`).getTime()
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const left = Math.max(0, target - now)
+  return { ended: now > end, started: left === 0, d: Math.floor(left / 864e5), h: Math.floor(left / 36e5) % 24, m: Math.floor(left / 6e4) % 60, s: Math.floor(left / 1e3) % 60 }
+}
+
+function NextShow() {
+  const c = useCountdown(NEXT_SHOW.from, NEXT_SHOW.to)
+  if (c.ended) return null
+  const units = [
+    [c.d, t('يوم', 'days')],
+    [c.h, t('ساعة', 'hours')],
+    [c.m, t('دقيقة', 'min')],
+    [c.s, t('ثانية', 'sec')],
+  ]
+  return (
+    <section className="h-next" aria-labelledby="next-title">
+      <div className="h-wrap">
+        <div className="h-next-card" data-reveal>
+          <div className="h-next-copy">
+            <p className="h-next-label">
+              <span className="h-live" aria-hidden="true" />
+              {c.started ? t('المعرض مفتوح الآن', 'Open now') : t('المعرض القادم', 'Next exhibition')}
+            </p>
+            <h2 id="next-title">
+              <span dir="ltr">{NEXT_SHOW.name}</span> {t(...NEXT_SHOW.city)}
+            </h2>
+            <p className="h-next-meta">
+              {t(...NEXT_SHOW.place)} · {t(...NEXT_SHOW.days)} · {t(`${NEXT_SHOW.booths.toLocaleString('ar-EG')} موقعاً`, `${NEXT_SHOW.booths} spots`)}
+            </p>
+          </div>
+          {!c.started && (
+            <ol className="h-count" aria-label={t('الوقت المتبقي على الافتتاح', 'Time left to opening')}>
+              {units.map(([v, label]) => (
+                <li key={label}>
+                  <b>{String(v).padStart(2, '0')}</b>
+                  <span>{label}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+          <Link to="/book" className="h-btn h-btn-main h-btn-shine" onClick={() => track('next_show_book')}>
+            {t('احجز مساحتك', 'Book your space')}
+          </Link>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 /** Upcoming exhibitions from the public list (only when SHOW_EVENTS is on). */
 function Events() {
   const [list, setList] = useState([])
@@ -268,6 +338,12 @@ export default function Home() {
   const [menu, setMenu] = useState(false)
   const root = useRef(null)
   useMotion(root)
+  useEffect(() => {
+    if (!menu) return undefined
+    const close = (e) => e.key === 'Escape' && setMenu(false)
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [menu])
   useEffect(() => {
     document.title = t(`${COMPANY.name} — تنظيم المعارض وتصميم الأجنحة ورحلات الأعمال`, `${COMPANY.nameEn} — Exhibitions, booth design and business trips in Oman`)
     loadAnalytics('home')
@@ -352,8 +428,8 @@ export default function Home() {
               </h1>
               <p className="h-lead h-rise" style={{ '--d': '800ms' }}>
                 {t(
-                  `${COMPANY.name} شركة عُمانية مقرها مسقط، متخصصة في تنظيم المعارض التجارية، وتصميم الأجنحة وتنفيذها، وتأجير الخيام والتجهيزات، ورحلات الأعمال إلى تركيا ومصر والهند.`,
-                  `${COMPANY.nameEn} is an Omani company based in Muscat, specialised in organising trade exhibitions, designing and building booths, renting tents and equipment, and business trips to Turkey, Egypt and India.`,
+                  `${COMPANY.name} شركة عُمانية مقرها مسقط، متخصصة في تنظيم المعارض التجارية، وتصميم الأجنحة وتنفيذها، وتأجير الخيام والتجهيزات، ورحلات الأعمال إلى تركيا ومصر والهند والإمارات.`,
+                  `${COMPANY.nameEn} is an Omani company based in Muscat, specialised in organising trade exhibitions, designing and building booths, renting tents and equipment, and business trips to Turkey, Egypt, India and the UAE.`,
                 )}
               </p>
               <div className="h-hero-actions h-rise" style={{ '--d': '950ms' }}>
@@ -403,6 +479,8 @@ export default function Home() {
             ))}
           </div>
         </div>
+
+        <NextShow />
 
         <section className="h-section" id="services" aria-labelledby="services-title">
           <div className="h-wrap">
